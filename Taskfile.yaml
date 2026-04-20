@@ -1,0 +1,81 @@
+# https://taskfile.dev
+
+version: "3"
+
+silent: true
+
+env:
+  WARP_USE_SSH_WRAPPER: "0"
+
+tasks:
+  app-dev:
+    dir: app
+    cmds:
+      - bun run start
+
+  be-dev:
+    desc: Run backend development
+    dir: backend
+    cmds:
+      - bun run dev
+
+  be-infra:
+    desc: Run backend infrastructure
+    dir: backend
+    cmds:
+      - skaffold dev
+
+  # Better Auth schema -> Drizzle schema (auth-schema.ts)
+  generate-auth-schema:
+    desc: Generate Better Auth schema
+    dir: backend
+    cmds:
+      - bunx --bun --env-file=.env.development.local @better-auth/cli generate --config ./auth.ts --output ./db/auth-schema.gen.ts --yes
+      - task lint
+
+  drizzle-push:local:
+    desc: Run Drizzle migrations locally
+    dir: backend
+    cmds:
+      - bun --env-file=.env.development.local drizzle-kit push
+
+  drizzle-push:prod:
+    desc: Run Drizzle migrations on production
+    dir: backend
+    cmds:
+      - bun --env-file=.env.production.local drizzle-kit push
+
+  app-build:ios:
+    desc: Build iOS dev client via EAS Build
+    dir: app
+    cmds:
+      - bun run build:ios -- --non-interactive
+
+  app-build:ios-simulator:
+    desc: Build iOS simulator dev client via EAS Build
+    dir: app
+    cmds:
+      - bun run build:ios:simulator -- --non-interactive
+
+  # Lint
+  lint:
+    desc: Run Biome linter
+    cmds:
+      - bun lint
+
+  typecheck:
+    desc: Run type checker
+    cmds:
+      - bun --workspaces run typecheck
+
+  test:
+    desc: Run tests
+    cmds:
+      - bun test
+
+  ci:
+    desc: Run all CI checks (lint, typecheck, test)
+    cmds:
+      - task: fe-lint
+      - task: fe-typecheck
+      - task: test

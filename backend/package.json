@@ -1,0 +1,32 @@
+{
+  "name": "backend",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun --hot index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/pg": "^8.16.0",
+    "drizzle-kit": "^0.31.8"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@ai-sdk/fal": "^2.0.25",
+    "@better-auth/expo": "catalog:",
+    "@fal-ai/client": "^1.9.4",
+    "@firemoon/ai-provider": "^0.0.1",
+    "@google/genai": "^1.44.0",
+    "@orpc/server": "catalog:",
+    "ai": "^6.0.116",
+    "better-auth": "catalog:",
+    "drizzle-orm": "^0.45.1",
+    "drizzle-zod": "^0.8.3",
+    "pg": "^8.18.0",
+    "zod": "catalog:"
+  }
+}
