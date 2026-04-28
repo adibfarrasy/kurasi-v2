@@ -1,0 +1,459 @@
+-- allium: 3
+-- wardrobe.allium
+
+-- Scope: the user's personal clothing inventory and their saved outfit combinations.
+--
+-- Terminology: the product PRDs use "outfit", "fit" and "look" somewhat
+-- interchangeably. This spec standardises on "Outfit" for a saved combination
+-- of wardrobe items. The "Fit page" (see fit-page.allium) is the surface where
+-- outfits are constructed and adjusted.
+--
+-- Includes:
+--   - WardrobeItem (photo, category, color, material, brand, fit, pattern, occasion)
+--   - Favouriting and archiving items
+--   - Outfit: a saved combination of items by position (headwear, base, outer,
+--     bottom, footwear)
+--   - Outfit tags (occasion, season, vibe)
+--   - Outfit rating (loved/ok/didnt_work)
+--   - Derived outfit count per item (versatility indicator)
+-- Excludes:
+--   - AI tag pre-fill mechanics (black-box: the system proposes tags; the user
+--     confirms. How is an implementation concern)
+--   - Fit adjustments per garment (see fit-page.allium: adjustments are tied to
+--     how the item is worn in a particular outfit, not to the item itself)
+--   - Construction UI (see fit-page.allium)
+--   - External sharing (see social-share.allium)
+
+use "./auth.allium" as auth
+
+------------------------------------------------------------
+-- External Entities
+------------------------------------------------------------
+
+-- User identity and lifecycle governed by auth.allium.
+-- Referenced here as the owner of every WardrobeItem and Outfit.
+
+------------------------------------------------------------
+-- Enumerations
+------------------------------------------------------------
+
+enum ItemCategory {
+    tee
+    | collared_shirt
+    | outer
+    | pants
+    | shorts
+    | headwear
+    | footwear
+    | bag
+    | scarf
+    | accessory
+    | dress
+    | skirt
+}
+
+enum FitProfile {
+    tight
+    | slim
+    | standard
+    | relaxed
+    | oversize
+}
+
+enum OutfitPosition {
+    headwear
+    | base
+    | outer
+    | bottom
+    | footwear
+}
+
+enum OutfitRating {
+    loved
+    | ok
+    | didnt_work
+}
+
+------------------------------------------------------------
+-- Entities and Variants
+------------------------------------------------------------
+
+entity WardrobeItem {
+    owner: auth/User
+    image_url: String
+    category: ItemCategory
+    primary_color: String
+    secondary_color: String?
+    materials: Set<String>
+    brand: String?
+    fit: FitProfile?
+    pattern: String?
+    occasions: Set<String>
+    custom_notes: String?
+    is_favorite: Boolean
+    status: active | archived | removed
+    created_at: Timestamp
+
+    transitions status {
+        active -> archived
+        archived -> active
+        active -> removed
+        archived -> removed
+        terminal: removed
+    }
+
+    archived_at: Timestamp when status = archived
+    removed_at: Timestamp when status = removed
+
+    -- Outfits that reference this item in any position.
+    outfits_using: Outfit with
+        headwear = this or base = this or outer = this
+        or bottom = this or footwear = this
+
+    -- Versatility metric displayed on the wardrobe grid.
+    outfit_count: outfits_using.count
+}
+
+entity Outfit {
+    owner: auth/User
+    name: String?
+    headwear: WardrobeItem?
+    base: WardrobeItem?
+    outer: WardrobeItem?
+    bottom: WardrobeItem?
+    footwear: WardrobeItem?
+    tags: Set<String>
+    notes: String?
+    rating: OutfitRating?
+    worn_at: Timestamp?
+    created_at: Timestamp
+    status: active | deleted
+
+    transitions status {
+        active -> deleted
+        terminal: deleted
+    }
+
+    deleted_at: Timestamp when status = deleted
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Add a new item to the wardrobe. AI-suggested tags are treated as inputs the
+-- user has already reviewed/confirmed; this spec does not model the pre-fill
+-- step as a separate domain event.
+rule AddWardrobeItem {
+    when: AddWardrobeItem(
+        actor,
+        image_url,
+        category,
+        primary_color,
+        secondary_color?,
+        materials?,
+        brand?,
+        fit?,
+        pattern?,
+        occasions?,
+        custom_notes?
+    )
+    requires: actor.status = active
+    ensures: WardrobeItem.created(
+        owner: actor,
+        image_url: image_url,
+        category: category,
+        primary_color: primary_color,
+        secondary_color: secondary_color,
+        materials: materials ?? {},
+        brand: brand,
+        fit: fit,
+        pattern: pattern,
+        occasions: occasions ?? {},
+        custom_notes: custom_notes,
+        is_favorite: false,
+        status: active,
+        created_at: now
+    )
+}
+
+-- Edit an item's tags/metadata.
+rule UpdateWardrobeItem {
+    when: UpdateWardrobeItem(
+        item,
+        category?,
+        primary_color?,
+        secondary_color?,
+        materials?,
+        brand?,
+        fit?,
+        pattern?,
+        occasions?,
+        custom_notes?
+    )
+    requires: item.status != removed
+    ensures:
+        if category != null: item.category = category
+        if primary_color != null: item.primary_color = primary_color
+        if secondary_color != null: item.secondary_color = secondary_color
+        if materials != null: item.materials = materials
+        if brand != null: item.brand = brand
+        if fit != null: item.fit = fit
+        if pattern != null: item.pattern = pattern
+        if occasions != null: item.occasions = occasions
+        if custom_notes != null: item.custom_notes = custom_notes
+}
+
+rule ToggleFavorite {
+    when: ToggleFavorite(item)
+    requires: item.status = active
+    ensures: item.is_favorite = not item.is_favorite
+}
+
+-- Seasonal archive: the item stays in the wardrobe but is hidden from the
+-- default browse view and not offered for outfit construction.
+rule ArchiveItem {
+    when: ArchiveItem(item)
+    requires: item.status = active
+    ensures:
+        item.status = archived
+        item.archived_at = now
+}
+
+rule UnarchiveItem {
+    when: UnarchiveItem(item)
+    requires: item.status = archived
+    ensures:
+        item.status = active
+        item.archived_at = null
+}
+
+-- Soft-remove an item from the wardrobe while preserving outfit history. The
+-- item remains in existing outfits as a historical reference but cannot be
+-- added to new outfits.
+rule RemoveItemPreservingOutfits {
+    when: RemoveItemPreservingOutfits(item)
+    requires: item.status != removed
+    ensures:
+        item.status = removed
+        item.removed_at = now
+}
+
+-- Hard-remove an item and every outfit that references it.
+rule RemoveItemAndOutfits {
+    when: RemoveItemAndOutfits(item)
+    requires: item.status != removed
+    ensures:
+        for o in item.outfits_using:
+            o.status = deleted
+            o.deleted_at = now
+        item.status = removed
+        item.removed_at = now
+}
+
+rule SaveOutfit {
+    when: SaveOutfit(
+        actor,
+        name?,
+        headwear?,
+        base?,
+        outer?,
+        bottom?,
+        footwear?,
+        tags?,
+        notes?
+    )
+    requires: actor.status = active
+    -- An outfit must include at least one piece.
+    requires: headwear != null or base != null or outer != null
+        or bottom != null or footwear != null
+    -- Every referenced item must belong to the actor and not be removed.
+    requires: headwear?.owner = actor or headwear = null
+    requires: headwear?.status != removed or headwear = null
+    requires: base?.owner = actor or base = null
+    requires: base?.status != removed or base = null
+    requires: outer?.owner = actor or outer = null
+    requires: outer?.status != removed or outer = null
+    requires: bottom?.owner = actor or bottom = null
+    requires: bottom?.status != removed or bottom = null
+    requires: footwear?.owner = actor or footwear = null
+    requires: footwear?.status != removed or footwear = null
+    ensures: Outfit.created(
+        owner: actor,
+        name: name,
+        headwear: headwear,
+        base: base,
+        outer: outer,
+        bottom: bottom,
+        footwear: footwear,
+        tags: tags ?? {},
+        notes: notes,
+        status: active,
+        created_at: now
+    )
+}
+
+rule UpdateOutfit {
+    when: UpdateOutfit(outfit, name?, tags?, notes?)
+    requires: outfit.status = active
+    ensures:
+        if name != null: outfit.name = name
+        if tags != null: outfit.tags = tags
+        if notes != null: outfit.notes = notes
+}
+
+rule DeleteOutfit {
+    when: DeleteOutfit(outfit)
+    requires: outfit.status = active
+    ensures:
+        outfit.status = deleted
+        outfit.deleted_at = now
+}
+
+rule RateOutfit {
+    when: RateOutfit(outfit, rating, worn_at?)
+    requires: outfit.status = active
+    ensures:
+        outfit.rating = rating
+        if worn_at != null: outfit.worn_at = worn_at
+}
+
+-- decision: account deletion hard-deletes every WardrobeItem and Outfit
+-- belonging to the user. No anonymised retention.
+rule CascadeUserDeletionToWardrobe {
+    when: UserDeleted(deleted_user)
+    let items = WardrobeItems where owner = deleted_user
+    let outfits = Outfits where owner = deleted_user
+    ensures:
+        for o in outfits: not exists o
+        for i in items: not exists i
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant OutfitHasAtLeastOnePiece {
+    for o in Outfits:
+        o.status = active implies
+            (o.headwear != null or o.base != null or o.outer != null
+             or o.bottom != null or o.footwear != null)
+}
+
+invariant OutfitItemsBelongToOwner {
+    for o in Outfits:
+        (o.headwear = null or o.headwear.owner = o.owner)
+        and (o.base = null or o.base.owner = o.owner)
+        and (o.outer = null or o.outer.owner = o.owner)
+        and (o.bottom = null or o.bottom.owner = o.owner)
+        and (o.footwear = null or o.footwear.owner = o.owner)
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor WardrobeOwner {
+    identified_by: auth/User where status = active
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+surface WardrobeBrowse {
+    facing owner: WardrobeOwner
+
+    context user: auth/User where status = active
+
+    let items = WardrobeItems where owner = user and status = active
+    let favorites = WardrobeItems where owner = user and status = active and is_favorite
+    let archived = WardrobeItems where owner = user and status = archived
+
+    exposes:
+        for item in items:
+            item.image_url
+            item.category
+            item.primary_color
+            item.brand
+            item.is_favorite
+            item.outfit_count
+
+    provides:
+        AddWardrobeItem(user, image_url, category, primary_color)
+}
+
+surface WardrobeItemDetail {
+    facing owner: WardrobeOwner
+
+    context item: WardrobeItem
+
+    exposes:
+        item.image_url
+        item.category
+        item.primary_color
+        item.secondary_color
+        item.materials
+        item.brand
+        item.fit
+        item.pattern
+        item.occasions
+        item.custom_notes
+        item.is_favorite
+        item.outfit_count
+
+    provides:
+        UpdateWardrobeItem(item) when item.status != removed
+        ToggleFavorite(item) when item.status = active
+        ArchiveItem(item) when item.status = active
+        UnarchiveItem(item) when item.status = archived
+        RemoveItemPreservingOutfits(item) when item.status != removed
+        RemoveItemAndOutfits(item) when item.status != removed
+}
+
+surface OutfitLibrary {
+    facing owner: WardrobeOwner
+
+    context user: auth/User where status = active
+
+    let outfits = Outfits where owner = user and status = active
+
+    exposes:
+        for outfit in outfits:
+            outfit.name
+            outfit.tags
+            outfit.rating
+            outfit.created_at
+
+    provides:
+        SaveOutfit(user)
+}
+
+surface OutfitDetail {
+    facing owner: WardrobeOwner
+
+    context outfit: Outfit
+
+    exposes:
+        outfit.name
+        outfit.headwear
+        outfit.base
+        outfit.outer
+        outfit.bottom
+        outfit.footwear
+        outfit.tags
+        outfit.notes
+        outfit.rating
+
+    provides:
+        UpdateOutfit(outfit) when outfit.status = active
+        DeleteOutfit(outfit) when outfit.status = active
+        RateOutfit(outfit, loved) when outfit.status = active
+}
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "Can an outfit include multiple accessory items simultaneously (e.g. hat + bag + belt), or is the five-position model (headwear/base/outer/bottom/footwear) the complete vocabulary?"
+open question "Does archiving an item affect existing outfits that use it, or only hide it from new-outfit flows?"

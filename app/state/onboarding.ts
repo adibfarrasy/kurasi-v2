@@ -19,3 +19,10 @@ export const debugBubblePositionAtom = atomWithStorage<DebugBubblePosition>(
   createMMKVJSONStorage<DebugBubblePosition>(),
   { getOnInit: true },
 )
+
+export const devSkipGatesAtom = atomWithStorage<boolean>(
+  'dev_skip_gates',
+  false,
+  createMMKVJSONStorage<boolean>(),
+  { getOnInit: true },
+)

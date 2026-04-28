@@ -18,5 +18,9 @@
   "workspaces": [
     "app",
     "backend"
-  ]
+  ],
+  "dependencies": {
+    "@expo-google-fonts/funnel-sans": "^0.4.2",
+    "react-native-web": "^0.21.0"
+  }
 }

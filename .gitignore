@@ -51,3 +51,12 @@ yarn-error.*
 .idea
 
 app-example
+
+# Allium specs (override global *.allium ignore)
+!specs/*.allium
+.DS_Store
+
+# Local-only directories
+.claude/
+app/ios/
+design/

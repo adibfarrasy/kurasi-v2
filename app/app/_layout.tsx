@@ -1,4 +1,10 @@
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet'
+import {
+  FunnelSans_400Regular,
+  FunnelSans_500Medium,
+  FunnelSans_600SemiBold,
+  FunnelSans_700Bold,
+} from '@expo-google-fonts/funnel-sans'
 import { useFonts } from 'expo-font'
 import { Redirect, Slot, usePathname } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
@@ -7,7 +13,7 @@ import { useEffect } from 'react'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { DevToolsOverlay } from '@/components/dev/dev-tools-overlay'
 import { AuthProvider, useAuth } from '@/contexts/auth-context'
-import { onboardingCompleteAtom } from '@/state/onboarding'
+import { devSkipGatesAtom, onboardingCompleteAtom } from '@/state/onboarding'
 import '../global.css'
 import 'react-native-gesture-handler'
 import 'react-native-reanimated'
@@ -17,11 +23,13 @@ SplashScreen.preventAutoHideAsync()
 function RouteGate() {
   const pathname = usePathname()
   const hasOnboarded = useAtomValue(onboardingCompleteAtom)
+  const skipGates = useAtomValue(devSkipGatesAtom)
   const { isAuthenticated, isInitialLoading } = useAuth()
 
   const isOnboardingRoute = pathname.startsWith('/onboarding-')
   const isAuthCallbackRoute = pathname === '/auth-callback'
 
+  if (skipGates) return <Slot />
   if (isAuthCallbackRoute) return <Slot />
   if (isInitialLoading) return null
 
@@ -40,6 +48,10 @@ export default function Layout() {
   const [fontsLoaded] = useFonts({
     Bebas: require('@/assets/fonts/BebasNeue-Regular.ttf'),
     Kirang: require('@/assets/fonts/KirangHaerang-Regular.ttf'),
+    FunnelSans_400Regular,
+    FunnelSans_500Medium,
+    FunnelSans_600SemiBold,
+    FunnelSans_700Bold,
   })
 
   useEffect(() => {

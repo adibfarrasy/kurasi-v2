@@ -1,4 +1,9 @@
-import { BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet'
+import {
+  BottomSheetBackdrop,
+  type BottomSheetBackdropProps,
+  BottomSheetModal,
+  BottomSheetView,
+} from '@gorhom/bottom-sheet'
 import { usePathname, useRouter } from 'expo-router'
 import { useAtom } from 'jotai'
 import { useEffect, useRef, useState } from 'react'
@@ -7,17 +12,54 @@ import {
   PanResponder,
   ScrollView,
   Text,
-  TouchableOpacity,
   useWindowDimensions,
   View,
 } from 'react-native'
+import { TouchableOpacity } from 'react-native-gesture-handler'
 import { useAuth } from '@/contexts/auth-context'
 import { useOnboarding } from '@/hooks/use-onboarding'
-import { debugBubblePositionAtom } from '@/state/onboarding'
+import { debugBubblePositionAtom, devSkipGatesAtom } from '@/state/onboarding'
 import { mmkv } from '@/state/storage'
 
 const BUBBLE_SIZE = 56
 const EDGE_PADDING = 12
+
+const btn = {
+  row: { flexDirection: 'row' as const, flexWrap: 'wrap' as const, gap: 8 },
+  primary: {
+    height: 44,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  primaryText: { color: 'white', fontSize: 15, fontWeight: '500' as const },
+  secondary: {
+    height: 44,
+    borderRadius: 999,
+    backgroundColor: '#e5e7eb',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  secondaryText: { color: 'black', fontSize: 15, fontWeight: '500' as const },
+  pill: {
+    flex: 1,
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    minWidth: 80,
+  },
+  refresh: {
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: '#f3f4f6',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  pillText: { color: 'black', fontSize: 13 },
+}
 const SNAP_POINTS = ['40%']
 
 function clamp(value: number, min: number, max: number) {
@@ -27,6 +69,7 @@ function clamp(value: number, min: number, max: number) {
 export function DevToolsOverlay() {
   const { width, height } = useWindowDimensions()
   const [bubblePosition, setBubblePosition] = useAtom(debugBubblePositionAtom)
+  const [skipGates, setSkipGates] = useAtom(devSkipGatesAtom)
   const bubblePositionRef = useRef(bubblePosition)
   const widthRef = useRef(width)
   const heightRef = useRef(height)
@@ -125,7 +168,19 @@ export function DevToolsOverlay() {
         </View>
       </Animated.View>
 
-      <BottomSheetModal ref={bottomSheetRef} snapPoints={SNAP_POINTS}>
+      <BottomSheetModal
+        ref={bottomSheetRef}
+        snapPoints={SNAP_POINTS}
+        enablePanDownToClose
+        backdropComponent={(props: BottomSheetBackdropProps) => (
+          <BottomSheetBackdrop
+            {...props}
+            appearsOnIndex={0}
+            disappearsOnIndex={-1}
+            pressBehavior="close"
+          />
+        )}
+      >
         <BottomSheetView className="px-6 py-4 gap-3">
           <Text className="text-[18px] font-semibold text-black">Dev Tools</Text>
           <Text className="text-[14px] text-gray-700">
@@ -137,57 +192,123 @@ export function DevToolsOverlay() {
           <Text className="text-[14px] text-gray-700">Route: {pathname}</Text>
 
           <TouchableOpacity
-            className="h-11 rounded-full bg-black/90 items-center justify-center"
+            style={skipGates ? btn.primary : btn.secondary}
+            onPress={() => {
+              setSkipGates(!skipGates)
+              bottomSheetRef.current?.dismiss()
+            }}
+            activeOpacity={0.85}
+          >
+            <Text style={skipGates ? btn.primaryText : btn.secondaryText}>
+              Dev mode: {skipGates ? 'ON' : 'OFF'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={btn.primary}
             onPress={() => {
               completeOnboarding()
               refreshStorage()
             }}
             activeOpacity={0.85}
           >
-            <Text className="text-white text-[15px] font-medium">Set onboarding: true</Text>
+            <Text style={btn.primaryText}>Set onboarding: true</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            className="h-11 rounded-full bg-gray-200 items-center justify-center"
+            style={btn.secondary}
             onPress={() => {
               resetOnboarding()
               refreshStorage()
             }}
             activeOpacity={0.85}
           >
-            <Text className="text-black text-[15px] font-medium">Set onboarding: false</Text>
+            <Text style={btn.secondaryText}>Set onboarding: false</Text>
           </TouchableOpacity>
 
-          <View className="flex-row gap-2">
+          <View style={btn.row}>
             <TouchableOpacity
-              className="flex-1 h-10 rounded-full bg-gray-100 items-center justify-center"
-              onPress={() => router.replace('/onboarding-1')}
+              style={btn.pill}
+              onPress={() => {
+                router.replace('/onboarding-1')
+                bottomSheetRef.current?.dismiss()
+              }}
               activeOpacity={0.85}
             >
-              <Text className="text-[13px] text-black">Onboarding</Text>
+              <Text style={btn.pillText}>Onboarding 1</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              className="flex-1 h-10 rounded-full bg-gray-100 items-center justify-center"
-              onPress={() => router.replace('/login')}
+              style={btn.pill}
+              onPress={() => {
+                router.replace('/onboarding-2')
+                bottomSheetRef.current?.dismiss()
+              }}
               activeOpacity={0.85}
             >
-              <Text className="text-[13px] text-black">Login</Text>
+              <Text style={btn.pillText}>Onboarding 2</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              className="flex-1 h-10 rounded-full bg-gray-100 items-center justify-center"
-              onPress={() => router.replace('/')}
+              style={btn.pill}
+              onPress={() => {
+                router.replace('/login')
+                bottomSheetRef.current?.dismiss()
+              }}
               activeOpacity={0.85}
             >
-              <Text className="text-[13px] text-black">Home</Text>
+              <Text style={btn.pillText}>Login</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={btn.pill}
+              onPress={() => {
+                router.replace('/')
+                bottomSheetRef.current?.dismiss()
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={btn.pillText}>Saved</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text className="text-[12px] font-semibold text-gray-500 mt-2">Steal the Look</Text>
+          <View style={btn.row}>
+            <TouchableOpacity
+              style={btn.pill}
+              onPress={() => {
+                router.push('/steal-the-look')
+                bottomSheetRef.current?.dismiss()
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={btn.pillText}>Upload</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={btn.pill}
+              onPress={() => {
+                router.push('/steal-the-look/analyzing')
+                bottomSheetRef.current?.dismiss()
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={btn.pillText}>Analyzing</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={btn.pill}
+              onPress={() => {
+                router.push('/steal-the-look/failed')
+                bottomSheetRef.current?.dismiss()
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={btn.pillText}>Failed</Text>
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity
-            className="h-10 rounded-full bg-gray-100 items-center justify-center"
+            style={btn.refresh}
             onPress={refreshStorage}
             activeOpacity={0.85}
           >
-            <Text className="text-[13px] text-black">Refresh Storage</Text>
+            <Text style={btn.pillText}>Refresh Storage</Text>
           </TouchableOpacity>
 
           <View className="border border-gray-200 rounded-xl p-3">

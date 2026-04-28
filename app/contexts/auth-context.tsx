@@ -1,8 +1,21 @@
 import type { PermissionAction, PermissionKey, PermissionResource } from 'backend/permissions'
+import { useAtomValue } from 'jotai'
 import { createContext, useContext } from 'react'
 import { authClient } from '@/lib/auth-client'
+import { devSkipGatesAtom } from '@/state/onboarding'
 
 type User = typeof authClient.$Infer.Session.user
+
+const MOCK_USER = {
+  id: 'dev-user',
+  name: 'Dev User',
+  email: 'dev@kurasi.app',
+  emailVerified: true,
+  image: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  role: 'user',
+} as unknown as User
 
 export interface AuthContextValue {
   user: User | null
@@ -19,9 +32,11 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const session = authClient.useSession()
-  const user = session.data?.user ?? null
-  const isAuthenticated = !!user
-  const isInitialLoading = session.isPending
+  const skipGates = useAtomValue(devSkipGatesAtom)
+  const realUser = session.data?.user ?? null
+  const user = realUser ?? (skipGates ? MOCK_USER : null)
+  const isAuthenticated = !!realUser || skipGates
+  const isInitialLoading = skipGates ? false : session.isPending
 
   const can = (permission: PermissionKey) => {
     const [action, resource] = permission.split('.') as [PermissionAction, PermissionResource]

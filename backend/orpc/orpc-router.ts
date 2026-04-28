@@ -1,11 +1,39 @@
 import { ORPCError, onError, ValidationError } from '@orpc/server'
 import { RPCHandler } from '@orpc/server/fetch'
 import * as z from 'zod'
+import { biometricsHandlers } from './biometrics-handlers'
 import { clothingItemHandlers } from './clothing-item-handlers'
+import { fitAdjustmentHandlers } from './fit-adjustment-handlers'
+import { onboardingHandlers } from './onboarding-handlers'
+import { outfitHandlers } from './outfit-handlers'
+import { outfitRecommendationHandlers } from './outfit-recommendation-handlers'
+import { shareClickHandlers } from './share-click-handlers'
+import { shareEventHandlers } from './share-event-handlers'
+import { shareableCardHandlers } from './shareable-card-handlers'
+import { sharedOutfitHandlers } from './shared-outfit-handlers'
 import { base } from './orpc-base'
+import { savedStyleHandlers } from './saved-style-handlers'
+import { styleCardHandlers } from './style-card-handlers'
+import { styleInteractionHandlers } from './style-interaction-handlers'
+import { styleTagHandlers } from './style-tag-handlers'
+import { subscriptionHandlers } from './subscription-handlers'
 
 export const router = {
   clothingItem: clothingItemHandlers,
+  outfit: outfitHandlers,
+  biometrics: biometricsHandlers,
+  onboarding: onboardingHandlers,
+  subscription: subscriptionHandlers,
+  styleCard: styleCardHandlers,
+  styleInteraction: styleInteractionHandlers,
+  savedStyle: savedStyleHandlers,
+  styleTag: styleTagHandlers,
+  fitAdjustment: fitAdjustmentHandlers,
+  sharedOutfit: sharedOutfitHandlers,
+  outfitRecommendation: outfitRecommendationHandlers,
+  shareableCard: shareableCardHandlers,
+  shareEvent: shareEventHandlers,
+  shareClick: shareClickHandlers,
   helloWorld: base.handler(async () => {
     return 'Hello World'
   }),

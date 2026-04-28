@@ -1,0 +1,225 @@
+-- allium: 3
+-- auth.allium
+
+-- Scope: user identity, account lifecycle, sign-in providers, email verification,
+-- trial clock start. Referenced by onboarding, payments, wardrobe, style-board,
+-- fit-page and social-share for user identity.
+--
+-- Includes:
+--   - User account creation via email/password or OAuth (Google, Apple)
+--   - Email verification for email/password accounts
+--   - Trial clock (7-day window starting at account creation)
+--   - Account deletion (data privacy compliance)
+-- Excludes:
+--   - Subscription state machine and paywall (see payments.allium)
+--   - Onboarding step progression (see onboarding.allium)
+--   - Password reset flow (post-MVP)
+--   - Session/token mechanics (implementation detail; multi-device sync is a capability,
+--     not a domain concern at this layer)
+
+------------------------------------------------------------
+-- Enumerations
+------------------------------------------------------------
+
+enum AuthProvider {
+    email_password
+    | google
+    | apple
+}
+
+-- decision: role and ban fields are provided by better-auth's admin plugin
+-- and live on the User entity. `new` is assigned on signup; `admin`/`owner`
+-- are granted out-of-band (operator action) and govern access to admin
+-- surfaces (not yet specified here).
+enum UserRole {
+    new
+    | admin
+    | owner
+}
+
+------------------------------------------------------------
+-- Entities and Variants
+------------------------------------------------------------
+
+entity User {
+    email: String
+    provider: AuthProvider
+    username: String?
+    created_at: Timestamp
+    trial_started_at: Timestamp
+    -- decision: role + ban fields are surfaced by better-auth's admin plugin.
+    -- A banned user with an unexpired ban cannot authenticate; expired bans
+    -- are treated as lifted. `ban_reason` and `ban_expires` are optional and
+    -- only meaningful when `banned = true`.
+    role: UserRole
+    banned: Boolean
+    ban_reason: String?
+    ban_expires: Timestamp?
+    -- decision: account deletion is hard-delete. There is no 'deleted'
+    -- status; the User row is removed and every downstream spec cascades
+    -- via the UserDeleted trigger (see DeleteAccount rule). No anonymised
+    -- retention.
+    status: pending_verification | active
+
+    transitions status {
+        pending_verification -> active
+    }
+
+    email_verified_at: Timestamp when status = active
+
+    -- Derived
+    trial_ends_at: trial_started_at + config.trial_duration
+    is_in_trial: now < trial_ends_at
+}
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+config {
+    trial_duration: Duration = 7.days
+    min_password_length: Integer = 8
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+-- Email/password signup: account is created pending email verification.
+rule SignUpWithEmailPassword {
+    when: SignUpWithEmailPassword(email, password)
+    requires: not exists User{email: email}
+    requires: length(password) >= config.min_password_length
+    ensures: User.created(
+        email: email,
+        provider: email_password,
+        status: pending_verification,
+        created_at: now,
+        trial_started_at: now
+    )
+    ensures: EmailVerificationRequested(email: email)
+}
+
+-- OAuth signup: identity provider has already verified the user, so the account
+-- is active immediately.
+rule SignUpWithOAuth {
+    when: SignUpWithOAuth(email, provider)
+    requires: provider in {google, apple}
+    requires: not exists User{email: email}
+    ensures: User.created(
+        email: email,
+        provider: provider,
+        status: active,
+        email_verified_at: now,
+        created_at: now,
+        trial_started_at: now
+    )
+}
+
+-- User completes email verification.
+rule VerifyEmail {
+    when: VerifyEmail(user)
+    requires: user.status = pending_verification
+    requires: user.provider = email_password
+    ensures:
+        user.status = active
+        user.email_verified_at = now
+}
+
+-- User requests deletion of their account.
+-- decision: hard delete. The User entity is removed and UserDeleted is
+-- emitted so every downstream spec cascades its user-scoped data
+-- (wardrobe, outfits, saved styles, style interactions, shared outfits,
+-- share events, share clicks, fit adjustments, biometrics, onboarding
+-- progress, subscription). No anonymised retention.
+rule DeleteAccount {
+    when: DeleteAccount(user)
+    ensures:
+        UserDeleted(user: user)
+        not exists user
+}
+
+-- User sets an optional username (e.g. for future social features).
+rule SetUsername {
+    when: SetUsername(user, username)
+    requires: user.status = active
+    requires: not exists User{username: username}
+    ensures: user.username = username
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant UniqueEmail {
+    for a in Users:
+        for b in Users:
+            a != b implies a.email != b.email
+}
+
+invariant UniqueUsername {
+    for a in Users:
+        for b in Users:
+            a != b and a.username != null and b.username != null
+                implies a.username != b.username
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor ActiveUser {
+    identified_by: User where status = active
+}
+
+actor PendingUser {
+    identified_by: User where status = pending_verification
+}
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+surface SignUp {
+    facing visitor: User
+
+    provides:
+        SignUpWithEmailPassword(email, password)
+        SignUpWithOAuth(email, provider)
+}
+
+surface EmailVerification {
+    facing pending: PendingUser
+
+    context user: User where status = pending_verification
+
+    exposes:
+        user.email
+
+    provides:
+        VerifyEmail(user)
+}
+
+surface AccountManagement {
+    facing owner: ActiveUser
+
+    context user: User where status = active
+
+    exposes:
+        user.email
+        user.username
+        user.created_at
+        user.trial_ends_at
+        user.is_in_trial
+
+    provides:
+        SetUsername(user, username)
+        DeleteAccount(user)
+}
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "Do email/password accounts need minimum password length enforced at spec level, and if so what is it?"
+open question "Is username ever required (for social sharing attribution), or does the app fall back to anonymous handles?"

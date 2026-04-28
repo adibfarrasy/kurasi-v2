@@ -1,0 +1,1 @@
+ALTER TABLE "user" ADD COLUMN "trial_started_at" timestamp DEFAULT NOW() NOT NULL;

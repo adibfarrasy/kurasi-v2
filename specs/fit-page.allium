@@ -1,0 +1,382 @@
+-- allium: 3
+-- fit-page.allium
+
+-- Scope: the "dress-up" experience where users construct outfits on a
+-- mannequin, apply per-garment fit adjustments, request recommendations and
+-- optionally publish outfits to the internal Discover feed.
+--
+-- Terminology: "Outfit" is the saved combination of WardrobeItems, governed
+-- by wardrobe.allium. The "Fit page" is the UI surface where outfits are
+-- constructed. "SharedOutfit" is an outfit that has been published to the
+-- internal Discover feed (distinct from external social-share cards generated
+-- by social-share.allium).
+--
+-- Includes:
+--   - Per-user biometric data driving the mannequin (height, weight, optional
+--     face photo)
+--   - Per-outfit per-item fit adjustment (length, width, sleeve, rise)
+--   - Outfit rating loop (loved/ok/didnt_work) feeding recommendations
+--   - Publishing an outfit to the internal Discover feed with optional
+--     face anonymisation
+--   - Gap-filling recommendation request (result is opaque to this spec)
+-- Excludes:
+--   - Mannequin rendering (implementation)
+--   - Recommendation algorithm details (black-box via deferred spec)
+--   - External social media sharing (see social-share.allium)
+--   - Outfit construction itself (saving an outfit is governed by
+--     wardrobe.allium; this spec adds fit adjustments on top)
+
+use "./auth.allium" as auth
+use "./wardrobe.allium" as wardrobe
+
+------------------------------------------------------------
+-- Enumerations
+------------------------------------------------------------
+
+enum LengthAdjustment {
+    shorter
+    | true_to_size
+    | longer
+}
+
+enum WidthAdjustment {
+    tighter
+    | true_to_size
+    | looser
+}
+
+enum SleeveAdjustment {
+    too_short
+    | true_to_size
+    | too_long
+}
+
+enum RiseAdjustment {
+    low_rise
+    | mid_rise
+    | high_rise
+}
+
+enum FaceAnonymisation {
+    none
+    | blur_face
+    | block_eyes
+}
+
+------------------------------------------------------------
+-- Entities and Variants
+------------------------------------------------------------
+
+entity UserBiometrics {
+    user: auth/User
+    height_cm: Integer
+    weight_kg: Integer
+    face_photo_url: String?
+    updated_at: Timestamp
+}
+
+-- Fit adjustment for a single wardrobe item as worn by its owner. The PRD
+-- notes that fit is user-specific ("User A's shirt is loose, User B's is
+-- snug"), so adjustments live per (user, item) rather than per outfit.
+entity FitAdjustment {
+    user: auth/User
+    item: wardrobe/WardrobeItem
+    length: LengthAdjustment?
+    width: WidthAdjustment?
+    sleeve: SleeveAdjustment?
+    rise: RiseAdjustment?
+    custom_notes: String?
+    updated_at: Timestamp
+}
+
+entity SharedOutfit {
+    publisher: auth/User
+    outfit: wardrobe/Outfit
+    face_anonymisation: FaceAnonymisation
+    show_username: Boolean
+    shared_at: Timestamp
+    status: published | unpublished
+
+    transitions status {
+        published -> unpublished
+        terminal: unpublished
+    }
+
+    unpublished_at: Timestamp when status = unpublished
+}
+
+entity OutfitRecommendationRequest {
+    requester: auth/User
+    based_on_outfit: wardrobe/Outfit?
+    requested_at: Timestamp
+}
+
+------------------------------------------------------------
+-- Config
+------------------------------------------------------------
+
+config {
+    min_height_cm: Integer = 130
+    max_height_cm: Integer = 220
+    min_weight_kg: Integer = 30
+    max_weight_kg: Integer = 200
+    -- decision: threshold resolved to 5 (not 10). Matches social-share unlock
+    -- threshold for consistency; the PRD's "5-10" range is concretised at 5.
+    min_wardrobe_items_for_recommendations: Integer = 5
+}
+
+------------------------------------------------------------
+-- Rules
+------------------------------------------------------------
+
+rule SetBiometrics {
+    when: SetBiometrics(user, height_cm, weight_kg, face_photo_url?)
+    requires: user.status = active
+    requires: height_cm >= config.min_height_cm
+    requires: height_cm <= config.max_height_cm
+    requires: weight_kg >= config.min_weight_kg
+    requires: weight_kg <= config.max_weight_kg
+    let existing = UserBiometrics{user: user}
+    ensures:
+        if exists existing:
+            existing.height_cm = height_cm
+            existing.weight_kg = weight_kg
+            existing.face_photo_url = face_photo_url
+            existing.updated_at = now
+        else:
+            UserBiometrics.created(
+                user: user,
+                height_cm: height_cm,
+                weight_kg: weight_kg,
+                face_photo_url: face_photo_url,
+                updated_at: now
+            )
+}
+
+rule RemoveFacePhoto {
+    when: RemoveFacePhoto(biometrics)
+    requires: biometrics.face_photo_url != null
+    ensures:
+        biometrics.face_photo_url = null
+        biometrics.updated_at = now
+}
+
+-- Record or update fit notes for an item the actor owns.
+rule SetFitAdjustment {
+    when: SetFitAdjustment(
+        user,
+        item,
+        length?,
+        width?,
+        sleeve?,
+        rise?,
+        custom_notes?
+    )
+    requires: user.status = active
+    requires: item.owner = user
+    requires: item.status != removed
+    let existing = FitAdjustment{user: user, item: item}
+    ensures:
+        if exists existing:
+            if length != null: existing.length = length
+            if width != null: existing.width = width
+            if sleeve != null: existing.sleeve = sleeve
+            if rise != null: existing.rise = rise
+            if custom_notes != null: existing.custom_notes = custom_notes
+            existing.updated_at = now
+        else:
+            FitAdjustment.created(
+                user: user,
+                item: item,
+                length: length,
+                width: width,
+                sleeve: sleeve,
+                rise: rise,
+                custom_notes: custom_notes,
+                updated_at: now
+            )
+}
+
+-- Publish an outfit to the internal Discover feed.
+rule PublishOutfit {
+    when: PublishOutfit(user, outfit, face_anonymisation, show_username)
+    requires: user.status = active
+    requires: outfit.owner = user
+    requires: outfit.status = active
+    requires: not exists SharedOutfit{outfit: outfit}
+    ensures: SharedOutfit.created(
+        publisher: user,
+        outfit: outfit,
+        face_anonymisation: face_anonymisation,
+        show_username: show_username,
+        status: published,
+        shared_at: now
+    )
+}
+
+rule UnpublishOutfit {
+    when: UnpublishOutfit(shared)
+    requires: shared.status = published
+    ensures:
+        shared.status = unpublished
+        shared.unpublished_at = now
+}
+
+-- Request gap-filling or outfit-generation recommendations. Gated by minimum
+-- wardrobe size per the PRD.
+rule RequestRecommendations {
+    when: RequestRecommendations(user, based_on_outfit?)
+    requires: user.status = active
+    let owned_items = wardrobe/WardrobeItems where
+        owner = user and status = active
+    requires: owned_items.count >= config.min_wardrobe_items_for_recommendations
+    requires: based_on_outfit?.owner = user or based_on_outfit = null
+    requires: based_on_outfit?.status = active or based_on_outfit = null
+    ensures: OutfitRecommendationRequest.created(
+        requester: user,
+        based_on_outfit: based_on_outfit,
+        requested_at: now
+    )
+    ensures: RecommendationsComputed(
+        requester: user,
+        based_on_outfit: based_on_outfit
+    )
+}
+
+-- decision: account deletion hard-deletes all fit-page data for the user
+-- (biometrics, fit adjustments, shared outfits, recommendation requests).
+-- No anonymised retention.
+rule CascadeUserDeletionToFitPage {
+    when: UserDeleted(deleted_user)
+    let biometrics = UserBiometrics where user = deleted_user
+    let adjustments = FitAdjustments where user = deleted_user
+    let shared = SharedOutfits where publisher = deleted_user
+    let requests = OutfitRecommendationRequests where requester = deleted_user
+    ensures:
+        for b in biometrics: not exists b
+        for a in adjustments: not exists a
+        for s in shared: not exists s
+        for r in requests: not exists r
+}
+
+------------------------------------------------------------
+-- Invariants
+------------------------------------------------------------
+
+invariant OneBiometricsPerUser {
+    for a in UserBiometrics:
+        for b in UserBiometrics:
+            a != b implies a.user != b.user
+}
+
+invariant OneFitAdjustmentPerUserItem {
+    for a in FitAdjustments:
+        for b in FitAdjustments:
+            a != b and a.user = b.user implies a.item != b.item
+}
+
+invariant FitAdjustmentOwnedByUser {
+    for fa in FitAdjustments:
+        fa.item.owner = fa.user
+}
+
+invariant OneSharedOutfitPerOutfit {
+    for a in SharedOutfits:
+        for b in SharedOutfits:
+            a != b implies a.outfit != b.outfit
+}
+
+------------------------------------------------------------
+-- Actor Declarations
+------------------------------------------------------------
+
+actor FitPageUser {
+    identified_by: auth/User where status = active
+}
+
+------------------------------------------------------------
+-- Deferred Specifications
+------------------------------------------------------------
+
+deferred RecommendationEngine.suggest_gaps       -- see: backend/recommendations/
+deferred RecommendationEngine.suggest_outfits    -- see: backend/recommendations/
+
+------------------------------------------------------------
+-- Surfaces
+------------------------------------------------------------
+
+surface FitPage {
+    facing viewer: FitPageUser
+
+    context user: auth/User where status = active
+
+    let biometrics = UserBiometrics{user: user}
+    let owned_items = wardrobe/WardrobeItems where
+        owner = user and status = active
+
+    exposes:
+        biometrics
+        owned_items
+
+    provides:
+        SetBiometrics(user, height_cm, weight_kg)
+        RequestRecommendations(user)
+            when owned_items.count >= config.min_wardrobe_items_for_recommendations
+}
+
+surface OutfitBuilder {
+    facing viewer: FitPageUser
+
+    context outfit: wardrobe/Outfit
+
+    exposes:
+        outfit.headwear
+        outfit.base
+        outfit.outer
+        outfit.bottom
+        outfit.footwear
+
+    provides:
+        PublishOutfit(outfit.owner, outfit, none, true)
+            when outfit.status = active
+                and not exists SharedOutfit{outfit: outfit}
+}
+
+surface FitAdjustmentPanel {
+    facing viewer: FitPageUser
+
+    context item: wardrobe/WardrobeItem
+
+    let adjustment = FitAdjustment{user: item.owner, item: item}
+
+    exposes:
+        item.image_url
+        item.category
+        adjustment
+
+    provides:
+        SetFitAdjustment(item.owner, item)
+            when item.status != removed
+}
+
+surface DiscoverFeed {
+    facing viewer: FitPageUser
+
+    let published = SharedOutfits where status = published
+
+    exposes:
+        for s in published:
+            s.outfit
+            s.face_anonymisation
+            s.shared_at
+            s.show_username
+            s.publisher.username
+}
+
+------------------------------------------------------------
+-- Open Questions
+------------------------------------------------------------
+
+open question "When a WardrobeItem is removed, should its FitAdjustment be removed as well, or retained for history?"
+open question "Can a user publish the same outfit to Discover multiple times (e.g. unpublish then republish with different anonymisation), or is the SharedOutfit entity a singleton per Outfit?"
+open question "Does RecommendationsComputed fire synchronously as a trigger emission, or should it be modelled as an async result entity that the user polls?"
