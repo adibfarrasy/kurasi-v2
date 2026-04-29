@@ -24,4 +24,8 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - run: task ci
+      - run: bunx biome ci
+
+      - run: task typecheck
+
+      - run: task test
