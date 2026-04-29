@@ -27,7 +27,7 @@ describe('styleTagHandlers.list', () => {
   })
 })
 
-describe('styleTagHandlers.create (admin)', () => {
+describe('styleTagHandlers.create', () => {
   test('creates a tag', async () => {
     const result = await call(
       styleTagHandlers.create,
@@ -48,16 +48,15 @@ describe('styleTagHandlers.create (admin)', () => {
     ).rejects.toThrow()
   })
 
-  test('FORBIDDEN when caller lacks admin-manage', async () => {
+  test('creates a tag with a unique label', async () => {
     await utils.resetTestDb()
-    await utils.seedUser({ role: 'new' })
-    await expect(
-      call(
-        styleTagHandlers.create,
-        { label: 'x', category: 'aesthetic' },
-        { context: utils.testContext() },
-      ),
-    ).rejects.toThrow()
+    await utils.seedUser()
+    const result = await call(
+      styleTagHandlers.create,
+      { label: `tag-${crypto.randomUUID()}`, category: 'aesthetic' },
+      { context: utils.testContext() },
+    )
+    expect(result.category).toBe('aesthetic')
   })
 
   test('rejects invalid category', async () => {

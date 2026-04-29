@@ -64,17 +64,18 @@ describe('clothingItemHandlers.list', () => {
     expect(withArchived.map((item) => item.primaryColor).sort()).toEqual(['active', 'archived'])
   })
 
-  test('throws UNAUTHORIZED when no session and FORBIDDEN when role lacks access', async () => {
+  test('throws UNAUTHORIZED when no session; succeeds when authenticated', async () => {
     utils.setTestUser(null)
     await expect(
       call(clothingItemHandlers.list, undefined as never, { context: utils.testContext() }),
     ).rejects.toThrow()
 
     await utils.resetTestDb()
-    await utils.seedUser({ role: 'new' })
-    await expect(
-      call(clothingItemHandlers.list, undefined as never, { context: utils.testContext() }),
-    ).rejects.toThrow()
+    await utils.seedUser()
+    const ok = await call(clothingItemHandlers.list, undefined as never, {
+      context: utils.testContext(),
+    })
+    expect(ok).toEqual([])
   })
 
   test('returns empty array when the caller has no clothing items yet', async () => {

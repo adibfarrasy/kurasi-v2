@@ -3,7 +3,7 @@ import { and, desc, eq, ne } from 'drizzle-orm'
 import { z } from 'zod'
 import { user as userTable } from '../db/auth-schema.gen'
 import { outfit, sharedOutfit } from '../db/schema'
-import { requirePermission } from './authed'
+import { authed } from './authed'
 
 // Spec: specs/fit-page.allium — SharedOutfit (lines 92-106),
 // PublishOutfit (lines 201-215), UnpublishOutfit (lines 217-223),
@@ -31,34 +31,32 @@ const discoverSchema = z
   .optional()
 
 // Discover feed — all 'published' SharedOutfits except caller's own.
-const discover = requirePermission({ permission: { sharedOutfit: ['read'] } })
-  .input(discoverSchema)
-  .handler(async ({ context, input }) => {
-    const { db, user } = context
-    const limit = input?.limit ?? 20
-    const rows = await db
-      .select()
-      .from(sharedOutfit)
-      .where(and(eq(sharedOutfit.status, 'published'), ne(sharedOutfit.userId, user.id)))
-      .orderBy(desc(sharedOutfit.sharedAt))
-      .limit(limit)
+const discover = authed.input(discoverSchema).handler(async ({ context, input }) => {
+  const { db, user } = context
+  const limit = input?.limit ?? 20
+  const rows = await db
+    .select()
+    .from(sharedOutfit)
+    .where(and(eq(sharedOutfit.status, 'published'), ne(sharedOutfit.userId, user.id)))
+    .orderBy(desc(sharedOutfit.sharedAt))
+    .limit(limit)
 
-    // Hydrate outfit + publisher username (null when showUsername=false).
-    const hydrated = []
-    for (const row of rows) {
-      const outfitRows = await db.select().from(outfit).where(eq(outfit.id, row.outfitId))
-      const publisherRows = await db.select().from(userTable).where(eq(userTable.id, row.userId))
-      const publisher = publisherRows[0]
-      hydrated.push({
-        ...row,
-        outfit: outfitRows[0] ?? null,
-        publisherUsername: row.showUsername ? (publisher?.name ?? null) : null,
-      })
-    }
-    return hydrated
-  })
+  // Hydrate outfit + publisher username (null when showUsername=false).
+  const hydrated = []
+  for (const row of rows) {
+    const outfitRows = await db.select().from(outfit).where(eq(outfit.id, row.outfitId))
+    const publisherRows = await db.select().from(userTable).where(eq(userTable.id, row.userId))
+    const publisher = publisherRows[0]
+    hydrated.push({
+      ...row,
+      outfit: outfitRows[0] ?? null,
+      publisherUsername: row.showUsername ? (publisher?.name ?? null) : null,
+    })
+  }
+  return hydrated
+})
 
-const findByOutfit = requirePermission({ permission: { sharedOutfit: ['read'] } })
+const findByOutfit = authed
   .input(z.object({ outfitId: z.uuid() }))
   .handler(async ({ context, input }) => {
     const { db, user } = context
@@ -72,59 +70,57 @@ const findByOutfit = requirePermission({ permission: { sharedOutfit: ['read'] } 
 // PublishOutfit. Verifies outfit ownership + status='active'. If an existing
 // SharedOutfit row exists (singleton), re-enables it — which satisfies the
 // user flow "unpublish, then publish again with different anonymisation".
-const publish = requirePermission({ permission: { sharedOutfit: ['publish'] } })
-  .input(publishSchema)
-  .handler(async ({ context, input }) => {
-    const { db, user } = context
+const publish = authed.input(publishSchema).handler(async ({ context, input }) => {
+  const { db, user } = context
 
-    const outfitRows = await db
-      .select()
-      .from(outfit)
-      .where(and(eq(outfit.id, input.outfitId), eq(outfit.userId, user.id)))
-    const ownedOutfit = outfitRows[0]
-    if (!ownedOutfit) {
-      throw new ORPCError('NOT_FOUND', { message: 'Outfit not found' })
-    }
-    if (ownedOutfit.status !== 'active') {
-      throw new ORPCError('BAD_REQUEST', { message: 'Outfit is not active' })
-    }
+  const outfitRows = await db
+    .select()
+    .from(outfit)
+    .where(and(eq(outfit.id, input.outfitId), eq(outfit.userId, user.id)))
+  const ownedOutfit = outfitRows[0]
+  if (!ownedOutfit) {
+    throw new ORPCError('NOT_FOUND', { message: 'Outfit not found' })
+  }
+  if (ownedOutfit.status !== 'active') {
+    throw new ORPCError('BAD_REQUEST', { message: 'Outfit is not active' })
+  }
 
-    const now = new Date()
-    const existing = await db
-      .select()
-      .from(sharedOutfit)
-      .where(eq(sharedOutfit.outfitId, input.outfitId))
-    if (existing[0]) {
-      const updated = await db
-        .update(sharedOutfit)
-        .set({
-          status: 'published',
-          faceAnonymisation: input.faceAnonymisation,
-          showUsername: input.showUsername,
-          sharedAt: now,
-          unpublishedAt: null,
-          updatedAt: now,
-        })
-        .where(eq(sharedOutfit.outfitId, input.outfitId))
-        .returning()
-      return updated[0]
-    }
-
-    const inserted = await db
-      .insert(sharedOutfit)
-      .values({
-        userId: user.id,
-        outfitId: input.outfitId,
+  const now = new Date()
+  const existing = await db
+    .select()
+    .from(sharedOutfit)
+    .where(eq(sharedOutfit.outfitId, input.outfitId))
+  if (existing[0]) {
+    const updated = await db
+      .update(sharedOutfit)
+      .set({
+        status: 'published',
         faceAnonymisation: input.faceAnonymisation,
         showUsername: input.showUsername,
-        status: 'published',
         sharedAt: now,
+        unpublishedAt: null,
+        updatedAt: now,
       })
+      .where(eq(sharedOutfit.outfitId, input.outfitId))
       .returning()
-    return inserted[0]
-  })
+    return updated[0]
+  }
 
-const unpublish = requirePermission({ permission: { sharedOutfit: ['unpublish'] } })
+  const inserted = await db
+    .insert(sharedOutfit)
+    .values({
+      userId: user.id,
+      outfitId: input.outfitId,
+      faceAnonymisation: input.faceAnonymisation,
+      showUsername: input.showUsername,
+      status: 'published',
+      sharedAt: now,
+    })
+    .returning()
+  return inserted[0]
+})
+
+const unpublish = authed
   .input(z.object({ outfitId: z.uuid() }))
   .handler(async ({ context, input }) => {
     const { db, user } = context

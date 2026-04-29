@@ -67,24 +67,15 @@ export default function StealTheLookFailed() {
             <Warning width={28} height={28} color="#FFA0A0" fill="#FFA0A0" />
             <Text
               style={{
-                fontFamily: 'FunnelSans_500Medium',
-                fontSize: 16,
-                color: '#FFA0A0',
                 textShadowColor: 'rgba(252, 0, 0, 0.66)',
                 textShadowOffset: { width: 0, height: 0 },
                 textShadowRadius: 100,
               }}
+              className="font-funnel font-medium text-base text-[#FFA0A0]"
             >
               Can't proceed with the outfit breakdown
             </Text>
-            <Text
-              style={{
-                fontFamily: 'FunnelSans_400Regular',
-                fontSize: 14,
-                lineHeight: 18,
-                color: 'rgba(255,255,255,0.75)',
-              }}
-            >
+            <Text className="font-funnel font-normal text-[14px] leading-[18px] text-[rgba(255,255,255,0.75)]">
               We noticed your image shows multiple people. We can only analyze one person's outfit
               at a time. Please upload a photo with a single person and try again.
             </Text>
@@ -116,15 +107,7 @@ export default function StealTheLookFailed() {
             }}
           >
             <Camera width={20} height={20} color="#000" fill="#000" />
-            <Text
-              style={{
-                color: '#000',
-                fontFamily: 'FunnelSans_500Medium',
-                fontSize: 16,
-                lineHeight: 24,
-                letterSpacing: -0.24,
-              }}
-            >
+            <Text className="font-funnel font-medium text-[16px] leading-[24px] tracking-[-0.24px] text-black">
               Upload another picture
             </Text>
           </Pressable>

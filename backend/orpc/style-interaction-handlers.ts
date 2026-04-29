@@ -12,7 +12,7 @@ import { ORPCError } from '@orpc/server'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { savedStyle, styleCard, styleInteraction } from '../db/schema'
-import { requirePermission } from './authed'
+import { authed } from './authed'
 
 // LikeStyleCard rule (spec lines 100-117).
 // Requires: card is active; no prior interaction from this user on this card.
@@ -20,9 +20,7 @@ import { requirePermission } from './authed'
 // Idempotent: if a like already exists AND a save already exists, return them
 // as a no-op so clients can retry safely. If any other interaction (skip)
 // exists, reject — the spec's "not exists StyleInteraction" precondition.
-const likeStyleCard = requirePermission({
-  permission: { styleInteraction: ['create'] },
-})
+const likeStyleCard = authed
   .input(z.object({ cardId: z.uuid() }))
   .handler(async ({ context, input }) => {
     const { db, user } = context
@@ -87,9 +85,7 @@ const likeStyleCard = requirePermission({
 // SkipStyleCard rule (spec lines 120-135). Records a permanent skip.
 // Idempotent on (userId, cardId) if the prior interaction is also a skip.
 // If the prior is a like, reject — interactions are permanent per spec.
-const skipStyleCard = requirePermission({
-  permission: { styleInteraction: ['create'] },
-})
+const skipStyleCard = authed
   .input(z.object({ cardId: z.uuid() }))
   .handler(async ({ context, input }) => {
     const { db, user } = context

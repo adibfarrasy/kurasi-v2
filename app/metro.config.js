@@ -3,7 +3,6 @@ const { withUniwindConfig } = require('uniwind/metro') // make sure this import 
 
 /** @type {import('expo/metro-config').MetroConfig} */
 const config = getDefaultConfig(__dirname)
-config.resolver.unstable_enablePackageExports = true
 
 // SVG transformer support
 config.transformer.babelTransformerPath = require.resolve('react-native-svg-transformer')

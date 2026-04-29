@@ -3,10 +3,10 @@ import { and, desc, eq, ne, or, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { clothingItem, onboardingProgress, outfit } from '../db/schema'
 import { clothingItemInsertSchema, clothingItemUpdateSchema } from '../zod-schemas'
-import { requirePermission } from './authed'
+import { authed } from './authed'
 import { maybeCompleteOnboarding, STARTER_WARDROBE_THRESHOLD } from './onboarding-helpers'
 
-const listClothingItems = requirePermission({ permission: { clothingItem: ['read'] } })
+const listClothingItems = authed
   .input(z.object({ includeArchived: z.boolean().optional() }).optional())
   .handler(async ({ context, input }) => {
     const { db, user } = context
@@ -49,7 +49,7 @@ const listClothingItems = requirePermission({ permission: { clothingItem: ['read
     return items.map((it) => ({ ...it, outfitCount: countMap.get(it.id) ?? 0 }))
   })
 
-const findClothingItem = requirePermission({ permission: { clothingItem: ['read'] } })
+const findClothingItem = authed
   .input(z.object({ id: z.uuid() }))
   .handler(async ({ context, input }) => {
     const { db, user } = context
@@ -68,7 +68,7 @@ const findClothingItem = requirePermission({ permission: { clothingItem: ['read'
 
 // Escape hatch for historical reads (e.g. displaying a removed item referenced
 // by an old outfit). Scoped to the owner so it cannot leak cross-user data.
-const findIncludingRemoved = requirePermission({ permission: { clothingItem: ['read'] } })
+const findIncludingRemoved = authed
   .input(z.object({ id: z.uuid() }))
   .handler(async ({ context, input }) => {
     const { db, user } = context
@@ -79,7 +79,7 @@ const findIncludingRemoved = requirePermission({ permission: { clothingItem: ['r
     return result[0] ?? null
   })
 
-const createClothingItem = requirePermission({ permission: { clothingItem: ['create'] } })
+const createClothingItem = authed
   .input(clothingItemInsertSchema.omit({ userId: true }))
   .handler(async ({ context, input }) => {
     const { db, user } = context
@@ -118,7 +118,7 @@ const createClothingItem = requirePermission({ permission: { clothingItem: ['cre
     return result[0]
   })
 
-const updateClothingItem = requirePermission({ permission: { clothingItem: ['update'] } })
+const updateClothingItem = authed
   .input(clothingItemUpdateSchema)
   .handler(async ({ context, input }) => {
     const { db, user } = context
@@ -136,7 +136,7 @@ const updateClothingItem = requirePermission({ permission: { clothingItem: ['upd
   })
 
 // ArchiveItem (wardrobe.allium rule ArchiveItem, 215-221): active -> archived.
-const archiveClothingItem = requirePermission({ permission: { clothingItem: ['archive'] } })
+const archiveClothingItem = authed
   .input(z.object({ id: z.uuid() }))
   .handler(async ({ context, input }) => {
     const { db, user } = context
@@ -159,7 +159,7 @@ const archiveClothingItem = requirePermission({ permission: { clothingItem: ['ar
   })
 
 // UnarchiveItem (wardrobe.allium rule UnarchiveItem, 223-229): archived -> active.
-const unarchiveClothingItem = requirePermission({ permission: { clothingItem: ['unarchive'] } })
+const unarchiveClothingItem = authed
   .input(z.object({ id: z.uuid() }))
   .handler(async ({ context, input }) => {
     const { db, user } = context
@@ -182,9 +182,7 @@ const unarchiveClothingItem = requirePermission({ permission: { clothingItem: ['
 
 // ToggleFavorite (wardrobe.allium rule ToggleFavorite, 207-211). Requires status=active.
 // Two-step read-then-write: we need the current isFavorite to flip it.
-const toggleFavoriteClothingItem = requirePermission({
-  permission: { clothingItem: ['toggle-favorite'] },
-})
+const toggleFavoriteClothingItem = authed
   .input(z.object({ id: z.uuid() }))
   .handler(async ({ context, input }) => {
     const { db, user } = context
@@ -212,9 +210,7 @@ const toggleFavoriteClothingItem = requirePermission({
 
 // RemoveItemPreservingOutfits (wardrobe.allium rule, 234-240). Soft-removes
 // the item; outfits continue to reference it for historical display.
-const removeItemPreserving = requirePermission({
-  permission: { clothingItem: ['remove-preserving'] },
-})
+const removeItemPreserving = authed
   .input(z.object({ id: z.uuid() }))
   .handler(async ({ context, input }) => {
     const { db, user } = context
@@ -239,9 +235,7 @@ const removeItemPreserving = requirePermission({
 // RemoveItemAndOutfits (wardrobe.allium rule, 243-252). Soft-deletes every
 // outfit referencing the item in any slot, then soft-removes the item. Done
 // in a transaction so a partial failure rolls back.
-const removeItemAndOutfits = requirePermission({
-  permission: { clothingItem: ['remove-and-outfits'] },
-})
+const removeItemAndOutfits = authed
   .input(z.object({ id: z.uuid() }))
   .handler(async ({ context, input }) => {
     const { db, user } = context

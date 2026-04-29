@@ -1,5 +1,6 @@
+import { useQueries } from '@tanstack/react-query'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
@@ -19,7 +20,7 @@ import XIcon from '@/assets/icons/X.svg'
 import { HeroFloor } from '@/components/hero-floor'
 import { SlotStrip } from '@/components/slot-strip'
 import { ToneBackground } from '@/components/tone-background'
-import { client } from '@/lib/orpc-client'
+import { type client, orpc } from '@/lib/orpc-client'
 import { getOutfitTone } from '@/lib/outfit-tone'
 
 type Outfit = Awaited<ReturnType<typeof client.outfit.list>>[number]
@@ -48,7 +49,7 @@ function slotItemsFor(outfit: Outfit, itemsById: Map<string, Item>) {
   }).filter((x): x is { label: string; item: Item } => x !== null && x.item !== null)
 }
 
-function HeroPageInner({
+function HeroPage({
   index,
   scrollX,
   showFloor,
@@ -57,9 +58,8 @@ function HeroPageInner({
   scrollX: Animated.Value
   showFloor: boolean
 }) {
-  // Memoised so the Animated transform array gets a stable reference across
-  // re-renders — otherwise every parent re-render creates fresh interpolated
-  // nodes and the native-driver scroll-linked animation visibly resets.
+  // React Compiler does not stabilize Animated interpolation nodes; keeping
+  // useMemo avoids recreated interpolations resetting native-driver scroll UX.
   const { scale, translateY, opacity } = useMemo(() => {
     const inputRange = [(index - 1) * PAGE_WIDTH, index * PAGE_WIDTH, (index + 1) * PAGE_WIDTH]
     return {
@@ -115,54 +115,39 @@ function HeroPageInner({
   )
 }
 
-const HeroPage = memo(HeroPageInner)
-
 export default function OutfitDetail() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
   const insets = useSafeAreaInsets()
 
-  const [outfits, setOutfits] = useState<Outfit[]>([])
-  const [items, setItems] = useState<Item[]>([])
+  const [outfitsQuery, itemsQuery] = useQueries({
+    queries: [
+      orpc.outfit.list.queryOptions(),
+      orpc.clothingItem.list.queryOptions({
+        input: {},
+      }),
+    ],
+  })
+
+  const loading = outfitsQuery.isPending || itemsQuery.isPending
+  const outfits = outfitsQuery.data ?? []
+  const items = itemsQuery.data ?? []
+
   const [activeIndex, setActiveIndex] = useState(0)
-  const [loading, setLoading] = useState(true)
   const flatListRef = useRef<FlatListType<Outfit>>(null)
   const scrollX = useRef(new Animated.Value(0)).current
   const [isScrolling, setIsScrolling] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const [outfitRows, itemRows] = await Promise.all([
-          client.outfit.list(),
-          client.clothingItem.list(),
-        ])
-        if (cancelled) return
-        setOutfits(outfitRows)
-        setItems(itemRows)
-        const startIdx = outfitRows.findIndex((o) => o.id === id)
-        if (startIdx >= 0) setActiveIndex(startIdx)
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [id])
-
-  // Prime scrollX to the deep-linked index BEFORE first paint so transform
-  // interpolations don't render with scrollX=0 (which would briefly scale the
-  // active item down to 0.78 then snap back to 1 on the first effect tick).
-  // biome-ignore lint/correctness/useExhaustiveDependencies: TODO
+  // When list data or deep-link id resolves, align index + scroll before paint.
   useLayoutEffect(() => {
-    if (!loading && outfits.length > 0) {
-      scrollX.setValue(activeIndex * PAGE_WIDTH)
-    }
-  }, [loading])
+    if (loading || outfits.length === 0) return
+    const idx = outfits.findIndex((o) => o.id === id)
+    if (idx < 0) return
+    setActiveIndex(idx)
+    scrollX.setValue(idx * PAGE_WIDTH)
+  }, [loading, outfits, id, scrollX])
 
-  const itemsById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
+  const itemsById = new Map(items.map((i) => [i.id, i]))
   const activeOutfit = outfits[activeIndex] ?? null
   const activeSlots = activeOutfit ? slotItemsFor(activeOutfit, itemsById) : []
   const tone = getOutfitTone(activeSlots.map((s) => s.item.primaryColor))
@@ -189,53 +174,20 @@ export default function OutfitDetail() {
           >
             <Text
               pointerEvents="none"
-              style={{
-                position: 'absolute',
-                left: 24,
-                top: -10,
-                width: 52,
-                height: 70,
-                fontFamily: 'Bebas',
-                fontSize: 64,
-                lineHeight: 70,
-                color: 'white',
-                opacity: 0.2,
-              }}
+              className="font-bebas absolute left-6 top-[-10px] h-[70px] w-[52px] text-[64px] leading-[70px] text-white opacity-20"
             >
               {padded}
             </Text>
-            <Text
-              style={{
-                marginTop: 5,
-                fontFamily: 'Kirang',
-                fontSize: 28,
-                lineHeight: 28,
-                color: 'white',
-                textTransform: 'uppercase',
-              }}
-            >
+            <Text className="font-kirang mt-[5px] text-[28px] uppercase leading-[28px] text-white">
               {activeOutfit?.name ?? 'Outfit'}
             </Text>
-            <Text
-              style={{
-                fontFamily: 'Inter',
-                fontSize: 11,
-                lineHeight: 14,
-                color: 'rgba(255,255,255,0.55)',
-                marginTop: 43,
-              }}
-            >
+            <Text className="mt-[43px] font-funnel text-[11px] leading-[14px] text-[rgba(255,255,255,0.55)]">
               tags
             </Text>
             {activeOutfit?.tags.map((t) => (
               <Text
                 key={t}
-                style={{
-                  fontFamily: 'Inter',
-                  fontSize: 12,
-                  lineHeight: 16,
-                  color: 'rgba(255,255,255,0.7)',
-                }}
+                className="font-funnel text-[12px] leading-[16px] text-[rgba(255,255,255,0.7)]"
               >
                 #{t}
               </Text>
@@ -325,7 +277,7 @@ export default function OutfitDetail() {
                 }}
               >
                 <ShareFat width={18} height={18} color="#000" />
-                <Text style={{ fontWeight: '600', color: 'black' }}>Share</Text>
+                <Text className="font-semibold text-black">Share</Text>
               </Pressable>
               <Pressable
                 onPress={() => router.push('/tryon')}
@@ -341,7 +293,7 @@ export default function OutfitDetail() {
                 }}
               >
                 <PencilLine width={18} height={18} color="#fff" />
-                <Text style={{ fontWeight: '600', color: 'white' }}>Edit</Text>
+                <Text className="font-semibold text-white">Edit</Text>
               </Pressable>
             </View>
           </View>

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
@@ -18,7 +19,7 @@ import FunnelSimple from '@/assets/icons/FunnelSimple.svg'
 import MagnifyingGlass from '@/assets/icons/MagnifyingGlass.svg'
 import ShareFat from '@/assets/icons/ShareFat.svg'
 import SquaresFour from '@/assets/icons/SquaresFour.svg'
-import { client } from '@/lib/orpc-client'
+import { type client, orpc } from '@/lib/orpc-client'
 
 type Item = Awaited<ReturnType<typeof client.clothingItem.list>>[number]
 type Category = Item['category']
@@ -53,6 +54,35 @@ const CATEGORY_LABEL: Record<Category, string> = {
   skirt: 'SKIRT',
 }
 
+function groupActiveItemsByCategory(query: string, items: Item[]): Map<Category, Item[]> {
+  const q = query.trim().toLowerCase()
+  const matches = (item: Item) => {
+    if (!q) return true
+    const words = [
+      item.brand ?? '',
+      item.primaryColor,
+      item.secondaryColor ?? '',
+      item.customNotes ?? '',
+      CATEGORY_LABEL[item.category],
+      ...(item.materials ?? []),
+      ...(item.occasions ?? []),
+    ]
+      .join(' ')
+      .toLowerCase()
+      .split(/\s+/)
+    return words.some((w) => w.startsWith(q))
+  }
+  const map = new Map<Category, Item[]>()
+  for (const item of items) {
+    if (item.status !== 'active') continue
+    if (!matches(item)) continue
+    const bucket = map.get(item.category) ?? []
+    bucket.push(item)
+    map.set(item.category, bucket)
+  }
+  return map
+}
+
 function ItemCellCompact({ item }: { item: Item }) {
   return (
     <View style={{ width: 80 }}>
@@ -72,15 +102,7 @@ function ItemCellCompact({ item }: { item: Item }) {
       </View>
       <Text
         numberOfLines={2}
-        style={{
-          marginTop: 4,
-          fontFamily: 'Inter',
-          fontSize: 12,
-          lineHeight: 16,
-          letterSpacing: 0.06,
-          color: '#000',
-          textAlign: 'center',
-        }}
+        className="mt-1 text-center font-funnel text-[12px] leading-[16px] tracking-[0.06px] text-black"
       >
         {item.brand ?? 'Unbranded'}
       </Text>
@@ -110,26 +132,13 @@ function ItemCellLarge({ item, outfitCount }: { item: Item; outfitCount: number 
       <View style={{ width: 168, height: 36, gap: 2 }}>
         <Text
           numberOfLines={1}
-          style={{
-            fontFamily: 'Inter',
-            fontSize: 12,
-            lineHeight: 16,
-            letterSpacing: 0.06,
-            color: '#9ca3af',
-            textAlign: 'center',
-          }}
+          className="text-center font-funnel text-[12px] leading-[16px] tracking-[0.06px] text-gray-400"
         >
           {item.brand ?? 'Unbranded'}
         </Text>
         <Text
           numberOfLines={1}
-          style={{
-            fontFamily: 'FunnelSans_400Regular',
-            fontSize: 14,
-            lineHeight: 18,
-            color: '#000',
-            textAlign: 'center',
-          }}
+          className="text-center font-funnel font-normal text-[14px] leading-[18px] text-black"
         >
           {title}
         </Text>
@@ -144,28 +153,11 @@ function ItemCellLarge({ item, outfitCount }: { item: Item; outfitCount: number 
             marginTop: 2,
           }}
         >
-          <Text
-            style={{
-              fontFamily: 'FunnelSans_500Medium',
-              fontSize: 11,
-              lineHeight: 16,
-              color: '#000',
-              opacity: 0.5,
-              width: 36,
-              height: 16,
-            }}
-          >
+          <Text className="h-4 w-9 font-funnel font-medium text-[11px] leading-[16px] text-black opacity-50">
             used in
           </Text>
           <BookmarkSimpleFill width={14} height={14} color="#AE0C0C" />
-          <Text
-            style={{
-              fontFamily: 'FunnelSans_500Medium',
-              fontSize: 11,
-              lineHeight: 16,
-              color: '#AE0C0C',
-            }}
-          >
+          <Text className="font-funnel font-medium text-[11px] leading-[16px] text-[#AE0C0C]">
             {outfitCount} {outfitCount === 1 ? 'outfit' : 'outfits'}
           </Text>
         </View>
@@ -196,27 +188,11 @@ function CategorySection({ label, items, mode }: { label: string; items: Item[];
             opacity: 0.1,
           }}
         />
-        <Text
-          style={{
-            fontFamily: 'FunnelSans_700Bold',
-            fontSize: 20,
-            lineHeight: 24,
-            letterSpacing: -0.3,
-            color: '#000',
-          }}
-        >
+        <Text className="font-funnel font-bold text-[20px] leading-[24px] tracking-[-0.3px] text-black">
           {label}
         </Text>
         <View style={{ flex: 1, height: 1, backgroundColor: '#000', opacity: 0.1 }} />
-        <Text
-          style={{
-            fontFamily: 'Inter',
-            fontSize: 12,
-            color: '#000',
-          }}
-        >
-          {items.length}
-        </Text>
+        <Text className="font-funnel text-[12px] text-black">{items.length}</Text>
         <View
           style={{
             width: 24,
@@ -284,7 +260,15 @@ export default function Wardrobe() {
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [keyboardVisible, setKeyboardVisible] = useState(false)
-  const [items, setItems] = useState<Item[]>([])
+  const itemsQuery = useQuery(orpc.clothingItem.list.queryOptions({ input: {} }))
+  const items = itemsQuery.data ?? []
+  const loading = itemsQuery.isPending
+  const loadError = itemsQuery.error
+  const error = loadError
+    ? loadError instanceof Error
+      ? loadError.message
+      : 'Failed to load'
+    : null
 
   useEffect(() => {
     const show = Keyboard.addListener(
@@ -304,73 +288,19 @@ export default function Wardrobe() {
       hide.remove()
     }
   }, [])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
 
   const [refreshing, setRefreshing] = useState(false)
-
-  async function load() {
-    const rows = await client.clothingItem.list()
-    setItems(rows)
-  }
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: TODO
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        if (!cancelled) await load()
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   async function onRefresh() {
     setRefreshing(true)
     try {
-      await load()
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load')
+      await itemsQuery.refetch()
     } finally {
       setRefreshing(false)
     }
   }
 
-  const grouped = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const matches = (item: Item) => {
-      if (!q) return true
-      const words = [
-        item.brand ?? '',
-        item.primaryColor,
-        item.secondaryColor ?? '',
-        item.customNotes ?? '',
-        CATEGORY_LABEL[item.category],
-        ...(item.materials ?? []),
-        ...(item.occasions ?? []),
-      ]
-        .join(' ')
-        .toLowerCase()
-        .split(/\s+/)
-      return words.some((w) => w.startsWith(q))
-    }
-    const map = new Map<Category, Item[]>()
-    for (const item of items) {
-      if (item.status !== 'active') continue
-      if (!matches(item)) continue
-      const bucket = map.get(item.category) ?? []
-      bucket.push(item)
-      map.set(item.category, bucket)
-    }
-    return map
-  }, [items, query])
+  const grouped = groupActiveItemsByCategory(query, items)
 
   return (
     <View
@@ -389,18 +319,11 @@ export default function Wardrobe() {
           paddingBottom: 16,
         }}
       >
-        <Text
-          style={{
-            fontFamily: 'Bebas',
-            fontSize: 48,
-            lineHeight: 52,
-            color: '#000',
-          }}
-        >
+        <Text className="font-bebas text-[48px] leading-[52px] text-black">
           WA
-          <Text style={{ fontFamily: 'Kirang', fontSize: 58, lineHeight: 52 }}>R</Text>
+          <Text className="font-kirang text-[58px] leading-[52px]">R</Text>
           DRO
-          <Text style={{ fontFamily: 'Kirang', fontSize: 58, lineHeight: 52 }}>B</Text>E
+          <Text className="font-kirang text-[58px] leading-[52px]">B</Text>E
         </Text>
         <Pressable
           style={{
@@ -495,15 +418,7 @@ export default function Wardrobe() {
                 placeholderTextColor="#9ca3af"
                 autoFocus
                 returnKeyType="search"
-                style={{
-                  flex: 1,
-                  fontFamily: 'FunnelSans_400Regular',
-                  fontSize: 16,
-                  lineHeight: 22,
-                  letterSpacing: -0.16,
-                  textAlign: 'center',
-                  color: '#000',
-                }}
+                className="flex-1 text-center font-funnel font-normal text-[16px] leading-[22px] tracking-[-0.16px] text-black"
               />
             </View>
           </View>

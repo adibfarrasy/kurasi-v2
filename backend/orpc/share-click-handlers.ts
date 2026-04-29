@@ -14,7 +14,7 @@ import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { db as realDb } from '../db/db'
 import { shareableCard, shareClick } from '../db/schema'
-import { requirePermission } from './authed'
+import { authed } from './authed'
 import { base } from './orpc-base'
 
 const PLATFORMS = ['instagram_story', 'snapchat', 'tiktok', 'twitter', 'clipboard'] as const
@@ -46,9 +46,7 @@ const record = base
   })
 
 // analytics — aggregate clicks per platform for a caller-owned card.
-const analytics = requirePermission({
-  permission: { shareClick: ['read-own-analytics'] },
-})
+const analytics = authed
   .input(z.object({ cardId: z.uuid() }))
   .handler(async ({ context, input }) => {
     const { db, user } = context

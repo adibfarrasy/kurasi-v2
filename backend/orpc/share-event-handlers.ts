@@ -5,11 +5,11 @@ import { ORPCError } from '@orpc/server'
 import { and, desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { shareableCard, shareEvent } from '../db/schema'
-import { requirePermission } from './authed'
+import { authed } from './authed'
 
 const PLATFORMS = ['instagram_story', 'snapchat', 'tiktok', 'twitter', 'clipboard'] as const
 
-const record = requirePermission({ permission: { shareEvent: ['create'] } })
+const record = authed
   .input(z.object({ cardId: z.uuid(), platform: z.enum(PLATFORMS) }))
   .handler(async ({ context, input }) => {
     const { db, user } = context
@@ -36,7 +36,7 @@ const record = requirePermission({ permission: { shareEvent: ['create'] } })
   })
 
 // listForCard: all ShareEvents for a card the caller owns. Scoped to caller.
-const listForCard = requirePermission({ permission: { shareEvent: ['read'] } })
+const listForCard = authed
   .input(z.object({ cardId: z.uuid() }))
   .handler(async ({ context, input }) => {
     const { db, user } = context

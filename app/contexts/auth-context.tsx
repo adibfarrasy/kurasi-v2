@@ -1,4 +1,3 @@
-import type { PermissionAction, PermissionKey, PermissionResource } from 'backend/permissions'
 import { useAtomValue } from 'jotai'
 import { createContext, useContext } from 'react'
 import { authClient } from '@/lib/auth-client'
@@ -14,7 +13,6 @@ const MOCK_USER = {
   image: null,
   createdAt: new Date(),
   updatedAt: new Date(),
-  role: 'user',
 } as unknown as User
 
 export interface AuthContextValue {
@@ -22,7 +20,6 @@ export interface AuthContextValue {
   isAuthenticated: boolean
   isInitialLoading: boolean
   isLoading: boolean
-  can: (permission: PermissionKey) => boolean
   loginWithGoogle: () => void
   loginWithApple: () => void
   logout: () => void
@@ -38,15 +35,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isAuthenticated = !!realUser || skipGates
   const isInitialLoading = skipGates ? false : session.isPending
 
-  const can = (permission: PermissionKey) => {
-    const [action, resource] = permission.split('.') as [PermissionAction, PermissionResource]
-    const role = user?.role ?? 'new'
-    return authClient.admin.checkRolePermission({
-      role,
-      permissions: { [resource]: [action] },
-    })
-  }
-
   return (
     <AuthContext
       value={{
@@ -54,7 +42,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated,
         isInitialLoading,
         isLoading: isInitialLoading,
-        can,
         loginWithGoogle: async () => {
           try {
             await authClient.signIn.social({

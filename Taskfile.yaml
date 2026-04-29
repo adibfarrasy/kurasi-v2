@@ -13,6 +13,16 @@ tasks:
     cmds:
       - bun run start
 
+  ios-clean-prebuild:
+    dir: app
+    cmds:
+      - npx expo prebuild -p ios --clean
+
+  ios-dev:
+    dir: app
+    cmds:
+      - bun run ios
+
   be-dev:
     desc: Run backend development
     dir: backend

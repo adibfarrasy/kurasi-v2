@@ -1,27 +1,23 @@
 {
   "name": "kurasi-monorepo",
   "version": "1.0.0",
-  "scripts": {
-    "typecheck": "tsc --noEmit",
-    "lint": "biome check . --write"
-  },
   "devDependencies": {
     "@biomejs/biome": "^2.4.13",
     "testcontainers": "^11.14.0"
   },
-  "private": true,
   "catalog": {
     "@better-auth/expo": "^1.6.9",
     "@orpc/server": "^1.14.0",
     "better-auth": "^1.6.9",
     "zod": "^4.3.6"
   },
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check . --write"
+  },
   "workspaces": [
     "app",
     "backend"
-  ],
-  "dependencies": {
-    "@expo-google-fonts/funnel-sans": "^0.4.2",
-    "react-native-web": "^0.21.0"
-  }
+  ]
 }

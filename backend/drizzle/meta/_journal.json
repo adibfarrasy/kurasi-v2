@@ -71,6 +71,13 @@
       "when": 1777459577281,
       "tag": "0009_eager_black_cat",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1777483461101,
+      "tag": "0010_open_triton",
+      "breakpoints": true
     }
   ]
 }

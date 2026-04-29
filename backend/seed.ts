@@ -40,7 +40,6 @@ if (existing.length === 0) {
     email: userEmail,
     emailVerified: true,
     image: null,
-    role: 'owner',
     trialStartedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date(),

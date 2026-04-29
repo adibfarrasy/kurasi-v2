@@ -115,7 +115,7 @@ describe('styleCardHandlers.find', () => {
   })
 })
 
-describe('styleCardHandlers.createCard (admin)', () => {
+describe('styleCardHandlers.createCard', () => {
   test('creates an active card with tags', async () => {
     const t1 = await utils.seedStyleTag({ label: 'streetwear' })
     const t2 = await utils.seedStyleTag({ label: 'oversize' })
@@ -128,16 +128,15 @@ describe('styleCardHandlers.createCard (admin)', () => {
     expect(result.tags).toHaveLength(2)
   })
 
-  test('FORBIDDEN when caller lacks admin-manage', async () => {
+  test('creates an active card without tags', async () => {
     await utils.resetTestDb()
-    await utils.seedUser({ role: 'new' })
-    await expect(
-      call(
-        styleCardHandlers.createCard,
-        { imageUrl: 'x', sourceAttribution: 'y', tagIds: [] },
-        { context: utils.testContext() },
-      ),
-    ).rejects.toThrow()
+    await utils.seedUser()
+    const result = await call(
+      styleCardHandlers.createCard,
+      { imageUrl: 'https://img/x.jpg', sourceAttribution: 'y', tagIds: [] },
+      { context: utils.testContext() },
+    )
+    expect(result.status).toBe('active')
   })
 
   test('rejects unknown tag id', async () => {
@@ -151,7 +150,7 @@ describe('styleCardHandlers.createCard (admin)', () => {
   })
 })
 
-describe('styleCardHandlers.retire (admin)', () => {
+describe('styleCardHandlers.retire', () => {
   test('sets status=retired and retiredAt', async () => {
     const c = await utils.seedStyleCard()
     const result = await call(
@@ -176,12 +175,15 @@ describe('styleCardHandlers.retire (admin)', () => {
     ).rejects.toThrow()
   })
 
-  test('FORBIDDEN when permission denied', async () => {
+  test('retires a card by id', async () => {
     await utils.resetTestDb()
-    await utils.seedUser({ role: 'new' })
+    await utils.seedUser()
     const c = await utils.seedStyleCard()
-    await expect(
-      call(styleCardHandlers.retire, { id: c.id }, { context: utils.testContext() }),
-    ).rejects.toThrow()
+    const result = await call(
+      styleCardHandlers.retire,
+      { id: c.id },
+      { context: utils.testContext() },
+    )
+    expect(result.status).toBe('retired')
   })
 })

@@ -11,18 +11,10 @@ import { devSkipGatesAtom } from '@/state/onboarding'
 
 const ICON_SIZE = 26
 
-const tabLabelStyle = (focused: boolean) =>
-  ({
-    fontFamily: 'Inter',
-    fontWeight: '700',
-    fontSize: 9,
-    lineHeight: 12,
-    letterSpacing: 0.18,
-    textAlign: 'center',
-    marginTop: 4,
-    color: '#000',
-    opacity: focused ? 1 : 0.3,
-  }) as const
+const tabLabelClassName = (focused: boolean) =>
+  `font-funnel font-bold mt-1 text-center text-[9px] leading-[12px] tracking-[0.18px] text-black ${
+    focused ? 'opacity-100' : 'opacity-30'
+  }`
 
 function TabBarIcon({ source }: { source: 'sparkle' | 'bookmark' | 'dresser' }) {
   const props = { width: ICON_SIZE, height: ICON_SIZE, color: '#000', fill: '#000' }
@@ -89,7 +81,7 @@ export default function TabsLayout() {
               </View>
             ),
             tabBarLabel: ({ focused }) => (
-              <Text numberOfLines={1} style={tabLabelStyle(focused)}>
+              <Text numberOfLines={1} className={tabLabelClassName(focused)}>
                 Try On
               </Text>
             ),
@@ -105,7 +97,7 @@ export default function TabsLayout() {
               </View>
             ),
             tabBarLabel: ({ focused }) => (
-              <Text numberOfLines={1} style={tabLabelStyle(focused)}>
+              <Text numberOfLines={1} className={tabLabelClassName(focused)}>
                 Saved Outfit
               </Text>
             ),
@@ -121,7 +113,7 @@ export default function TabsLayout() {
               </View>
             ),
             tabBarLabel: ({ focused }) => (
-              <Text numberOfLines={1} style={tabLabelStyle(focused)}>
+              <Text numberOfLines={1} className={tabLabelClassName(focused)}>
                 Wardrobe
               </Text>
             ),

@@ -221,14 +221,13 @@ describe('shareableCardHandlers.find', () => {
 })
 
 describe('shareableCardHandlers.expireOldCards', () => {
-  test('admin-only — non-admin rejected', async () => {
+  test('returns expiredCount 0 when no cards need expiring', async () => {
     await utils.resetTestDb()
-    await utils.seedUser({ role: 'new' })
-    await expect(
-      call(shareableCardHandlers.expireOldCards, undefined as never, {
-        context: utils.testContext(),
-      }),
-    ).rejects.toThrow()
+    await utils.seedUser()
+    const result = await call(shareableCardHandlers.expireOldCards, undefined as never, {
+      context: utils.testContext(),
+    })
+    expect(result.expiredCount).toBe(0)
   })
 
   test('transitions active rows with expiresAt < now', async () => {

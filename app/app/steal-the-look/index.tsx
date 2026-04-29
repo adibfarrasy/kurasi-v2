@@ -19,16 +19,7 @@ function StatusBadge({ kind }: { kind: 'do' | 'dont' }) {
         justifyContent: 'center',
       }}
     >
-      <Text
-        style={{
-          color: 'white',
-          fontSize: 11,
-          fontWeight: '700',
-          lineHeight: 12,
-        }}
-      >
-        {glyph}
-      </Text>
+      <Text className="text-[11px] font-bold leading-3 text-white">{glyph}</Text>
     </View>
   )
 }
@@ -81,37 +72,17 @@ function GuideCard({
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <StatusBadge kind={kind} />
           <Text
-            style={{
-              color: kind === 'do' ? '#089511' : '#E90000',
-              fontFamily: 'FunnelSans_700Bold',
-              fontSize: 13,
-              letterSpacing: 0.6,
-            }}
+            className={`font-funnel text-[13px] font-bold tracking-[0.6px] ${
+              kind === 'do' ? 'text-[#089511]' : 'text-[#E90000]'
+            }`}
           >
             {title}
           </Text>
         </View>
-        <Text
-          style={{
-            fontFamily: 'FunnelSans_400Regular',
-            fontSize: 16,
-            lineHeight: 22,
-            letterSpacing: -0.16,
-            color: '#000',
-          }}
-        >
+        <Text className="font-funnel font-normal text-[16px] leading-[22px] tracking-[-0.16px] text-black">
           {body}
         </Text>
-        <Text
-          style={{
-            fontFamily: 'Inter',
-            fontSize: 12,
-            lineHeight: 16,
-            letterSpacing: 0.06,
-            color: '#6b7280',
-            marginTop: 'auto',
-          }}
-        >
+        <Text className="mt-auto font-funnel text-[12px] leading-[16px] tracking-[0.06px] text-[#6b7280]">
           {caption}
         </Text>
       </View>
@@ -141,15 +112,7 @@ export default function StealTheLookIntro() {
               alignItems: 'center',
             }}
           >
-            <Text
-              style={{
-                fontFamily: 'FunnelSans_400Regular',
-                fontSize: 20,
-                lineHeight: 24,
-                letterSpacing: -0.3,
-                color: '#000',
-              }}
-            >
+            <Text className="font-funnel font-normal text-[20px] leading-[24px] tracking-[-0.3px] text-black">
               Upload
             </Text>
             <Pressable
@@ -166,19 +129,11 @@ export default function StealTheLookIntro() {
             </Pressable>
           </View>
 
-          <Text
-            style={{
-              fontFamily: 'Bebas',
-              fontSize: 48,
-              lineHeight: 52,
-              color: '#000',
-              marginTop: 12,
-            }}
-          >
+          <Text className="mt-3 font-bebas text-[48px] leading-[52px] text-black">
             OU
-            <Text style={{ fontFamily: 'Kirang', fontSize: 58, lineHeight: 52 }}>t</Text>
+            <Text className="font-kirang text-[58px] leading-[52px]">t</Text>
             FIT INSPIR
-            <Text style={{ fontFamily: 'Kirang', fontSize: 58, lineHeight: 52 }}>At</Text>
+            <Text className="font-kirang text-[58px] leading-[52px]">At</Text>
             ION
           </Text>
 
@@ -225,15 +180,7 @@ export default function StealTheLookIntro() {
             }}
           >
             <Camera width={20} height={20} color="#fff" fill="#fff" />
-            <Text
-              style={{
-                color: 'white',
-                fontFamily: 'FunnelSans_500Medium',
-                fontSize: 16,
-                lineHeight: 24,
-                letterSpacing: -0.24,
-              }}
-            >
+            <Text className="font-funnel font-medium text-[16px] leading-[24px] tracking-[-0.24px] text-white">
               Upload a picture
             </Text>
           </Pressable>

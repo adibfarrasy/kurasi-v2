@@ -2,6 +2,7 @@
 @import 'uniwind';
 
 @theme {
-  --font-bebas: Bebas;
-  --font-kirang: Kirang;
+  --font-funnel: 'Funnel Sans';
+  --font-bebas: 'Bebas Neue';
+  --font-kirang: 'Kirang Haerang';
 }

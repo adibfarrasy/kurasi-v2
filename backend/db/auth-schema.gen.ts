@@ -11,10 +11,6 @@ export const user = pgTable('user', {
   updatedAt: timestamp('updated_at')
     .$onUpdate(() => new Date())
     .notNull(),
-  role: text('role', { enum: ['new', 'admin', 'owner'] }).default('new'),
-  banned: boolean('banned').default(false),
-  banReason: text('ban_reason'),
-  banExpires: timestamp('ban_expires'),
   trialStartedAt: timestamp('trial_started_at').notNull(),
 })
 
@@ -33,7 +29,6 @@ export const session = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    impersonatedBy: text('impersonated_by'),
   },
   (table) => [index('session_userId_idx').on(table.userId)],
 )

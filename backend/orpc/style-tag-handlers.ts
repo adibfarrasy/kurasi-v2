@@ -1,24 +1,21 @@
 // Spec: specs/style-board.allium
 //
 // StyleTag CRUD. Listing is open to every authenticated user (tags power the
-// feed display); creating is admin-only. Tag retirement is not specified, so
-// we don't expose delete here — admins can simply stop assigning a tag to
-// new cards.
+// feed); creation mutates the shared catalog. Tag retirement is not specified,
+// so we don't expose delete here — tags can be unassigned from new cards instead.
 
 import { ORPCError } from '@orpc/server'
 import { asc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { styleTag } from '../db/schema'
-import { requirePermission } from './authed'
+import { authed } from './authed'
 
-const listStyleTags = requirePermission({ permission: { styleTag: ['read'] } }).handler(
-  async ({ context }) => {
-    const { db } = context
-    return db.select().from(styleTag).orderBy(asc(styleTag.label))
-  },
-)
+const listStyleTags = authed.handler(async ({ context }) => {
+  const { db } = context
+  return db.select().from(styleTag).orderBy(asc(styleTag.label))
+})
 
-const createStyleTag = requirePermission({ permission: { styleTag: ['admin-manage'] } })
+const createStyleTag = authed
   .input(
     z.object({
       label: z.string().min(1),

@@ -85,16 +85,7 @@ export default function StealTheLookAnalyzing() {
           }}
         >
           <Sparkle width={24} height={24} color="#000" fill="#000" />
-          <Text
-            style={{
-              fontFamily: 'FunnelSans_400Regular',
-              fontSize: 20,
-              lineHeight: 24,
-              letterSpacing: -0.3,
-              textAlign: 'center',
-              color: '#000',
-            }}
-          >
+          <Text className="text-center font-funnel font-normal text-[20px] leading-[24px] tracking-[-0.3px] text-black">
             Analyzing...
           </Text>
         </View>

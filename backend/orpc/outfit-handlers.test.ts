@@ -30,17 +30,18 @@ describe('outfitHandlers.list', () => {
     expect(result[0]!.name).toBe('mine')
   })
 
-  test('throws UNAUTHORIZED when no session and FORBIDDEN when role lacks access', async () => {
+  test('throws UNAUTHORIZED when no session; succeeds when authenticated', async () => {
     utils.setTestUser(null)
     await expect(
       call(outfitHandlers.list, undefined as never, { context: utils.testContext() }),
     ).rejects.toThrow()
 
     await utils.resetTestDb()
-    await utils.seedUser({ role: 'new' })
-    await expect(
-      call(outfitHandlers.list, undefined as never, { context: utils.testContext() }),
-    ).rejects.toThrow()
+    await utils.seedUser()
+    const ok = await call(outfitHandlers.list, undefined as never, {
+      context: utils.testContext(),
+    })
+    expect(ok).toEqual([])
   })
 })
 

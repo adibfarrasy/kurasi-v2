@@ -18,7 +18,7 @@ import { ORPCError } from '@orpc/server'
 import { and, desc, eq, lt } from 'drizzle-orm'
 import { z } from 'zod'
 import { clothingItem, outfit, shareableCard } from '../db/schema'
-import { requirePermission } from './authed'
+import { authed } from './authed'
 
 const SHOWCASE_MODES = ['by_category', 'by_color', 'by_style', 'entire_wardrobe'] as const
 const STATS_PERIODS = ['week', 'month', 'year'] as const
@@ -50,7 +50,7 @@ async function assertMinWardrobe(db: unknown, userId: string): Promise<void> {
   }
 }
 
-const listCards = requirePermission({ permission: { shareableCard: ['read'] } })
+const listCards = authed
   .input(z.object({ includeExpired: z.boolean().optional() }).optional())
   .handler(async ({ context, input }) => {
     const { db, user } = context
@@ -63,23 +63,21 @@ const listCards = requirePermission({ permission: { shareableCard: ['read'] } })
 
 // find: caller-owned OR active (active cards are publicly resolvable via the
 // share deep-link). Returns `{ card, isOwner }`.
-const findCard = requirePermission({ permission: { shareableCard: ['read'] } })
-  .input(z.object({ id: z.uuid() }))
-  .handler(async ({ context, input }) => {
-    const { db, user } = context
-    const rows = await db.select().from(shareableCard).where(eq(shareableCard.id, input.id))
-    const row = rows[0]
-    if (!row) {
-      throw new ORPCError('NOT_FOUND', { message: 'Card not found' })
-    }
-    const isOwner = row.userId === user.id
-    if (!isOwner && row.status !== 'active') {
-      throw new ORPCError('NOT_FOUND', { message: 'Card not found' })
-    }
-    return { card: row, isOwner }
-  })
+const findCard = authed.input(z.object({ id: z.uuid() })).handler(async ({ context, input }) => {
+  const { db, user } = context
+  const rows = await db.select().from(shareableCard).where(eq(shareableCard.id, input.id))
+  const row = rows[0]
+  if (!row) {
+    throw new ORPCError('NOT_FOUND', { message: 'Card not found' })
+  }
+  const isOwner = row.userId === user.id
+  if (!isOwner && row.status !== 'active') {
+    throw new ORPCError('NOT_FOUND', { message: 'Card not found' })
+  }
+  return { card: row, isOwner }
+})
 
-const generateOutfit = requirePermission({ permission: { shareableCard: ['generate'] } })
+const generateOutfit = authed
   .input(
     z.object({
       outfitId: z.uuid(),
@@ -124,9 +122,7 @@ const generateOutfit = requirePermission({ permission: { shareableCard: ['genera
     return result[0]
   })
 
-const generateWardrobeShowcase = requirePermission({
-  permission: { shareableCard: ['generate'] },
-})
+const generateWardrobeShowcase = authed
   .input(
     z.object({
       mode: z.enum(SHOWCASE_MODES),
@@ -159,9 +155,7 @@ const generateWardrobeShowcase = requirePermission({
     return result[0]
   })
 
-const generateStyleStats = requirePermission({
-  permission: { shareableCard: ['generate'] },
-})
+const generateStyleStats = authed
   .input(
     z.object({
       period: z.enum(STATS_PERIODS),
@@ -194,9 +188,7 @@ const generateStyleStats = requirePermission({
     return result[0]
   })
 
-const updateCaption = requirePermission({
-  permission: { shareableCard: ['update-caption'] },
-})
+const updateCaption = authed
   .input(z.object({ cardId: z.uuid(), caption: z.string() }))
   .handler(async ({ context, input }) => {
     const { db, user } = context
@@ -218,9 +210,7 @@ const updateCaption = requirePermission({
   })
 
 // ExpireShareableCard (lines 235-241). Cron target. Admin-only.
-const expireOldCards = requirePermission({
-  permission: { shareableCard: ['admin-expire'] },
-}).handler(async ({ context }) => {
+const expireOldCards = authed.handler(async ({ context }) => {
   const { db } = context
   const now = new Date()
   const result = await db

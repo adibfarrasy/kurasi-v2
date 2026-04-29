@@ -9,7 +9,7 @@ import { ORPCError } from '@orpc/server'
 import { and, desc, eq, inArray, lt, notInArray } from 'drizzle-orm'
 import { z } from 'zod'
 import { styleCard, styleCardTag, styleInteraction, styleTag } from '../db/schema'
-import { requirePermission } from './authed'
+import { authed } from './authed'
 
 // Load tags for a set of cards, returning a map cardId -> tag[].
 async function loadTagsForCards(
@@ -51,7 +51,7 @@ async function loadTagsForCards(
 //
 // Pagination: cursor is a createdAt ISO string. Returns up to `limit` items
 // (default 20, max 50) + a nextCursor if more may exist.
-const feedStyleCards = requirePermission({ permission: { styleCard: ['read'] } })
+const feedStyleCards = authed
   .input(
     z
       .object({
@@ -99,7 +99,7 @@ const feedStyleCards = requirePermission({ permission: { styleCard: ['read'] } }
 
 // find — by id. Returns card + tags for both active and retired (so users
 // can view a retired card they saved).
-const findStyleCard = requirePermission({ permission: { styleCard: ['read'] } })
+const findStyleCard = authed
   .input(z.object({ id: z.uuid() }))
   .handler(async ({ context, input }) => {
     const { db } = context
@@ -110,8 +110,8 @@ const findStyleCard = requirePermission({ permission: { styleCard: ['read'] } })
     return { ...card, tags: tagsByCard.get(card.id) ?? [] }
   })
 
-// createCard (admin) — seed the catalog. Validates that every tagId exists.
-const createCard = requirePermission({ permission: { styleCard: ['admin-manage'] } })
+// createCard — seed the catalog. Validates that every tagId exists.
+const createCard = authed
   .input(
     z.object({
       imageUrl: z.string().min(1),
@@ -150,25 +150,23 @@ const createCard = requirePermission({ permission: { styleCard: ['admin-manage']
     })
   })
 
-// retireCard (admin) — RetireStyleCard rule. published -> retired, sets
+// retireCard — RetireStyleCard rule. published -> retired, sets
 // retiredAt. SavedStyle rows remain intact (no cascade on status change).
-const retireCard = requirePermission({ permission: { styleCard: ['admin-manage'] } })
-  .input(z.object({ id: z.uuid() }))
-  .handler(async ({ context, input }) => {
-    const { db } = context
-    const now = new Date()
-    const result = await db
-      .update(styleCard)
-      .set({ status: 'retired', retiredAt: now })
-      .where(and(eq(styleCard.id, input.id), eq(styleCard.status, 'active')))
-      .returning()
-    if (!result[0]) {
-      throw new ORPCError('NOT_FOUND', {
-        message: 'Style card not found or already retired',
-      })
-    }
-    return result[0]
-  })
+const retireCard = authed.input(z.object({ id: z.uuid() })).handler(async ({ context, input }) => {
+  const { db } = context
+  const now = new Date()
+  const result = await db
+    .update(styleCard)
+    .set({ status: 'retired', retiredAt: now })
+    .where(and(eq(styleCard.id, input.id), eq(styleCard.status, 'active')))
+    .returning()
+  if (!result[0]) {
+    throw new ORPCError('NOT_FOUND', {
+      message: 'Style card not found or already retired',
+    })
+  }
+  return result[0]
+})
 
 export const styleCardHandlers = {
   feed: feedStyleCards,

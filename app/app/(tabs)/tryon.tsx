@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { ActivityIndicator, Image, Pressable, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import BookmarkSimple from '@/assets/icons/BookmarkSimple.svg'
@@ -7,7 +7,7 @@ import ShareFat from '@/assets/icons/ShareFat.svg'
 import { HeroFloor } from '@/components/hero-floor'
 import { SlotStrip } from '@/components/slot-strip'
 import { ToneBackground } from '@/components/tone-background'
-import { client } from '@/lib/orpc-client'
+import { type client, orpc } from '@/lib/orpc-client'
 import { getOutfitTone } from '@/lib/outfit-tone'
 
 type Item = Awaited<ReturnType<typeof client.clothingItem.list>>[number]
@@ -33,46 +33,39 @@ const SLOTS: Array<{
   { key: 'footwear', label: 'SHOES', matches: (c) => c === 'footwear' },
 ]
 
+function defaultSlotsFromItems(rows: Item[]): Partial<Record<SlotKey, string>> {
+  if (rows.length === 0) return {}
+  // PM note: there is no empty state — default to white shirt + white
+  // pants. We hydrate from the user's wardrobe (closest white items
+  // available) until system stock defaults exist.
+  const defaultBase =
+    rows.find((i) => i.category === 'tee' && i.primaryColor === 'white') ??
+    rows.find((i) => i.category === 'tee')
+  const defaultBottom =
+    rows.find((i) => i.category === 'pants' && i.primaryColor === 'white') ??
+    rows.find((i) => i.category === 'pants' && i.primaryColor === 'cream') ??
+    rows.find((i) => i.category === 'pants')
+  const next: Partial<Record<SlotKey, string>> = {}
+  if (defaultBase) next.base = defaultBase.id
+  if (defaultBottom) next.bottom = defaultBottom.id
+  return next
+}
+
 export default function TryOn() {
   const insets = useSafeAreaInsets()
-  const [items, setItems] = useState<Item[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [selection, setSelection] = useState<Partial<Record<SlotKey, string>>>({})
+  const {
+    data: items = [],
+    isPending: loading,
+    error: loadError,
+  } = useQuery(orpc.clothingItem.list.queryOptions({ input: {} }))
+  const selection = defaultSlotsFromItems(items)
+  const errText = loadError
+    ? loadError instanceof Error
+      ? loadError.message
+      : 'Failed to load'
+    : null
 
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const rows = await client.clothingItem.list()
-        if (cancelled) return
-        setItems(rows)
-        // PM note: there is no empty state — default to white shirt + white
-        // pants. We hydrate from the user's wardrobe (closest white items
-        // available) until system stock defaults exist.
-        const defaultBase =
-          rows.find((i) => i.category === 'tee' && i.primaryColor === 'white') ??
-          rows.find((i) => i.category === 'tee')
-        const defaultBottom =
-          rows.find((i) => i.category === 'pants' && i.primaryColor === 'white') ??
-          rows.find((i) => i.category === 'pants' && i.primaryColor === 'cream') ??
-          rows.find((i) => i.category === 'pants')
-        const next: Partial<Record<SlotKey, string>> = {}
-        if (defaultBase) next.base = defaultBase.id
-        if (defaultBottom) next.bottom = defaultBottom.id
-        setSelection(next)
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const itemsById = useMemo(() => new Map(items.map((i) => [i.id, i])), [items])
+  const itemsById = new Map(items.map((i) => [i.id, i]))
 
   const filledSlots = SLOTS.map((s) => {
     const id = selection[s.key]
@@ -201,9 +194,9 @@ export default function TryOn() {
         />
       </View>
 
-      {error ? (
+      {errText ? (
         <View style={{ position: 'absolute', top: 80, alignSelf: 'center' }}>
-          <Text style={{ color: '#ef4444' }}>{error}</Text>
+          <Text style={{ color: '#ef4444' }}>{errText}</Text>
         </View>
       ) : null}
     </ToneBackground>

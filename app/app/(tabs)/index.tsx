@@ -1,5 +1,6 @@
+import { useQueries } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   ActivityIndicator,
   Image,
@@ -9,7 +10,7 @@ import {
   Text,
   View,
 } from 'react-native'
-import { client } from '@/lib/orpc-client'
+import { type client, orpc } from '@/lib/orpc-client'
 
 type Outfit = Awaited<ReturnType<typeof client.outfit.list>>[number]
 type Item = Awaited<ReturnType<typeof client.clothingItem.list>>[number]
@@ -66,41 +67,18 @@ function OutfitCard({
             resizeMode="contain"
           />
         ) : null}
-        <Text
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            color: '#9ca3af',
-            fontFamily: 'Kirang',
-            fontSize: 24,
-            lineHeight: 24,
-          }}
-        >
+        <Text className="font-kirang absolute left-0 top-0 text-[24px] leading-6 text-gray-400">
           #{index + 1}
         </Text>
       </View>
       <Text
-        style={{
-          fontSize: 16,
-          lineHeight: 22,
-          fontWeight: '700',
-          letterSpacing: -0.16,
-          color: 'black',
-        }}
+        className="text-base leading-[22px] font-bold tracking-[-0.16px] text-black"
         numberOfLines={1}
       >
         {outfit.name ?? 'Untitled'}
       </Text>
       <Text
-        style={{
-          fontFamily: 'Inter',
-          fontSize: 12,
-          lineHeight: 16,
-          letterSpacing: 0.06,
-          color: '#848484',
-          marginTop: 2,
-        }}
+        className="font-funnel mt-0.5 text-[12px] leading-[16px] tracking-[0.06px] text-[#848484]"
         numberOfLines={1}
       >
         {visibleTags.map((t) => `#${t}`).join(' ')}
@@ -111,51 +89,38 @@ function OutfitCard({
 }
 
 export default function SavedOutfits() {
-  const [outfits, setOutfits] = useState<Outfit[]>([])
-  const [itemsById, setItemsById] = useState<Map<string, Item>>(new Map())
-  const [loading, setLoading] = useState(true)
+  const [outfitsQuery, itemsQuery] = useQueries({
+    queries: [
+      orpc.outfit.list.queryOptions(),
+      orpc.clothingItem.list.queryOptions({
+        input: {},
+      }),
+    ],
+  })
+
+  const loading = outfitsQuery.isPending || itemsQuery.isPending
+  const loadError = outfitsQuery.error ?? itemsQuery.error
+
+  const outfits = outfitsQuery.data ?? []
+  const rows = itemsQuery.data ?? []
+  const itemsById = new Map<string, Item>(rows.map((i) => [i.id, i]))
+
   const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function load() {
-    const [outfitRows, itemRows] = await Promise.all([
-      client.outfit.list(),
-      client.clothingItem.list(),
-    ])
-    const map = new Map<string, Item>()
-    for (const i of itemRows) map.set(i.id, i)
-    setItemsById(map)
-    setOutfits(outfitRows)
-  }
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: TODO
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        if (!cancelled) await load()
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load')
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   async function onRefresh() {
     setRefreshing(true)
     try {
-      await load()
-      setError(null)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load')
+      await Promise.all([outfitsQuery.refetch(), itemsQuery.refetch()])
     } finally {
       setRefreshing(false)
     }
   }
+
+  const errText = loadError
+    ? loadError instanceof Error
+      ? loadError.message
+      : 'Failed to load'
+    : null
 
   return (
     <View className="flex-1 pt-16" style={{ backgroundColor: '#EBEBEB' }}>
@@ -170,7 +135,7 @@ export default function SavedOutfits() {
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator />
         </View>
-      ) : error || outfits.length === 0 ? (
+      ) : errText || outfits.length === 0 ? (
         <ScrollView
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           contentContainerStyle={{
@@ -180,8 +145,8 @@ export default function SavedOutfits() {
             paddingHorizontal: 32,
           }}
         >
-          {error ? (
-            <Text className="text-red-500 text-center">{error}</Text>
+          {errText ? (
+            <Text className="text-red-500 text-center">{errText}</Text>
           ) : (
             <Text className="text-gray-500">No saved outfits yet</Text>
           )}
@@ -203,7 +168,7 @@ export default function SavedOutfits() {
           {Array.from({ length: (2 - (outfits.length % 2)) % 2 }).map((_, i) => (
             <View
               key={`phantom-${
-                // biome-ignore lint/suspicious/noArrayIndexKey: TODO
+                // biome-ignore lint/suspicious/noArrayIndexKey: placeholder cell
                 i
               }`}
               style={{ width: 170, height: 221, margin: 6, maxWidth: '50%' }}

@@ -103,10 +103,6 @@ export async function seedUser(overrides: Partial<TestUser> = {}) {
     image: null,
     createdAt: now,
     updatedAt: now,
-    role: 'admin',
-    banned: false,
-    banReason: null,
-    banExpires: null,
     trialStartedAt: now,
     ...overrides,
   })

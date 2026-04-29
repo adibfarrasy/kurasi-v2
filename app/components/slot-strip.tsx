@@ -21,23 +21,6 @@ const cardBaseStyle = {
   elevation: 2,
 } as const
 
-const labelStyle = {
-  position: 'absolute',
-  top: 8,
-  left: 8,
-  width: 38,
-  height: 18,
-  fontFamily: 'Kirang',
-  fontSize: 14,
-  lineHeight: 14,
-  letterSpacing: -0.42,
-  color: '#dc2626',
-  opacity: 0.68,
-  textTransform: 'uppercase',
-  transform: [{ rotate: '-15deg' }],
-  zIndex: 2,
-} as const
-
 export type SlotItem = {
   id: string
   imageUrl: string
@@ -62,7 +45,9 @@ export function SlotCard({
       onPress={onPress}
       style={[cardBaseStyle, { transform: [{ rotate: index % 2 === 0 ? '-1deg' : '1deg' }] }]}
     >
-      <Text style={labelStyle}>{label}</Text>
+      <Text className="font-kirang absolute left-2 top-2 z-[2] h-[18px] w-[38px] rotate-[-15deg] text-[14px] leading-[14px] tracking-[-0.42px] text-red-600 opacity-[0.68] uppercase">
+        {label}
+      </Text>
       {item ? (
         <Image
           source={{ uri: item.imageUrl }}
@@ -107,18 +92,7 @@ export function AddSlotCard({ onPress }: { onPress?: () => void }) {
       }}
     >
       <AddItem width={74} height={65} color="#000" />
-      <Text
-        style={{
-          width: 74,
-          height: 12,
-          fontFamily: 'Inter',
-          fontSize: 9,
-          lineHeight: 12,
-          letterSpacing: 0.18,
-          color: '#3C3C3C',
-          textAlign: 'center',
-        }}
-      >
+      <Text className="font-funnel h-[12px] w-[74px] text-center text-[9px] leading-[12px] tracking-[0.18px] text-[#3C3C3C]">
         + Add Item
       </Text>
     </Pressable>

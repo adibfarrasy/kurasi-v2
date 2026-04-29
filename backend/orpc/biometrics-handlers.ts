@@ -2,23 +2,21 @@ import { ORPCError } from '@orpc/server'
 import { eq } from 'drizzle-orm'
 import { onboardingProgress, userBiometrics } from '../db/schema'
 import { userBiometricsInsertSchema } from '../zod-schemas'
-import { requirePermission } from './authed'
+import { authed } from './authed'
 import { maybeCompleteOnboarding } from './onboarding-helpers'
 
 // Spec: specs/fit-page.allium — UserBiometrics (lines 70-76),
 // SetBiometrics (lines 132-154), RemoveFacePhoto (lines 156-162).
 
-const getBiometrics = requirePermission({ permission: { userBiometrics: ['read'] } }).handler(
-  async ({ context }) => {
-    const { db, user } = context
-    const rows = await db.select().from(userBiometrics).where(eq(userBiometrics.userId, user.id))
-    return rows[0] ?? null
-  },
-)
+const getBiometrics = authed.handler(async ({ context }) => {
+  const { db, user } = context
+  const rows = await db.select().from(userBiometrics).where(eq(userBiometrics.userId, user.id))
+  return rows[0] ?? null
+})
 
 // SetBiometrics — upsert by userId. One biometrics row per user, so we always
 // INSERT ... ON CONFLICT DO UPDATE on the userId PK.
-const setBiometrics = requirePermission({ permission: { userBiometrics: ['upsert'] } })
+const setBiometrics = authed
   .input(userBiometricsInsertSchema)
   .handler(async ({ context, input }) => {
     const { db, user } = context
@@ -63,9 +61,7 @@ const setBiometrics = requirePermission({ permission: { userBiometrics: ['upsert
 
 // RemoveFacePhoto — spec requires face_photo_url != null; NOT_FOUND when no
 // biometrics row exists, BAD_REQUEST when already null.
-const removeFacePhoto = requirePermission({
-  permission: { userBiometrics: ['delete-photo'] },
-}).handler(async ({ context }) => {
+const removeFacePhoto = authed.handler(async ({ context }) => {
   const { db, user } = context
   const existing = await db.select().from(userBiometrics).where(eq(userBiometrics.userId, user.id))
   const row = existing[0]

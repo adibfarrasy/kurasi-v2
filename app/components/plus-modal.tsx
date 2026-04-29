@@ -112,26 +112,10 @@ function ActionRow({ action }: { action: Action }) {
       }}
     >
       <View style={{ width: 241, height: 56, gap: 2, justifyContent: 'center' }}>
-        <Text
-          style={{
-            fontFamily: 'FunnelSans_400Regular',
-            fontSize: 16,
-            lineHeight: 22,
-            letterSpacing: -0.16,
-            color: '#000',
-          }}
-        >
+        <Text className="font-funnel font-normal text-[16px] leading-[22px] tracking-[-0.16px] text-black">
           {action.title}
         </Text>
-        <Text
-          style={{
-            fontFamily: 'Inter',
-            fontSize: 12,
-            lineHeight: 16,
-            letterSpacing: 0.06,
-            color: '#6b7280',
-          }}
-        >
+        <Text className="font-funnel text-[12px] leading-[16px] tracking-[0.06px] text-[#6b7280]">
           {action.subtitle}
         </Text>
       </View>
@@ -191,15 +175,7 @@ export const PlusModal = forwardRef<PlusModalHandle>((_props, ref) => {
             marginTop: 4,
           }}
         >
-          <Text
-            style={{
-              fontFamily: 'FunnelSans_400Regular',
-              fontSize: 20,
-              lineHeight: 24,
-              letterSpacing: -0.3,
-              color: '#000',
-            }}
-          >
+          <Text className="font-funnel font-normal text-[20px] leading-[24px] tracking-[-0.3px] text-black">
             Close
           </Text>
           <Pressable
