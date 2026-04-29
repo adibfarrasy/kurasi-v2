@@ -3,7 +3,7 @@ import z from 'zod'
 import type { auth } from '../auth'
 import type { db } from '../db/db'
 
-interface ORPCContext {
+export interface ORPCContext {
   db: typeof db
   auth: typeof auth
   reqHeaders: Headers

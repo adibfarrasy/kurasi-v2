@@ -5,28 +5,30 @@
   "private": true,
   "scripts": {
     "dev": "bun --hot index.ts",
+    "start": "bun index.ts",
+    "test": "bun test",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/pg": "^8.16.0",
-    "drizzle-kit": "^0.31.8"
+    "@types/pg": "^8.20.0",
+    "drizzle-kit": "^0.31.10"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
-    "@ai-sdk/fal": "^2.0.25",
+    "@ai-sdk/fal": "^2.0.31",
     "@better-auth/expo": "catalog:",
-    "@fal-ai/client": "^1.9.4",
+    "@fal-ai/client": "^1.10.0",
     "@firemoon/ai-provider": "^0.0.1",
-    "@google/genai": "^1.44.0",
+    "@google/genai": "^1.50.1",
     "@orpc/server": "catalog:",
-    "ai": "^6.0.116",
+    "ai": "^6.0.169",
     "better-auth": "catalog:",
-    "drizzle-orm": "^0.45.1",
+    "drizzle-orm": "^0.45.2",
     "drizzle-zod": "^0.8.3",
-    "pg": "^8.18.0",
+    "pg": "^8.20.0",
     "zod": "catalog:"
   }
 }

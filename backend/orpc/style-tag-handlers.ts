@@ -35,7 +35,11 @@ const createStyleTag = requirePermission({ permission: { styleTag: ['admin-manag
       .insert(styleTag)
       .values({ label: input.label, category: input.category })
       .returning()
-    return inserted[0]!
+    const tag = inserted[0]
+    if (!tag) {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'Failed to create tag' })
+    }
+    return tag
   })
 
 export const styleTagHandlers = {

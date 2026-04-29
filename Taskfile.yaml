@@ -23,27 +23,40 @@ tasks:
     desc: Run backend infrastructure
     dir: backend
     cmds:
-      - skaffold dev
+      - docker compose up
 
   # Better Auth schema -> Drizzle schema (auth-schema.ts)
   generate-auth-schema:
     desc: Generate Better Auth schema
     dir: backend
     cmds:
-      - bunx --bun --env-file=.env.development.local @better-auth/cli generate --config ./auth.ts --output ./db/auth-schema.gen.ts --yes
+      - bunx --bun --env-file=.env.development.local @better-auth/cli generate
+        --config ./auth.ts --output ./db/auth-schema.gen.ts --yes
       - task lint
 
-  drizzle-push:local:
+  # Drizzle schema -> SQL migrations
+  drizzle-generate:
+    desc: Generate Drizzle migrations
+    dir: backend
+    cmds:
+      - bun --env-file=.env.development.local drizzle-kit generate
+
+  # Apply SQL migrations to the local DB
+  drizzle-migrate:local:
     desc: Run Drizzle migrations locally
     dir: backend
     cmds:
-      - bun --env-file=.env.development.local drizzle-kit push
+      - bun --env-file=.env.development.local drizzle-kit migrate
 
-  drizzle-push:prod:
-    desc: Run Drizzle migrations on production
+  reset-db:local:
+    desc: Reset local DB (remove Postgres volume, recreate stack, run migrations)
     dir: backend
     cmds:
-      - bun --env-file=.env.production.local drizzle-kit push
+      - docker compose down -v
+      - docker compose up -d
+      - bash -c 'until docker compose exec -T db pg_isready -U postgres
+        >/dev/null 2>&1; do sleep 0.5; done'
+      - task drizzle-migrate:local
 
   app-build:ios:
     desc: Build iOS dev client via EAS Build
@@ -76,6 +89,6 @@ tasks:
   ci:
     desc: Run all CI checks (lint, typecheck, test)
     cmds:
-      - task: fe-lint
-      - task: fe-typecheck
+      - task: lint
+      - task: typecheck
       - task: test

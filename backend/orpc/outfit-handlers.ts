@@ -62,9 +62,7 @@ const createOutfit = requirePermission({ permission: { outfit: ['create'] } })
   })
 
 const updateOutfit = requirePermission({ permission: { outfit: ['update'] } })
-  .input(
-    outfitUpdateSchema.pick({ id: true, name: true, tags: true, notes: true }),
-  )
+  .input(outfitUpdateSchema.pick({ id: true, name: true, tags: true, notes: true }))
   .handler(async ({ context, input }) => {
     const { db, user } = context
     const { id, ...updateData } = input
@@ -72,9 +70,7 @@ const updateOutfit = requirePermission({ permission: { outfit: ['update'] } })
     const result = await db
       .update(outfit)
       .set({ ...updateData, updatedAt: new Date() })
-      .where(
-        and(eq(outfit.id, id), eq(outfit.userId, user.id), eq(outfit.status, 'active')),
-      )
+      .where(and(eq(outfit.id, id), eq(outfit.userId, user.id), eq(outfit.status, 'active')))
       .returning()
     if (!result[0]) {
       throw new ORPCError('NOT_FOUND', { message: 'Outfit not found' })
@@ -89,13 +85,7 @@ const deleteOutfit = requirePermission({ permission: { outfit: ['delete'] } })
     const result = await db
       .update(outfit)
       .set({ status: 'deleted', deletedAt: new Date(), updatedAt: new Date() })
-      .where(
-        and(
-          eq(outfit.id, input.id),
-          eq(outfit.userId, user.id),
-          eq(outfit.status, 'active'),
-        ),
-      )
+      .where(and(eq(outfit.id, input.id), eq(outfit.userId, user.id), eq(outfit.status, 'active')))
       .returning()
     if (!result[0]) {
       throw new ORPCError('NOT_FOUND', { message: 'Outfit not found' })
@@ -122,13 +112,7 @@ const rateOutfit = requirePermission({ permission: { outfit: ['update'] } })
     const result = await db
       .update(outfit)
       .set(patch)
-      .where(
-        and(
-          eq(outfit.id, input.id),
-          eq(outfit.userId, user.id),
-          eq(outfit.status, 'active'),
-        ),
-      )
+      .where(and(eq(outfit.id, input.id), eq(outfit.userId, user.id), eq(outfit.status, 'active')))
       .returning()
     if (!result[0]) {
       throw new ORPCError('NOT_FOUND', { message: 'Outfit not found' })

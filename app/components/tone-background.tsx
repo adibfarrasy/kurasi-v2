@@ -1,7 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import type { ReactNode } from 'react'
 import type { ViewStyle } from 'react-native'
-import { type Tone, TONE_GRADIENTS } from '@/lib/outfit-tone'
+import { TONE_GRADIENTS, type Tone } from '@/lib/outfit-tone'
 
 export function ToneBackground({
   tone,

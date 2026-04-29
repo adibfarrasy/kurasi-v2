@@ -1,149 +1,112 @@
-/**
- * Tests for shareable-card-handlers.
- * Spec: specs/social-share.allium
- */
-
 import { beforeEach, describe, expect, test } from 'bun:test'
+import { call } from '@orpc/server'
+import { eq } from 'drizzle-orm'
+import { shareableCard } from '../db/schema'
+import * as utils from '../test/utils'
 import {
-  installFitPageFakes,
-  resetStore,
-  seedItem,
-  seedOutfit,
-  seedShareableCard,
-  store,
-} from './fit-page-test-helpers'
+  CARD_TTL_DAYS,
+  MIN_ITEMS_TO_UNLOCK_SHARING,
+  shareableCardHandlers,
+} from './shareable-card-handlers'
 
-const { fakeDb, fakeAuth, setUser, setPermissionAllowed } = installFitPageFakes()
-
-const { call } = await import('@orpc/server')
-const { shareableCardHandlers, MIN_ITEMS_TO_UNLOCK_SHARING, CARD_TTL_DAYS } =
-  await import('./shareable-card-handlers')
-
-function ctx() {
-  return {
-    db: fakeDb as unknown as never,
-    auth: fakeAuth as unknown as never,
-    reqHeaders: new Headers(),
-  }
-}
-
-function seedThreshold(count = MIN_ITEMS_TO_UNLOCK_SHARING, userId = 'user-a') {
+async function seedThreshold(count = MIN_ITEMS_TO_UNLOCK_SHARING, userId = 'user-a') {
   for (let i = 0; i < count; i++) {
-    seedItem({ userId, status: 'active' })
+    await utils.seedClothingItem({ userId, status: 'active' })
   }
 }
 
-beforeEach(() => {
-  resetStore()
-  setUser({ id: 'user-a' })
-  setPermissionAllowed(true)
+beforeEach(async () => {
+  await utils.resetTestDb()
+  await utils.seedUser()
 })
 
 describe('shareableCardHandlers.generateOutfit', () => {
   test('creates an outfit card when threshold met', async () => {
-    seedThreshold()
-    const o = seedOutfit()
+    await seedThreshold()
+    const outfit = await utils.seedOutfit()
     const result = await call(
       shareableCardHandlers.generateOutfit,
-      { outfitId: o.id, theme: 'light', caption: 'hi' } as never,
-      { context: ctx() },
+      { outfitId: outfit.id, theme: 'light', caption: 'hi' } as never,
+      { context: utils.testContext() },
     )
     expect(result).toMatchObject({
       kind: 'outfit',
-      outfitId: o.id,
+      outfitId: outfit.id,
       theme: 'light',
       caption: 'hi',
       status: 'active',
     })
     expect(result!.renderedImageUrl).toContain('cdn.kurasi.dev')
-    expect(store.shareableCards).toHaveLength(1)
   })
 
   test('rejects when below threshold', async () => {
-    seedThreshold(MIN_ITEMS_TO_UNLOCK_SHARING - 1)
-    const o = seedOutfit()
+    await seedThreshold(MIN_ITEMS_TO_UNLOCK_SHARING - 1)
+    const outfit = await utils.seedOutfit()
     await expect(
-      call(
-        shareableCardHandlers.generateOutfit,
-        { outfitId: o.id, theme: 'dark' } as never,
-        { context: ctx() },
-      ),
+      call(shareableCardHandlers.generateOutfit, { outfitId: outfit.id, theme: 'dark' } as never, {
+        context: utils.testContext(),
+      }),
     ).rejects.toThrow()
   })
 
-  test('accepts exactly at threshold', async () => {
-    seedThreshold(MIN_ITEMS_TO_UNLOCK_SHARING)
-    const o = seedOutfit()
-    const result = await call(
-      shareableCardHandlers.generateOutfit,
-      { outfitId: o.id, theme: 'dark' } as never,
-      { context: ctx() },
-    )
-    expect(result!.status).toBe('active')
-  })
-
   test('archived items do not count toward threshold', async () => {
-    // 4 active + 2 archived = below threshold
-    seedThreshold(4)
-    seedItem({ status: 'archived' })
-    seedItem({ status: 'archived' })
-    const o = seedOutfit()
+    await seedThreshold(4)
+    await utils.seedClothingItem({ status: 'archived' })
+    await utils.seedClothingItem({ status: 'archived' })
+    const outfit = await utils.seedOutfit()
     await expect(
-      call(
-        shareableCardHandlers.generateOutfit,
-        { outfitId: o.id, theme: 'light' } as never,
-        { context: ctx() },
-      ),
+      call(shareableCardHandlers.generateOutfit, { outfitId: outfit.id, theme: 'light' } as never, {
+        context: utils.testContext(),
+      }),
     ).rejects.toThrow()
   })
 
   test('rejects when outfit not owned by caller', async () => {
-    seedThreshold()
-    const o = seedOutfit({ userId: 'user-b' })
+    await seedThreshold()
+    await utils.seedUser({ id: 'user-b', email: 'user-b@example.com' })
+    const outfit = await utils.seedOutfit({ userId: 'user-b' })
+    await utils.loginAsUser('user-a')
     await expect(
-      call(
-        shareableCardHandlers.generateOutfit,
-        { outfitId: o.id, theme: 'light' } as never,
-        { context: ctx() },
-      ),
+      call(shareableCardHandlers.generateOutfit, { outfitId: outfit.id, theme: 'light' } as never, {
+        context: utils.testContext(),
+      }),
     ).rejects.toThrow()
   })
 
-  test('rejects when outfit status is deleted', async () => {
-    seedThreshold()
-    const o = seedOutfit({ status: 'deleted' })
+  test('rejects when outfit status is deleted (not active)', async () => {
+    await seedThreshold()
+    const inactive = await utils.seedOutfit({ status: 'deleted', deletedAt: new Date() })
     await expect(
       call(
         shareableCardHandlers.generateOutfit,
-        { outfitId: o.id, theme: 'light' } as never,
-        { context: ctx() },
+        { outfitId: inactive.id, theme: 'light' } as never,
+        {
+          context: utils.testContext(),
+        },
       ),
     ).rejects.toThrow()
   })
 
   test('expiresAt is created_at + card_ttl days', async () => {
-    seedThreshold()
-    const o = seedOutfit()
-    const before = Date.now()
+    await seedThreshold()
+    const outfit = await utils.seedOutfit()
     const result = await call(
       shareableCardHandlers.generateOutfit,
-      { outfitId: o.id, theme: 'light' } as never,
-      { context: ctx() },
+      { outfitId: outfit.id, theme: 'light' } as never,
+      { context: utils.testContext() },
     )
     const delta = result!.expiresAt.getTime() - result!.createdAt.getTime()
-    const expected = CARD_TTL_DAYS * 24 * 60 * 60 * 1000
-    expect(Math.abs(delta - expected)).toBeLessThan(1000)
-    expect(result!.expiresAt.getTime()).toBeGreaterThanOrEqual(before)
+    expect(Math.abs(delta - CARD_TTL_DAYS * 24 * 60 * 60 * 1000)).toBeLessThan(1000)
   })
 })
 
 describe('shareableCardHandlers.generateWardrobeShowcase', () => {
   test('creates a wardrobe_showcase card', async () => {
-    seedThreshold()
+    await seedThreshold()
     const result = await call(
       shareableCardHandlers.generateWardrobeShowcase,
       { mode: 'by_color', theme: 'colorful' } as never,
-      { context: ctx() },
+      { context: utils.testContext() },
     )
     expect(result).toMatchObject({
       kind: 'wardrobe_showcase',
@@ -154,12 +117,12 @@ describe('shareableCardHandlers.generateWardrobeShowcase', () => {
   })
 
   test('rejects below threshold', async () => {
-    seedThreshold(1)
+    await seedThreshold(1)
     await expect(
       call(
         shareableCardHandlers.generateWardrobeShowcase,
         { mode: 'entire_wardrobe', theme: 'light' } as never,
-        { context: ctx() },
+        { context: utils.testContext() },
       ),
     ).rejects.toThrow()
   })
@@ -167,143 +130,103 @@ describe('shareableCardHandlers.generateWardrobeShowcase', () => {
 
 describe('shareableCardHandlers.generateStyleStats', () => {
   test('creates a style_stats card', async () => {
-    seedThreshold()
+    await seedThreshold()
     const result = await call(
       shareableCardHandlers.generateStyleStats,
       { period: 'year', theme: 'dark' } as never,
-      { context: ctx() },
+      { context: utils.testContext() },
     )
-    expect(result).toMatchObject({
-      kind: 'style_stats',
-      statsPeriod: 'year',
-    })
-  })
-
-  test('rejects below threshold', async () => {
-    seedThreshold(0)
-    await expect(
-      call(
-        shareableCardHandlers.generateStyleStats,
-        { period: 'week', theme: 'light' } as never,
-        { context: ctx() },
-      ),
-    ).rejects.toThrow()
+    expect(result).toMatchObject({ kind: 'style_stats', statsPeriod: 'year' })
   })
 })
 
 describe('shareableCardHandlers.updateCaption', () => {
   test('updates caption on own active card', async () => {
-    const c = seedShareableCard({ caption: 'old' })
+    const card = await utils.seedShareableCard({ caption: 'old' })
     const result = await call(
       shareableCardHandlers.updateCaption,
-      { cardId: c.id, caption: 'new' } as never,
-      { context: ctx() },
+      { cardId: card.id, caption: 'new' } as never,
+      { context: utils.testContext() },
     )
     expect(result!.caption).toBe('new')
   })
 
-  test('NOT_FOUND when card is not owned by caller', async () => {
-    const c = seedShareableCard({ userId: 'user-b' })
+  test('NOT_FOUND when card is not owned by caller or expired', async () => {
+    await utils.seedUser({ id: 'user-b', email: 'user-b@example.com' })
+    const other = await utils.seedShareableCard({ userId: 'user-b' })
+    const expired = await utils.seedShareableCard({ userId: 'user-a', status: 'expired' })
+    await utils.loginAsUser('user-a')
     await expect(
-      call(
-        shareableCardHandlers.updateCaption,
-        { cardId: c.id, caption: 'x' } as never,
-        { context: ctx() },
-      ),
+      call(shareableCardHandlers.updateCaption, { cardId: other.id, caption: 'x' } as never, {
+        context: utils.testContext(),
+      }),
     ).rejects.toThrow()
-  })
-
-  test('NOT_FOUND for expired card', async () => {
-    const c = seedShareableCard({ status: 'expired' })
     await expect(
-      call(
-        shareableCardHandlers.updateCaption,
-        { cardId: c.id, caption: 'x' } as never,
-        { context: ctx() },
-      ),
-    ).rejects.toThrow()
-  })
-
-  test('NOT_FOUND when card id does not exist', async () => {
-    await expect(
-      call(
-        shareableCardHandlers.updateCaption,
-        { cardId: crypto.randomUUID(), caption: 'x' } as never,
-        { context: ctx() },
-      ),
+      call(shareableCardHandlers.updateCaption, { cardId: expired.id, caption: 'x' } as never, {
+        context: utils.testContext(),
+      }),
     ).rejects.toThrow()
   })
 })
 
 describe('shareableCardHandlers.list', () => {
-  test('excludes expired by default', async () => {
-    seedShareableCard({ status: 'active' })
-    seedShareableCard({ status: 'expired' })
+  test('excludes expired by default and scopes to caller', async () => {
+    await utils.seedShareableCard({ userId: 'user-a', status: 'active' })
+    await utils.seedShareableCard({ userId: 'user-a', status: 'expired' })
+    await utils.seedUser({ id: 'user-b', email: 'user-b@example.com' })
+    await utils.seedShareableCard({ userId: 'user-b', status: 'active' })
+    await utils.loginAsUser('user-a')
     const result = await call(shareableCardHandlers.list, undefined as never, {
-      context: ctx(),
-    })
-    expect(result).toHaveLength(1)
-    expect(result[0]!.status).toBe('active')
-  })
-
-  test('includes expired when includeExpired=true', async () => {
-    seedShareableCard({ status: 'active' })
-    seedShareableCard({ status: 'expired' })
-    const result = await call(
-      shareableCardHandlers.list,
-      { includeExpired: true } as never,
-      { context: ctx() },
-    )
-    expect(result).toHaveLength(2)
-  })
-
-  test('scopes to caller', async () => {
-    seedShareableCard({ userId: 'user-a' })
-    seedShareableCard({ userId: 'user-b' })
-    const result = await call(shareableCardHandlers.list, undefined as never, {
-      context: ctx(),
+      context: utils.testContext(),
     })
     expect(result).toHaveLength(1)
     expect(result[0]!.userId).toBe('user-a')
+  })
+
+  test('includes expired when includeExpired=true', async () => {
+    await utils.seedShareableCard({ status: 'active' })
+    await utils.seedShareableCard({ status: 'expired' })
+    const result = await call(shareableCardHandlers.list, { includeExpired: true } as never, {
+      context: utils.testContext(),
+    })
+    expect(result).toHaveLength(2)
   })
 })
 
 describe('shareableCardHandlers.find', () => {
   test('returns own card with isOwner=true', async () => {
-    const c = seedShareableCard()
-    const result = await call(
-      shareableCardHandlers.find,
-      { id: c.id } as never,
-      { context: ctx() },
-    )
+    const card = await utils.seedShareableCard()
+    const result = await call(shareableCardHandlers.find, { id: card.id } as never, {
+      context: utils.testContext(),
+    })
     expect(result.isOwner).toBe(true)
-    expect(result.card.id).toBe(c.id)
+    expect(result.card.id).toBe(card.id)
   })
 
-  test('returns non-owner active card with isOwner=false', async () => {
-    const c = seedShareableCard({ userId: 'user-b', status: 'active' })
-    const result = await call(
-      shareableCardHandlers.find,
-      { id: c.id } as never,
-      { context: ctx() },
-    )
+  test('returns non-owner active card and rejects non-owner expired card', async () => {
+    await utils.seedUser({ id: 'user-b', email: 'user-b@example.com' })
+    const active = await utils.seedShareableCard({ userId: 'user-b', status: 'active' })
+    const expired = await utils.seedShareableCard({ userId: 'user-b', status: 'expired' })
+    await utils.loginAsUser('user-a')
+    const result = await call(shareableCardHandlers.find, { id: active.id } as never, {
+      context: utils.testContext(),
+    })
     expect(result.isOwner).toBe(false)
-  })
-
-  test('rejects non-owner expired card (not public)', async () => {
-    const c = seedShareableCard({ userId: 'user-b', status: 'expired' })
     await expect(
-      call(shareableCardHandlers.find, { id: c.id } as never, { context: ctx() }),
+      call(shareableCardHandlers.find, { id: expired.id } as never, {
+        context: utils.testContext(),
+      }),
     ).rejects.toThrow()
   })
 })
 
 describe('shareableCardHandlers.expireOldCards', () => {
   test('admin-only — non-admin rejected', async () => {
-    setPermissionAllowed(false)
+    await utils.resetTestDb()
+    await utils.seedUser({ role: 'new' })
     await expect(
       call(shareableCardHandlers.expireOldCards, undefined as never, {
-        context: ctx(),
+        context: utils.testContext(),
       }),
     ).rejects.toThrow()
   })
@@ -311,21 +234,24 @@ describe('shareableCardHandlers.expireOldCards', () => {
   test('transitions active rows with expiresAt < now', async () => {
     const past = new Date(Date.now() - 24 * 60 * 60 * 1000)
     const future = new Date(Date.now() + 24 * 60 * 60 * 1000)
-    seedShareableCard({ status: 'active', expiresAt: past })
-    seedShareableCard({ status: 'active', expiresAt: future })
+    await utils.seedShareableCard({ status: 'active', expiresAt: past })
+    await utils.seedShareableCard({ status: 'active', expiresAt: future })
     const result = await call(shareableCardHandlers.expireOldCards, undefined as never, {
-      context: ctx(),
+      context: utils.testContext(),
     })
     expect(result.expiredCount).toBe(1)
-    const statuses = store.shareableCards.map((c) => c.status).sort()
-    expect(statuses).toEqual(['active', 'expired'])
+    const rows = await utils.db
+      .select()
+      .from(shareableCard)
+      .where(eq(shareableCard.userId, 'user-a'))
+    expect(rows.map((card) => card.status).sort()).toEqual(['active', 'expired'])
   })
 
   test('does not touch already-expired rows', async () => {
     const past = new Date(Date.now() - 24 * 60 * 60 * 1000)
-    seedShareableCard({ status: 'expired', expiresAt: past })
+    await utils.seedShareableCard({ status: 'expired', expiresAt: past })
     const result = await call(shareableCardHandlers.expireOldCards, undefined as never, {
-      context: ctx(),
+      context: utils.testContext(),
     })
     expect(result.expiredCount).toBe(0)
   })

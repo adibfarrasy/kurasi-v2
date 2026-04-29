@@ -64,6 +64,13 @@
       "when": 1776723929979,
       "tag": "0008_add_social_share",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1777459577281,
+      "tag": "0009_eager_black_cat",
+      "breakpoints": true
     }
   ]
 }

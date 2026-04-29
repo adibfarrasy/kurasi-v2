@@ -16,7 +16,7 @@ Bun workspaces monorepo:
 
 - [Bun](https://bun.sh)
 - [Task](https://taskfile.dev) — task runner (`brew install go-task`)
-- Postgres (the `be-infra` task spins one up via Skaffold/Kubernetes, or bring your own)
+- Postgres (the `be-infra` task spins one up via Docker Compose, or bring your own)
 - `backend/.env.development.local` with DB URL and provider keys
 
 ## Setup

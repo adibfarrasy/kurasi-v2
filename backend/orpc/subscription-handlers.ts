@@ -26,10 +26,7 @@ function addDays(d: Date, days: number): Date {
 const getSubscription = requirePermission({ permission: { subscription: ['read'] } }).handler(
   async ({ context }) => {
     const { db, user } = context
-    const rows = await db
-      .select()
-      .from(subscription)
-      .where(eq(subscription.userId, user.id))
+    const rows = await db.select().from(subscription).where(eq(subscription.userId, user.id))
     const sub = rows[0] ?? null
     const access = computeAccess(user as { trialStartedAt: Date | null }, sub)
     return {
@@ -49,10 +46,7 @@ const startSubscription = requirePermission({ permission: { subscription: ['star
   .input(z.object({ providerRef: z.string().optional() }).optional())
   .handler(async ({ context, input }) => {
     const { db, user } = context
-    const existing = await db
-      .select()
-      .from(subscription)
-      .where(eq(subscription.userId, user.id))
+    const existing = await db.select().from(subscription).where(eq(subscription.userId, user.id))
     if (existing[0]) {
       throw new ORPCError('CONFLICT', {
         message: 'Subscription already exists for user',
@@ -79,10 +73,7 @@ const startSubscription = requirePermission({ permission: { subscription: ['star
 const cancelSubscription = requirePermission({ permission: { subscription: ['cancel'] } }).handler(
   async ({ context }) => {
     const { db, user } = context
-    const existing = await db
-      .select()
-      .from(subscription)
-      .where(eq(subscription.userId, user.id))
+    const existing = await db.select().from(subscription).where(eq(subscription.userId, user.id))
     const sub = existing[0]
     if (!sub) {
       throw new ORPCError('NOT_FOUND', { message: 'No subscription to cancel' })
@@ -117,10 +108,7 @@ const cancelSubscription = requirePermission({ permission: { subscription: ['can
 const renewSuccess = requirePermission({ permission: { subscription: ['renew'] } }).handler(
   async ({ context }) => {
     const { db, user } = context
-    const existing = await db
-      .select()
-      .from(subscription)
-      .where(eq(subscription.userId, user.id))
+    const existing = await db.select().from(subscription).where(eq(subscription.userId, user.id))
     const sub = existing[0]
     if (!sub) {
       throw new ORPCError('NOT_FOUND', { message: 'No subscription' })
@@ -157,10 +145,7 @@ const renewSuccess = requirePermission({ permission: { subscription: ['renew'] }
 const renewFailure = requirePermission({ permission: { subscription: ['renew'] } }).handler(
   async ({ context }) => {
     const { db, user } = context
-    const existing = await db
-      .select()
-      .from(subscription)
-      .where(eq(subscription.userId, user.id))
+    const existing = await db.select().from(subscription).where(eq(subscription.userId, user.id))
     const sub = existing[0]
     if (!sub) {
       throw new ORPCError('NOT_FOUND', { message: 'No subscription' })

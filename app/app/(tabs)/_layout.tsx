@@ -24,11 +24,7 @@ const tabLabelStyle = (focused: boolean) =>
     opacity: focused ? 1 : 0.3,
   }) as const
 
-function TabBarIcon({
-  source,
-}: {
-  source: 'sparkle' | 'bookmark' | 'dresser'
-}) {
+function TabBarIcon({ source }: { source: 'sparkle' | 'bookmark' | 'dresser' }) {
   const props = { width: ICON_SIZE, height: ICON_SIZE, color: '#000', fill: '#000' }
   if (source === 'sparkle') return <Sparkle {...props} />
   if (source === 'bookmark') return <BookmarkSimple {...props} />
@@ -66,90 +62,88 @@ export default function TabsLayout() {
 
   return (
     <>
-    <Tabs
-      initialRouteName="index"
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: {
-          backgroundColor: 'white',
-          height: 110,
-          paddingTop: 12,
-          paddingBottom: 50,
-          paddingLeft: 20,
-          paddingRight: 20,
-          borderTopWidth: 1,
-          borderTopColor: 'rgba(0,0,0,0.15)',
-        },
-        tabBarItemStyle: { width: 88.33, height: 42 },
-      }}
-    >
-      <Tabs.Screen
-        name="tryon"
-        options={{
-          title: 'Try On',
-          tabBarIcon: ({ focused }) => (
-            <View style={{ opacity: focused ? 1 : 0.3 }}>
-              <TabBarIcon source="sparkle" />
-            </View>
-          ),
-          tabBarLabel: ({ focused }) => (
-            <Text numberOfLines={1} style={tabLabelStyle(focused)}>
-              Try On
-            </Text>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Saved Outfit',
-          tabBarIcon: ({ focused }) => (
-            <View style={{ opacity: focused ? 1 : 0.3 }}>
-              <TabBarIcon source="bookmark" />
-            </View>
-          ),
-          tabBarLabel: ({ focused }) => (
-            <Text numberOfLines={1} style={tabLabelStyle(focused)}>
-              Saved Outfit
-            </Text>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="wardrobe"
-        options={{
-          title: 'Wardrobe',
-          tabBarIcon: ({ focused }) => (
-            <View style={{ opacity: focused ? 1 : 0.3 }}>
-              <TabBarIcon source="dresser" />
-            </View>
-          ),
-          tabBarLabel: ({ focused }) => (
-            <Text numberOfLines={1} style={tabLabelStyle(focused)}>
-              Wardrobe
-            </Text>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="plus"
-        options={{
-          title: '',
-          tabBarLabel: () => null,
-          tabBarIcon: () => null,
-          tabBarButton: () => (
-            <PlusTabButton onPress={() => plusRef.current?.present()} />
-          ),
-        }}
-        listeners={{
-          tabPress: (e) => {
-            e.preventDefault()
-            plusRef.current?.present()
+      <Tabs
+        initialRouteName="index"
+        screenOptions={{
+          headerShown: false,
+          tabBarStyle: {
+            backgroundColor: 'white',
+            height: 110,
+            paddingTop: 12,
+            paddingBottom: 50,
+            paddingLeft: 20,
+            paddingRight: 20,
+            borderTopWidth: 1,
+            borderTopColor: 'rgba(0,0,0,0.15)',
           },
+          tabBarItemStyle: { width: 88.33, height: 42 },
         }}
-      />
-    </Tabs>
-    <PlusModal ref={plusRef} />
+      >
+        <Tabs.Screen
+          name="tryon"
+          options={{
+            title: 'Try On',
+            tabBarIcon: ({ focused }) => (
+              <View style={{ opacity: focused ? 1 : 0.3 }}>
+                <TabBarIcon source="sparkle" />
+              </View>
+            ),
+            tabBarLabel: ({ focused }) => (
+              <Text numberOfLines={1} style={tabLabelStyle(focused)}>
+                Try On
+              </Text>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: 'Saved Outfit',
+            tabBarIcon: ({ focused }) => (
+              <View style={{ opacity: focused ? 1 : 0.3 }}>
+                <TabBarIcon source="bookmark" />
+              </View>
+            ),
+            tabBarLabel: ({ focused }) => (
+              <Text numberOfLines={1} style={tabLabelStyle(focused)}>
+                Saved Outfit
+              </Text>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="wardrobe"
+          options={{
+            title: 'Wardrobe',
+            tabBarIcon: ({ focused }) => (
+              <View style={{ opacity: focused ? 1 : 0.3 }}>
+                <TabBarIcon source="dresser" />
+              </View>
+            ),
+            tabBarLabel: ({ focused }) => (
+              <Text numberOfLines={1} style={tabLabelStyle(focused)}>
+                Wardrobe
+              </Text>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="plus"
+          options={{
+            title: '',
+            tabBarLabel: () => null,
+            tabBarIcon: () => null,
+            tabBarButton: () => <PlusTabButton onPress={() => plusRef.current?.present()} />,
+          }}
+          listeners={{
+            tabPress: (e) => {
+              e.preventDefault()
+              plusRef.current?.present()
+            },
+          }}
+        />
+      </Tabs>
+      <PlusModal ref={plusRef} />
     </>
   )
 }

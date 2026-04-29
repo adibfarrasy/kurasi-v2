@@ -14,8 +14,10 @@ const tls =
     ? { cert: Bun.file(certPath), key: Bun.file(keyPath) }
     : undefined
 
+const port = Number(process.env.PORT) || 8989
+
 const server = serve({
-  port: 8989,
+  port,
   hostname: '0.0.0.0',
   ...(tls ? { tls } : {}),
   routes: {

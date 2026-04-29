@@ -1,9 +1,13 @@
-import { type BottomSheetBackdropProps, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet'
+import {
+  type BottomSheetBackdropProps,
+  BottomSheetModal,
+  BottomSheetView,
+} from '@gorhom/bottom-sheet'
 import { BlurView } from 'expo-blur'
 import { useRouter } from 'expo-router'
 import { forwardRef, useImperativeHandle, useRef } from 'react'
-import Animated, { interpolate, useAnimatedProps, useAnimatedStyle } from 'react-native-reanimated'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
+import Animated, { interpolate, useAnimatedProps, useAnimatedStyle } from 'react-native-reanimated'
 
 const AnimatedBlurView = Animated.createAnimatedComponent(BlurView)
 
@@ -31,6 +35,7 @@ function BlurBackdrop({
     </Animated.View>
   )
 }
+
 import LightbulbFilament from '@/assets/icons/LightbulbFilament.svg'
 import NewFit from '@/assets/icons/NewFit.svg'
 import TShirt from '@/assets/icons/TShirt.svg'
@@ -77,7 +82,10 @@ function buildActions(onStealTheLook: () => void): Action[] {
   ]
 }
 
-const ICON_MAP: Record<IconKind, React.ComponentType<{ width: number; height: number; color: string }>> = {
+const ICON_MAP: Record<
+  IconKind,
+  React.ComponentType<{ width: number; height: number; color: string }>
+> = {
   lightbulb: LightbulbFilament,
   newfit: NewFit,
   upload: TShirtUpload,

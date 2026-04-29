@@ -39,23 +39,15 @@ const discover = requirePermission({ permission: { sharedOutfit: ['read'] } })
     const rows = await db
       .select()
       .from(sharedOutfit)
-      .where(
-        and(eq(sharedOutfit.status, 'published'), ne(sharedOutfit.userId, user.id)),
-      )
+      .where(and(eq(sharedOutfit.status, 'published'), ne(sharedOutfit.userId, user.id)))
       .orderBy(desc(sharedOutfit.sharedAt))
       .limit(limit)
 
     // Hydrate outfit + publisher username (null when showUsername=false).
     const hydrated = []
     for (const row of rows) {
-      const outfitRows = await db
-        .select()
-        .from(outfit)
-        .where(eq(outfit.id, row.outfitId))
-      const publisherRows = await db
-        .select()
-        .from(userTable)
-        .where(eq(userTable.id, row.userId))
+      const outfitRows = await db.select().from(outfit).where(eq(outfit.id, row.outfitId))
+      const publisherRows = await db.select().from(userTable).where(eq(userTable.id, row.userId))
       const publisher = publisherRows[0]
       hydrated.push({
         ...row,
@@ -73,9 +65,7 @@ const findByOutfit = requirePermission({ permission: { sharedOutfit: ['read'] } 
     const rows = await db
       .select()
       .from(sharedOutfit)
-      .where(
-        and(eq(sharedOutfit.outfitId, input.outfitId), eq(sharedOutfit.userId, user.id)),
-      )
+      .where(and(eq(sharedOutfit.outfitId, input.outfitId), eq(sharedOutfit.userId, user.id)))
     return rows[0] ?? null
   })
 

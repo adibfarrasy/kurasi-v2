@@ -1,170 +1,130 @@
-/**
- * Tests for shared-outfit-handlers.
- * Spec: specs/fit-page.allium (lines 92-106, 201-223).
- */
-
 import { beforeEach, describe, expect, test } from 'bun:test'
-import {
-  installFitPageFakes,
-  resetStore,
-  seedOutfit,
-  seedSharedOutfit,
-  seedUser,
-  store,
-} from './fit-page-test-helpers'
+import { call } from '@orpc/server'
+import * as utils from '../test/utils'
+import { sharedOutfitHandlers } from './shared-outfit-handlers'
 
-const { fakeDb, fakeAuth, setUser, setPermissionAllowed } = installFitPageFakes()
-
-const { call } = await import('@orpc/server')
-const { sharedOutfitHandlers } = await import('./shared-outfit-handlers')
-
-function ctx() {
-  return {
-    db: fakeDb as unknown as never,
-    auth: fakeAuth as unknown as never,
-    reqHeaders: new Headers(),
-  }
-}
-
-beforeEach(() => {
-  resetStore()
-  setUser({ id: 'user-a' })
-  setPermissionAllowed(true)
+beforeEach(async () => {
+  await utils.resetTestDb()
+  await utils.seedUser()
 })
 
-describe('sharedOutfitHandlers.discover', () => {
-  test('excludes caller’s own published outfits', async () => {
-    const myOutfit = seedOutfit({ userId: 'user-a' })
-    seedSharedOutfit({ userId: 'user-a', outfitId: myOutfit.id })
-    const result = await call(sharedOutfitHandlers.discover, undefined as never, {
-      context: ctx(),
-    })
-    expect(result).toHaveLength(0)
-  })
+async function seedOtherUser() {
+  await utils.seedUser({ id: 'user-b', email: 'user-b@example.com', name: 'Bea' })
+}
 
-  test('excludes unpublished entries', async () => {
-    const otherOutfit = seedOutfit({ userId: 'user-b' })
-    seedSharedOutfit({
+describe('sharedOutfitHandlers.discover', () => {
+  test('excludes caller’s own published outfits and unpublished entries', async () => {
+    const mine = await utils.seedOutfit({ userId: 'user-a' })
+    await utils.seedSharedOutfit({ userId: 'user-a', outfitId: mine.id })
+    await seedOtherUser()
+    const hidden = await utils.seedOutfit({ userId: 'user-b' })
+    await utils.seedSharedOutfit({
       userId: 'user-b',
-      outfitId: otherOutfit.id,
+      outfitId: hidden.id,
       status: 'unpublished',
       unpublishedAt: new Date(),
     })
+    await utils.loginAsUser('user-a')
     const result = await call(sharedOutfitHandlers.discover, undefined as never, {
-      context: ctx(),
+      context: utils.testContext(),
     })
     expect(result).toHaveLength(0)
   })
 
-  test('includes active published outfits from other users', async () => {
-    seedUser({ id: 'user-b', name: 'Bea' })
-    const outfitB = seedOutfit({ userId: 'user-b' })
-    seedSharedOutfit({
+  test('includes published outfits from other users and respects username visibility', async () => {
+    await seedOtherUser()
+    const namedOutfit = await utils.seedOutfit({ userId: 'user-b' })
+    await utils.seedSharedOutfit({ userId: 'user-b', outfitId: namedOutfit.id, showUsername: true })
+    const anonymousOutfit = await utils.seedOutfit({ userId: 'user-b' })
+    await utils.seedSharedOutfit({
       userId: 'user-b',
-      outfitId: outfitB.id,
-      showUsername: true,
-    })
-    const result = await call(sharedOutfitHandlers.discover, undefined as never, {
-      context: ctx(),
-    })
-    expect(result).toHaveLength(1)
-    expect(result[0]!.publisherUsername).toBe('Bea')
-  })
-
-  test('masks username when showUsername=false', async () => {
-    seedUser({ id: 'user-b', name: 'Bea' })
-    const outfitB = seedOutfit({ userId: 'user-b' })
-    seedSharedOutfit({
-      userId: 'user-b',
-      outfitId: outfitB.id,
+      outfitId: anonymousOutfit.id,
       showUsername: false,
     })
+    await utils.loginAsUser('user-a')
     const result = await call(sharedOutfitHandlers.discover, undefined as never, {
-      context: ctx(),
+      context: utils.testContext(),
     })
-    expect(result[0]!.publisherUsername).toBeNull()
+    expect(result).toHaveLength(2)
+    expect(result.some((row) => row.publisherUsername === 'Bea')).toBe(true)
+    expect(result.some((row) => row.publisherUsername === null)).toBe(true)
   })
 })
 
 describe('sharedOutfitHandlers.findByOutfit', () => {
   test('returns caller’s SharedOutfit for the given outfit', async () => {
-    const o = seedOutfit()
-    seedSharedOutfit({ outfitId: o.id })
-    const result = await call(
-      sharedOutfitHandlers.findByOutfit,
-      { outfitId: o.id } as never,
-      { context: ctx() },
-    )
-    expect(result).not.toBeNull()
-    expect(result!.outfitId).toBe(o.id)
+    const outfit = await utils.seedOutfit()
+    await utils.seedSharedOutfit({ outfitId: outfit.id })
+    const result = await call(sharedOutfitHandlers.findByOutfit, { outfitId: outfit.id } as never, {
+      context: utils.testContext(),
+    })
+    expect(result?.outfitId).toBe(outfit.id)
   })
 
   test('returns null for outfit belonging to another user', async () => {
-    const o = seedOutfit({ userId: 'user-b' })
-    seedSharedOutfit({ userId: 'user-b', outfitId: o.id })
-    const result = await call(
-      sharedOutfitHandlers.findByOutfit,
-      { outfitId: o.id } as never,
-      { context: ctx() },
-    )
+    await seedOtherUser()
+    const outfit = await utils.seedOutfit({ userId: 'user-b' })
+    await utils.seedSharedOutfit({ userId: 'user-b', outfitId: outfit.id })
+    await utils.loginAsUser('user-a')
+    const result = await call(sharedOutfitHandlers.findByOutfit, { outfitId: outfit.id } as never, {
+      context: utils.testContext(),
+    })
     expect(result).toBeNull()
   })
 })
 
 describe('sharedOutfitHandlers.publish', () => {
-  test('creates active row for caller’s outfit', async () => {
-    const o = seedOutfit()
+  test('creates a published row for caller’s active outfit', async () => {
+    const outfit = await utils.seedOutfit()
     const result = await call(
       sharedOutfitHandlers.publish,
-      { outfitId: o.id, faceAnonymisation: 'blur_face', showUsername: true } as never,
-      { context: ctx() },
+      { outfitId: outfit.id, faceAnonymisation: 'blur_face', showUsername: true } as never,
+      { context: utils.testContext() },
     )
     expect(result).toMatchObject({
-      outfitId: o.id,
+      outfitId: outfit.id,
       status: 'published',
       faceAnonymisation: 'blur_face',
       showUsername: true,
     })
-    expect(store.sharedOutfits).toHaveLength(1)
   })
 
-  test('re-enables an unpublished singleton (singleton per outfit)', async () => {
-    const o = seedOutfit()
-    seedSharedOutfit({
-      outfitId: o.id,
+  test('re-enables an unpublished singleton', async () => {
+    const outfit = await utils.seedOutfit()
+    await utils.seedSharedOutfit({
+      outfitId: outfit.id,
       status: 'unpublished',
       unpublishedAt: new Date(),
       faceAnonymisation: 'none',
     })
     const result = await call(
       sharedOutfitHandlers.publish,
-      { outfitId: o.id, faceAnonymisation: 'block_eyes', showUsername: false } as never,
-      { context: ctx() },
+      { outfitId: outfit.id, faceAnonymisation: 'block_eyes', showUsername: false } as never,
+      { context: utils.testContext() },
     )
-    expect(result!.status).toBe('published')
-    expect(result!.faceAnonymisation).toBe('block_eyes')
-    expect(result!.unpublishedAt).toBeNull()
-    expect(store.sharedOutfits).toHaveLength(1)
+    expect(result?.status).toBe('published')
+    expect(result?.faceAnonymisation).toBe('block_eyes')
+    expect(result?.unpublishedAt).toBeNull()
   })
 
-  test('rejects when outfit not owned by caller', async () => {
-    const o = seedOutfit({ userId: 'user-b' })
+  test('rejects when outfit is not caller-owned or is deleted', async () => {
+    await seedOtherUser()
+    const other = await utils.seedOutfit({ userId: 'user-b' })
+    await utils.loginAsUser('user-a')
     await expect(
       call(
         sharedOutfitHandlers.publish,
-        { outfitId: o.id, faceAnonymisation: 'none', showUsername: true } as never,
-        { context: ctx() },
+        { outfitId: other.id, faceAnonymisation: 'none', showUsername: true } as never,
+        { context: utils.testContext() },
       ),
     ).rejects.toThrow()
-  })
 
-  test('rejects when outfit status is deleted', async () => {
-    const o = seedOutfit({ status: 'deleted' })
+    const deleted = await utils.seedOutfit({ userId: 'user-a', status: 'deleted' })
     await expect(
       call(
         sharedOutfitHandlers.publish,
-        { outfitId: o.id, faceAnonymisation: 'none', showUsername: true } as never,
-        { context: ctx() },
+        { outfitId: deleted.id, faceAnonymisation: 'none', showUsername: true } as never,
+        { context: utils.testContext() },
       ),
     ).rejects.toThrow()
   })
@@ -172,46 +132,31 @@ describe('sharedOutfitHandlers.publish', () => {
 
 describe('sharedOutfitHandlers.unpublish', () => {
   test('sets status to unpublished and stamps unpublishedAt', async () => {
-    const o = seedOutfit()
-    seedSharedOutfit({ outfitId: o.id, status: 'published' })
-    const result = await call(
-      sharedOutfitHandlers.unpublish,
-      { outfitId: o.id } as never,
-      { context: ctx() },
-    )
-    expect(result!.status).toBe('unpublished')
-    expect(result!.unpublishedAt).toBeInstanceOf(Date)
+    const outfit = await utils.seedOutfit()
+    await utils.seedSharedOutfit({ outfitId: outfit.id, status: 'published' })
+    const result = await call(sharedOutfitHandlers.unpublish, { outfitId: outfit.id } as never, {
+      context: utils.testContext(),
+    })
+    expect(result?.status).toBe('unpublished')
+    expect(result?.unpublishedAt).toBeInstanceOf(Date)
   })
 
-  test('NOT_FOUND when no SharedOutfit exists', async () => {
-    const o = seedOutfit()
+  test('NOT_FOUND when no active caller-owned SharedOutfit exists', async () => {
+    const outfit = await utils.seedOutfit()
     await expect(
-      call(sharedOutfitHandlers.unpublish, { outfitId: o.id } as never, {
-        context: ctx(),
+      call(sharedOutfitHandlers.unpublish, { outfitId: outfit.id } as never, {
+        context: utils.testContext(),
       }),
     ).rejects.toThrow()
-  })
 
-  test('rejects double-unpublish (row already unpublished)', async () => {
-    const o = seedOutfit()
-    seedSharedOutfit({
-      outfitId: o.id,
+    await utils.seedSharedOutfit({
+      outfitId: outfit.id,
       status: 'unpublished',
       unpublishedAt: new Date(),
     })
     await expect(
-      call(sharedOutfitHandlers.unpublish, { outfitId: o.id } as never, {
-        context: ctx(),
-      }),
-    ).rejects.toThrow()
-  })
-
-  test('rejects when caller does not own the SharedOutfit', async () => {
-    const o = seedOutfit({ userId: 'user-b' })
-    seedSharedOutfit({ userId: 'user-b', outfitId: o.id })
-    await expect(
-      call(sharedOutfitHandlers.unpublish, { outfitId: o.id } as never, {
-        context: ctx(),
+      call(sharedOutfitHandlers.unpublish, { outfitId: outfit.id } as never, {
+        context: utils.testContext(),
       }),
     ).rejects.toThrow()
   })

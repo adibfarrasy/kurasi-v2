@@ -20,10 +20,7 @@ import { onboardingProgress } from '../db/schema'
 
 export const STARTER_WARDROBE_THRESHOLD = 5
 
-export async function maybeCompleteOnboarding(
-  db: typeof realDb,
-  userId: string,
-): Promise<void> {
+export async function maybeCompleteOnboarding(db: typeof realDb, userId: string): Promise<void> {
   const now = new Date()
   const updated = await db
     .update(onboardingProgress)

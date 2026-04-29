@@ -1,0 +1,51 @@
+name: Deploy (development)
+
+on:
+  # Run after CI so migrations and Fly deploy use the same commit only once checks have finished.
+  # Jobs still filter to success + push to main (see `if` on each job).
+  workflow_run:
+    workflows: [CI]
+    types:
+      - completed
+
+jobs:
+  migrate-development:
+    name: Migrate database (development)
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - name: Run Drizzle migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: bun run drizzle-kit migrate
+
+  deploy-development:
+    name: Deploy backend (development)
+    needs: migrate-development
+    # Only run if the CI workflow succeeded and the push was to main
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io
+        run: flyctl deploy . --config backend/fly.development.toml --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

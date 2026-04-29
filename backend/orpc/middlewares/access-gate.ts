@@ -75,12 +75,9 @@ export const accessGate = os
   })
   .use(async ({ context, next }) => {
     const { db, user } = context
-    const rows = await db
-      .select()
-      .from(subscription)
-      .where(eq(subscription.userId, user.id))
+    const rows = await db.select().from(subscription).where(eq(subscription.userId, user.id))
     const sub = rows[0] ?? null
-    const access = computeAccess(user as { trialStartedAt: Date | null }, sub)
+    const access = computeAccess(user, sub)
     if (!access.hasAccess) {
       throw new ORPCError('PAYMENT_REQUIRED', {
         message: 'Trial expired and no active subscription.',

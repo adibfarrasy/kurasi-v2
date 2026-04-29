@@ -1,10 +1,10 @@
-import { BottomSheetModalProvider } from '@gorhom/bottom-sheet'
 import {
   FunnelSans_400Regular,
   FunnelSans_500Medium,
   FunnelSans_600SemiBold,
   FunnelSans_700Bold,
 } from '@expo-google-fonts/funnel-sans'
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet'
 import { useFonts } from 'expo-font'
 import { Redirect, Slot, usePathname } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'

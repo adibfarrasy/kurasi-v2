@@ -1,7 +1,5 @@
 import { ORPCError } from '@orpc/server'
 import { eq } from 'drizzle-orm'
-import { auth } from '../../auth'
-import { db } from '../../db/db'
 import { user as userTable } from '../../db/schema'
 import { base } from '../orpc-base'
 
@@ -17,7 +15,7 @@ export const authMiddleware = base
     // frontend slicing doesn't require an OAuth round-trip.
     const devUserId = process.env.DEV_USER_ID
     if (devUserId) {
-      const rows = await db.select().from(userTable).where(eq(userTable.id, devUserId))
+      const rows = await context.db.select().from(userTable).where(eq(userTable.id, devUserId))
       const devUser = rows[0]
       if (!devUser) {
         throw new ORPCError('UNAUTHORIZED', {
@@ -32,7 +30,7 @@ export const authMiddleware = base
       })
     }
 
-    const sessionData = await auth.api.getSession({ headers: context.reqHeaders })
+    const sessionData = await context.auth.api.getSession({ headers: context.reqHeaders })
 
     if (!sessionData?.session || !sessionData?.user) {
       throw new ORPCError('UNAUTHORIZED', { message: 'You need to be logged in.' })

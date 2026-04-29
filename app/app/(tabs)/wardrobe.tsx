@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
@@ -11,47 +11,47 @@ import {
   Text,
   TextInput,
   View,
-} from "react-native";
-import BookmarkSimpleFill from "@/assets/icons/BookmarkSimpleFill.svg";
-import DotsNine from "@/assets/icons/DotsNine.svg";
-import FunnelSimple from "@/assets/icons/FunnelSimple.svg";
-import MagnifyingGlass from "@/assets/icons/MagnifyingGlass.svg";
-import ShareFat from "@/assets/icons/ShareFat.svg";
-import SquaresFour from "@/assets/icons/SquaresFour.svg";
-import { client } from "@/lib/orpc-client";
+} from 'react-native'
+import BookmarkSimpleFill from '@/assets/icons/BookmarkSimpleFill.svg'
+import DotsNine from '@/assets/icons/DotsNine.svg'
+import FunnelSimple from '@/assets/icons/FunnelSimple.svg'
+import MagnifyingGlass from '@/assets/icons/MagnifyingGlass.svg'
+import ShareFat from '@/assets/icons/ShareFat.svg'
+import SquaresFour from '@/assets/icons/SquaresFour.svg'
+import { client } from '@/lib/orpc-client'
 
-type Item = Awaited<ReturnType<typeof client.clothingItem.list>>[number];
-type Category = Item["category"];
+type Item = Awaited<ReturnType<typeof client.clothingItem.list>>[number]
+type Category = Item['category']
 
 const CATEGORY_ORDER: Category[] = [
-  "tee",
-  "collared_shirt",
-  "outer",
-  "pants",
-  "shorts",
-  "headwear",
-  "footwear",
-  "bag",
-  "scarf",
-  "accessory",
-  "dress",
-  "skirt",
-];
+  'tee',
+  'collared_shirt',
+  'outer',
+  'pants',
+  'shorts',
+  'headwear',
+  'footwear',
+  'bag',
+  'scarf',
+  'accessory',
+  'dress',
+  'skirt',
+]
 
 const CATEGORY_LABEL: Record<Category, string> = {
-  tee: "SHIRT",
-  collared_shirt: "COLLARED",
-  outer: "JACKET",
-  pants: "PANTS",
-  shorts: "SHORTS",
-  headwear: "HEADWEAR",
-  footwear: "SHOES",
-  bag: "BAG",
-  scarf: "SCARF",
-  accessory: "ACCESSORY",
-  dress: "DRESS",
-  skirt: "SKIRT",
-};
+  tee: 'SHIRT',
+  collared_shirt: 'COLLARED',
+  outer: 'JACKET',
+  pants: 'PANTS',
+  shorts: 'SHORTS',
+  headwear: 'HEADWEAR',
+  footwear: 'SHOES',
+  bag: 'BAG',
+  scarf: 'SCARF',
+  accessory: 'ACCESSORY',
+  dress: 'DRESS',
+  skirt: 'SKIRT',
+}
 
 function ItemCellCompact({ item }: { item: Item }) {
   return (
@@ -59,14 +59,14 @@ function ItemCellCompact({ item }: { item: Item }) {
       <View
         style={{
           aspectRatio: 1,
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
         }}
       >
         <Image
           source={{ uri: item.imageUrl }}
-          style={{ width: "100%", height: "100%" }}
+          style={{ width: '100%', height: '100%' }}
           resizeMode="contain"
         />
       </View>
@@ -74,37 +74,36 @@ function ItemCellCompact({ item }: { item: Item }) {
         numberOfLines={2}
         style={{
           marginTop: 4,
-          fontFamily: "Inter",
+          fontFamily: 'Inter',
           fontSize: 12,
           lineHeight: 16,
           letterSpacing: 0.06,
-          color: "#000",
-          textAlign: "center",
+          color: '#000',
+          textAlign: 'center',
         }}
       >
-        {item.brand ?? "Unbranded"}
+        {item.brand ?? 'Unbranded'}
       </Text>
     </View>
-  );
+  )
 }
 
 function ItemCellLarge({ item, outfitCount }: { item: Item; outfitCount: number }) {
-  const title =
-    item.customNotes ?? `${item.brand ?? ""} ${item.primaryColor}`.trim();
+  const title = item.customNotes ?? `${item.brand ?? ''} ${item.primaryColor}`.trim()
   return (
     <View style={{ width: 168, gap: 4 }}>
       <View
         style={{
           width: 168,
           height: 168,
-          alignItems: "center",
-          justifyContent: "center",
-          overflow: "hidden",
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
         }}
       >
         <Image
           source={{ uri: item.imageUrl }}
-          style={{ width: "90%", height: "90%" }}
+          style={{ width: '90%', height: '90%' }}
           resizeMode="contain"
         />
       </View>
@@ -112,24 +111,24 @@ function ItemCellLarge({ item, outfitCount }: { item: Item; outfitCount: number 
         <Text
           numberOfLines={1}
           style={{
-            fontFamily: "Inter",
+            fontFamily: 'Inter',
             fontSize: 12,
             lineHeight: 16,
             letterSpacing: 0.06,
-            color: "#9ca3af",
-            textAlign: "center",
+            color: '#9ca3af',
+            textAlign: 'center',
           }}
         >
-          {item.brand ?? "Unbranded"}
+          {item.brand ?? 'Unbranded'}
         </Text>
         <Text
           numberOfLines={1}
           style={{
-            fontFamily: "FunnelSans_400Regular",
+            fontFamily: 'FunnelSans_400Regular',
             fontSize: 14,
             lineHeight: 18,
-            color: "#000",
-            textAlign: "center",
+            color: '#000',
+            textAlign: 'center',
           }}
         >
           {title}
@@ -172,26 +171,18 @@ function ItemCellLarge({ item, outfitCount }: { item: Item; outfitCount: number 
         </View>
       ) : null}
     </View>
-  );
+  )
 }
 
-type Mode = "grid" | "list";
+type Mode = 'grid' | 'list'
 
-function CategorySection({
-  label,
-  items,
-  mode,
-}: {
-  label: string;
-  items: Item[];
-  mode: Mode;
-}) {
+function CategorySection({ label, items, mode }: { label: string; items: Item[]; mode: Mode }) {
   return (
     <View style={{ marginBottom: 20 }}>
       <View
         style={{
-          flexDirection: "row",
-          alignItems: "center",
+          flexDirection: 'row',
+          alignItems: 'center',
           marginBottom: 12,
           paddingHorizontal: 0,
           gap: 8,
@@ -201,29 +192,27 @@ function CategorySection({
           style={{
             width: 24,
             height: 1,
-            backgroundColor: "#000",
+            backgroundColor: '#000',
             opacity: 0.1,
           }}
         />
         <Text
           style={{
-            fontFamily: "FunnelSans_700Bold",
+            fontFamily: 'FunnelSans_700Bold',
             fontSize: 20,
             lineHeight: 24,
             letterSpacing: -0.3,
-            color: "#000",
+            color: '#000',
           }}
         >
           {label}
         </Text>
-        <View
-          style={{ flex: 1, height: 1, backgroundColor: "#000", opacity: 0.1 }}
-        />
+        <View style={{ flex: 1, height: 1, backgroundColor: '#000', opacity: 0.1 }} />
         <Text
           style={{
-            fontFamily: "Inter",
+            fontFamily: 'Inter',
             fontSize: 12,
-            color: "#000",
+            color: '#000',
           }}
         >
           {items.length}
@@ -232,17 +221,17 @@ function CategorySection({
           style={{
             width: 24,
             height: 1,
-            backgroundColor: "#000",
+            backgroundColor: '#000',
             opacity: 0.1,
           }}
         />
       </View>
-      {mode === "list" ? (
+      {mode === 'list' ? (
         <View
           style={{
-            flexDirection: "row",
-            flexWrap: "wrap",
-            justifyContent: "center",
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
             paddingHorizontal: 20,
             columnGap: 8,
             rowGap: 8,
@@ -252,15 +241,21 @@ function CategorySection({
             <ItemCellCompact key={item.id} item={item} />
           ))}
           {Array.from({ length: (4 - (items.length % 4)) % 4 }).map((_, i) => (
-            <View key={`phantom-${i}`} style={{ width: 80 }} />
+            <View
+              key={`phantom-${
+                // biome-ignore lint/suspicious/noArrayIndexKey: TODO
+                i
+              }`}
+              style={{ width: 80 }}
+            />
           ))}
         </View>
       ) : (
         <View
           style={{
-            flexDirection: "row",
-            flexWrap: "wrap",
-            justifyContent: "center",
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            justifyContent: 'center',
             paddingHorizontal: 16,
             columnGap: 12,
             rowGap: 20,
@@ -270,150 +265,151 @@ function CategorySection({
             <ItemCellLarge key={item.id} item={item} outfitCount={item.outfitCount ?? 0} />
           ))}
           {Array.from({ length: (2 - (items.length % 2)) % 2 }).map((_, i) => (
-            <View key={`phantom-${i}`} style={{ width: 168 }} />
+            <View
+              key={`phantom-${
+                // biome-ignore lint/suspicious/noArrayIndexKey: TODO
+                i
+              }`}
+              style={{ width: 168 }}
+            />
           ))}
         </View>
       )}
     </View>
-  );
+  )
 }
 
 export default function Wardrobe() {
-  const [mode, setMode] = useState<Mode>("grid");
-  const [query, setQuery] = useState("");
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const [items, setItems] = useState<Item[]>([]);
+  const [mode, setMode] = useState<Mode>('grid')
+  const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [keyboardVisible, setKeyboardVisible] = useState(false)
+  const [items, setItems] = useState<Item[]>([])
 
   useEffect(() => {
     const show = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
       () => setKeyboardVisible(true),
-    );
+    )
     const hide = Keyboard.addListener(
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
       () => {
-        setKeyboardVisible(false);
-        setSearchOpen(false);
-        setQuery("");
+        setKeyboardVisible(false)
+        setSearchOpen(false)
+        setQuery('')
       },
-    );
+    )
     return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+      show.remove()
+      hide.remove()
+    }
+  }, [])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   const [refreshing, setRefreshing] = useState(false)
 
   async function load() {
-    const rows = await client.clothingItem.list();
-    setItems(rows);
+    const rows = await client.clothingItem.list()
+    setItems(rows)
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: TODO
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
+    let cancelled = false
+    ;(async () => {
       try {
-        if (!cancelled) await load();
+        if (!cancelled) await load()
       } catch (e) {
-        if (!cancelled)
-          setError(e instanceof Error ? e.message : "Failed to load");
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load')
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setLoading(false)
       }
-    })();
+    })()
     return () => {
-      cancelled = true;
-    };
-  }, []);
+      cancelled = true
+    }
+  }, [])
 
   async function onRefresh() {
-    setRefreshing(true);
+    setRefreshing(true)
     try {
-      await load();
-      setError(null);
+      await load()
+      setError(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load');
+      setError(e instanceof Error ? e.message : 'Failed to load')
     } finally {
-      setRefreshing(false);
+      setRefreshing(false)
     }
   }
 
   const grouped = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim().toLowerCase()
     const matches = (item: Item) => {
-      if (!q) return true;
+      if (!q) return true
       const words = [
-        item.brand ?? "",
+        item.brand ?? '',
         item.primaryColor,
-        item.secondaryColor ?? "",
-        item.customNotes ?? "",
+        item.secondaryColor ?? '',
+        item.customNotes ?? '',
         CATEGORY_LABEL[item.category],
         ...(item.materials ?? []),
         ...(item.occasions ?? []),
       ]
-        .join(" ")
+        .join(' ')
         .toLowerCase()
-        .split(/\s+/);
-      return words.some((w) => w.startsWith(q));
-    };
-    const map = new Map<Category, Item[]>();
-    for (const item of items) {
-      if (item.status !== "active") continue;
-      if (!matches(item)) continue;
-      const bucket = map.get(item.category) ?? [];
-      bucket.push(item);
-      map.set(item.category, bucket);
+        .split(/\s+/)
+      return words.some((w) => w.startsWith(q))
     }
-    return map;
-  }, [items, query]);
+    const map = new Map<Category, Item[]>()
+    for (const item of items) {
+      if (item.status !== 'active') continue
+      if (!matches(item)) continue
+      const bucket = map.get(item.category) ?? []
+      bucket.push(item)
+      map.set(item.category, bucket)
+    }
+    return map
+  }, [items, query])
 
   return (
     <View
       className="pt-16"
       style={{
         flex: 1,
-        backgroundColor: "#EBEBEB",
+        backgroundColor: '#EBEBEB',
       }}
     >
       <View
         style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           paddingHorizontal: 20,
           paddingBottom: 16,
         }}
       >
         <Text
           style={{
-            fontFamily: "Bebas",
+            fontFamily: 'Bebas',
             fontSize: 48,
             lineHeight: 52,
-            color: "#000",
+            color: '#000',
           }}
         >
           WA
-          <Text style={{ fontFamily: "Kirang", fontSize: 58, lineHeight: 52 }}>
-            R
-          </Text>
+          <Text style={{ fontFamily: 'Kirang', fontSize: 58, lineHeight: 52 }}>R</Text>
           DRO
-          <Text style={{ fontFamily: "Kirang", fontSize: 58, lineHeight: 52 }}>
-            B
-          </Text>
-          E
+          <Text style={{ fontFamily: 'Kirang', fontSize: 58, lineHeight: 52 }}>B</Text>E
         </Text>
         <Pressable
           style={{
             width: 40,
             height: 40,
             borderRadius: 8,
-            backgroundColor: "#F2F2F2",
-            alignItems: "center",
-            justifyContent: "center",
+            backgroundColor: '#F2F2F2',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           <ShareFat width={20} height={20} color="#000" />
@@ -421,17 +417,20 @@ export default function Wardrobe() {
       </View>
 
       {loading ? (
-        <View
-          style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
-        >
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator />
         </View>
       ) : error ? (
         <ScrollView
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          contentContainerStyle={{ flexGrow: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: 32,
+          }}
         >
-          <Text style={{ color: "#ef4444", textAlign: "center" }}>{error}</Text>
+          <Text style={{ color: '#ef4444', textAlign: 'center' }}>{error}</Text>
         </ScrollView>
       ) : (
         <ScrollView
@@ -441,22 +440,20 @@ export default function Wardrobe() {
           keyboardDismissMode="on-drag"
           onScrollBeginDrag={Keyboard.dismiss}
         >
-          {CATEGORY_ORDER.filter((c) => (grouped.get(c)?.length ?? 0) > 0).map(
-            (c) => (
-              <CategorySection
-                key={c}
-                label={CATEGORY_LABEL[c]}
-                items={grouped.get(c) ?? []}
-                mode={mode}
-              />
-            ),
-          )}
+          {CATEGORY_ORDER.filter((c) => (grouped.get(c)?.length ?? 0) > 0).map((c) => (
+            <CategorySection
+              key={c}
+              label={CATEGORY_LABEL[c]}
+              items={grouped.get(c) ?? []}
+              mode={mode}
+            />
+          ))}
         </ScrollView>
       )}
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={{ position: "absolute", left: 0, right: 0, bottom: 0 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ position: 'absolute', left: 0, right: 0, bottom: 0 }}
       >
         {searchOpen ? (
           <View
@@ -466,23 +463,23 @@ export default function Wardrobe() {
               paddingRight: 20,
               paddingBottom: 20,
               paddingLeft: 20,
-              backgroundColor: "#fff",
+              backgroundColor: '#fff',
               borderTopWidth: 1,
               borderBottomWidth: 1,
-              borderColor: "rgba(0,0,0,0.1)",
-              justifyContent: "center",
+              borderColor: 'rgba(0,0,0,0.1)',
+              justifyContent: 'center',
             }}
           >
             <View
               style={{
                 width: 353,
                 height: 40,
-                flexDirection: "row",
-                alignItems: "center",
-                backgroundColor: "#fff",
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: '#fff',
                 borderRadius: 99,
                 borderWidth: 1,
-                borderColor: "rgba(173,175,179,0.5)",
+                borderColor: 'rgba(173,175,179,0.5)',
                 paddingTop: 8,
                 paddingBottom: 8,
                 paddingLeft: 12,
@@ -500,12 +497,12 @@ export default function Wardrobe() {
                 returnKeyType="search"
                 style={{
                   flex: 1,
-                  fontFamily: "FunnelSans_400Regular",
+                  fontFamily: 'FunnelSans_400Regular',
                   fontSize: 16,
                   lineHeight: 22,
                   letterSpacing: -0.16,
-                  textAlign: "center",
-                  color: "#000",
+                  textAlign: 'center',
+                  color: '#000',
                 }}
               />
             </View>
@@ -517,17 +514,17 @@ export default function Wardrobe() {
             setMode={setMode}
             onSearchToggle={() => {
               if (searchOpen) {
-                setSearchOpen(false);
-                setQuery("");
+                setSearchOpen(false)
+                setQuery('')
               } else {
-                setSearchOpen(true);
+                setSearchOpen(true)
               }
             }}
           />
         )}
       </KeyboardAvoidingView>
     </View>
-  );
+  )
 }
 
 function Toolbar({
@@ -535,22 +532,22 @@ function Toolbar({
   setMode,
   onSearchToggle,
 }: {
-  mode: Mode;
-  setMode: (m: Mode) => void;
-  onSearchToggle: () => void;
+  mode: Mode
+  setMode: (m: Mode) => void
+  onSearchToggle: () => void
 }) {
   return (
     <View
       style={{
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        backgroundColor: "#fff",
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#fff',
         paddingHorizontal: 20,
         paddingVertical: 12,
       }}
     >
-      <View style={{ flexDirection: "row", gap: 8 }}>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
         <Pressable
           onPress={onSearchToggle}
           style={{
@@ -558,10 +555,10 @@ function Toolbar({
             height: 40,
             borderRadius: 99,
             borderWidth: 1,
-            borderColor: "rgba(173,175,179,0.5)",
+            borderColor: 'rgba(173,175,179,0.5)',
             padding: 8,
-            alignItems: "center",
-            justifyContent: "center",
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           <MagnifyingGlass width={22} height={22} color="#000" />
@@ -572,10 +569,10 @@ function Toolbar({
             height: 40,
             borderRadius: 99,
             borderWidth: 1,
-            borderColor: "rgba(173,175,179,0.5)",
+            borderColor: 'rgba(173,175,179,0.5)',
             padding: 8,
-            alignItems: "center",
-            justifyContent: "center",
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           <FunnelSimple width={22} height={22} color="#000" />
@@ -583,9 +580,9 @@ function Toolbar({
       </View>
       <View
         style={{
-          flexDirection: "row",
-          justifyContent: "space-between",
-          backgroundColor: "#E6E6E6",
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          backgroundColor: '#E6E6E6',
           borderRadius: 99,
           width: 112,
           height: 40,
@@ -593,32 +590,32 @@ function Toolbar({
         }}
       >
         <Pressable
-          onPress={() => setMode("grid")}
+          onPress={() => setMode('grid')}
           style={{
             width: 54,
             height: 36,
             borderRadius: 99,
-            backgroundColor: mode === "grid" ? "#fff" : "transparent",
-            alignItems: "center",
-            justifyContent: "center",
+            backgroundColor: mode === 'grid' ? '#fff' : 'transparent',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           <SquaresFour width={20} height={20} color="#000" />
         </Pressable>
         <Pressable
-          onPress={() => setMode("list")}
+          onPress={() => setMode('list')}
           style={{
             width: 54,
             height: 36,
             borderRadius: 99,
-            backgroundColor: mode === "list" ? "#fff" : "transparent",
-            alignItems: "center",
-            justifyContent: "center",
+            backgroundColor: mode === 'list' ? '#fff' : 'transparent',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           <DotsNine width={20} height={20} color="#000" />
         </Pressable>
       </View>
     </View>
-  );
+  )
 }

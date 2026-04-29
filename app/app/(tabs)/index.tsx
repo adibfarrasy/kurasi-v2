@@ -1,6 +1,14 @@
 import { useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native'
 import { client } from '@/lib/orpc-client'
 
 type Outfit = Awaited<ReturnType<typeof client.outfit.list>>[number]
@@ -17,14 +25,24 @@ function pickCoverItem(outfit: Outfit, itemsById: Map<string, Item>): Item | nul
   return null
 }
 
-function OutfitCard({ outfit, index, cover }: { outfit: Outfit; index: number; cover: Item | null }) {
+function OutfitCard({
+  outfit,
+  index,
+  cover,
+}: {
+  outfit: Outfit
+  index: number
+  cover: Item | null
+}) {
   const router = useRouter()
   const visibleTags = outfit.tags.slice(0, 2)
   const extra = outfit.tags.length - visibleTags.length
 
   return (
     <Pressable
-      onPress={() => router.push({ pathname: '/outfit/[id]', params: { id: outfit.id, n: String(index + 1) } })}
+      onPress={() =>
+        router.push({ pathname: '/outfit/[id]', params: { id: outfit.id, n: String(index + 1) } })
+      }
       style={{
         width: 170,
         height: 221,
@@ -110,6 +128,7 @@ export default function SavedOutfits() {
     setOutfits(outfitRows)
   }
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: TODO
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -154,7 +173,12 @@ export default function SavedOutfits() {
       ) : error || outfits.length === 0 ? (
         <ScrollView
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          contentContainerStyle={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}
+          contentContainerStyle={{
+            flexGrow: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            paddingHorizontal: 32,
+          }}
         >
           {error ? (
             <Text className="text-red-500 text-center">{error}</Text>
@@ -178,7 +202,10 @@ export default function SavedOutfits() {
           ))}
           {Array.from({ length: (2 - (outfits.length % 2)) % 2 }).map((_, i) => (
             <View
-              key={`phantom-${i}`}
+              key={`phantom-${
+                // biome-ignore lint/suspicious/noArrayIndexKey: TODO
+                i
+              }`}
               style={{ width: 170, height: 221, margin: 6, maxWidth: '50%' }}
             />
           ))}

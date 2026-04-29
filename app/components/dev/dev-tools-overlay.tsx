@@ -7,14 +7,7 @@ import {
 import { usePathname, useRouter } from 'expo-router'
 import { useAtom } from 'jotai'
 import { useEffect, useRef, useState } from 'react'
-import {
-  Animated,
-  PanResponder,
-  ScrollView,
-  Text,
-  useWindowDimensions,
-  View,
-} from 'react-native'
+import { Animated, PanResponder, ScrollView, Text, useWindowDimensions, View } from 'react-native'
 import { TouchableOpacity } from 'react-native-gesture-handler'
 import { useAuth } from '@/contexts/auth-context'
 import { useOnboarding } from '@/hooks/use-onboarding'
@@ -303,11 +296,7 @@ export function DevToolsOverlay() {
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={btn.refresh}
-            onPress={refreshStorage}
-            activeOpacity={0.85}
-          >
+          <TouchableOpacity style={btn.refresh} onPress={refreshStorage} activeOpacity={0.85}>
             <Text style={btn.pillText}>Refresh Storage</Text>
           </TouchableOpacity>
 

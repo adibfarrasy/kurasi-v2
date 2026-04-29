@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const role = user?.role ?? 'new'
     return authClient.admin.checkRolePermission({
       role,
-      permission: { [resource]: [action] },
+      permissions: { [resource]: [action] },
     })
   }
 

@@ -60,10 +60,7 @@ export function SlotCard({
   return (
     <Pressable
       onPress={onPress}
-      style={[
-        cardBaseStyle,
-        { transform: [{ rotate: index % 2 === 0 ? '-1deg' : '1deg' }] },
-      ]}
+      style={[cardBaseStyle, { transform: [{ rotate: index % 2 === 0 ? '-1deg' : '1deg' }] }]}
     >
       <Text style={labelStyle}>{label}</Text>
       {item ? (
@@ -75,10 +72,7 @@ export function SlotCard({
       ) : (
         <View style={{ flex: 1 }} />
       )}
-      <Text
-        numberOfLines={1}
-        style={{ fontSize: 9, color: '#444', textAlign: 'center' }}
-      >
+      <Text numberOfLines={1} style={{ fontSize: 9, color: '#444', textAlign: 'center' }}>
         {item?.brand ?? ''}
       </Text>
     </Pressable>
@@ -148,13 +142,7 @@ export type SlotEntry = {
  * Used by both the saved-outfit detail page and the Try On page so the card
  * styling stays in lockstep.
  */
-export function SlotStrip({
-  slots,
-  onAdd,
-}: {
-  slots: SlotEntry[]
-  onAdd?: () => void
-}) {
+export function SlotStrip({ slots, onAdd }: { slots: SlotEntry[]; onAdd?: () => void }) {
   return (
     <View
       style={{
@@ -178,13 +166,7 @@ export function SlotStrip({
         style={{ flexGrow: 1 }}
       >
         {slots.map((s, i) => (
-          <SlotCard
-            key={s.key}
-            label={s.label}
-            item={s.item}
-            index={i}
-            onPress={s.onPress}
-          />
+          <SlotCard key={s.key} label={s.label} item={s.item} index={i} onPress={s.onPress} />
         ))}
       </ScrollView>
     </View>

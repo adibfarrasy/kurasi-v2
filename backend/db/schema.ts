@@ -27,7 +27,9 @@ export const subscription = pgTable('subscription', {
     .notNull()
     .unique()
     .references(() => user.id, { onDelete: 'cascade' }),
-  interval: text('interval', { enum: ['monthly'] }).notNull().default('monthly'),
+  interval: text('interval', { enum: ['monthly'] })
+    .notNull()
+    .default('monthly'),
   status: text('status', { enum: ['active', 'grace', 'cancelled', 'lapsed'] }).notNull(),
   startedAt: timestamp('started_at').notNull(),
   currentPeriodEnd: timestamp('current_period_end').notNull(),
@@ -455,9 +457,29 @@ export const styleCardTagRelations = relations(styleCardTag, ({ one }) => ({
 
 export const outfitRelations = relations(outfit, ({ one }) => ({
   owner: one(user, { fields: [outfit.userId], references: [user.id] }),
-  headwear: one(clothingItem, { fields: [outfit.headwearId], references: [clothingItem.id], relationName: 'outfit_headwear' }),
-  base: one(clothingItem, { fields: [outfit.baseId], references: [clothingItem.id], relationName: 'outfit_base' }),
-  outer: one(clothingItem, { fields: [outfit.outerId], references: [clothingItem.id], relationName: 'outfit_outer' }),
-  bottom: one(clothingItem, { fields: [outfit.bottomId], references: [clothingItem.id], relationName: 'outfit_bottom' }),
-  footwear: one(clothingItem, { fields: [outfit.footwearId], references: [clothingItem.id], relationName: 'outfit_footwear' }),
+  headwear: one(clothingItem, {
+    fields: [outfit.headwearId],
+    references: [clothingItem.id],
+    relationName: 'outfit_headwear',
+  }),
+  base: one(clothingItem, {
+    fields: [outfit.baseId],
+    references: [clothingItem.id],
+    relationName: 'outfit_base',
+  }),
+  outer: one(clothingItem, {
+    fields: [outfit.outerId],
+    references: [clothingItem.id],
+    relationName: 'outfit_outer',
+  }),
+  bottom: one(clothingItem, {
+    fields: [outfit.bottomId],
+    references: [clothingItem.id],
+    relationName: 'outfit_bottom',
+  }),
+  footwear: one(clothingItem, {
+    fields: [outfit.footwearId],
+    references: [clothingItem.id],
+    relationName: 'outfit_footwear',
+  }),
 }))

@@ -19,13 +19,9 @@ const requestSchema = z
     kind: z.enum(['gap_filling', 'outfit_generation']),
     basedOnOutfitId: z.uuid().optional(),
   })
-  .refine(
-    (v) => (v.kind === 'gap_filling' ? !v.basedOnOutfitId : !!v.basedOnOutfitId),
-    {
-      message:
-        'gap_filling must omit basedOnOutfitId; outfit_generation requires it',
-    },
-  )
+  .refine((v) => (v.kind === 'gap_filling' ? !v.basedOnOutfitId : !!v.basedOnOutfitId), {
+    message: 'gap_filling must omit basedOnOutfitId; outfit_generation requires it',
+  })
 
 const list = requirePermission({ permission: { outfitRecommendation: ['read'] } }).handler(
   async ({ context }) => {
@@ -47,9 +43,7 @@ const request = requirePermission({ permission: { outfitRecommendation: ['reques
       const outfitRows = await db
         .select()
         .from(outfit)
-        .where(
-          and(eq(outfit.id, input.basedOnOutfitId), eq(outfit.userId, user.id)),
-        )
+        .where(and(eq(outfit.id, input.basedOnOutfitId), eq(outfit.userId, user.id)))
       const seed = outfitRows[0]
       if (!seed) {
         throw new ORPCError('NOT_FOUND', { message: 'Seed outfit not found' })
@@ -63,9 +57,7 @@ const request = requirePermission({ permission: { outfitRecommendation: ['reques
     const activeItems = await db
       .select()
       .from(clothingItem)
-      .where(
-        and(eq(clothingItem.userId, user.id), ne(clothingItem.status, 'removed')),
-      )
+      .where(and(eq(clothingItem.userId, user.id), ne(clothingItem.status, 'removed')))
     // 'archived' items do not count — only 'active'.
     const activeCount = activeItems.filter((i) => i.status === 'active').length
     if (activeCount < MIN_WARDROBE_ITEMS) {

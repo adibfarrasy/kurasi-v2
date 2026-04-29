@@ -1,0 +1,29 @@
+# Local Postgres + Mailpit
+#
+# Usage:
+#   docker compose up
+
+name: kurasi
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5437:5432"
+    volumes:
+      - kurasi_postgres_data:/var/lib/postgresql
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "1027:1025"
+      - "8027:8025"
+
+volumes:
+  kurasi_postgres_data:

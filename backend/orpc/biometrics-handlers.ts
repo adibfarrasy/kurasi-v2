@@ -11,10 +11,7 @@ import { maybeCompleteOnboarding } from './onboarding-helpers'
 const getBiometrics = requirePermission({ permission: { userBiometrics: ['read'] } }).handler(
   async ({ context }) => {
     const { db, user } = context
-    const rows = await db
-      .select()
-      .from(userBiometrics)
-      .where(eq(userBiometrics.userId, user.id))
+    const rows = await db.select().from(userBiometrics).where(eq(userBiometrics.userId, user.id))
     return rows[0] ?? null
   },
 )
@@ -70,10 +67,7 @@ const removeFacePhoto = requirePermission({
   permission: { userBiometrics: ['delete-photo'] },
 }).handler(async ({ context }) => {
   const { db, user } = context
-  const existing = await db
-    .select()
-    .from(userBiometrics)
-    .where(eq(userBiometrics.userId, user.id))
+  const existing = await db.select().from(userBiometrics).where(eq(userBiometrics.userId, user.id))
   const row = existing[0]
   if (!row) {
     throw new ORPCError('NOT_FOUND', { message: 'Biometrics not set' })

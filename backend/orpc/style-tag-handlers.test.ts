@@ -1,42 +1,28 @@
-/**
- * Tests for style-tag-handlers.
- *
- * Spec: specs/style-board.allium
- * Code: ./style-tag-handlers.ts
- */
-
 import { beforeEach, describe, expect, test } from 'bun:test'
-import { installStyleFakes, resetStore, seedTag, store } from './style-test-helpers'
+import { call } from '@orpc/server'
+import * as utils from '../test/utils'
+import { styleTagHandlers } from './style-tag-handlers'
 
-const { fakeDb, fakeAuth, setUser, setPermissionAllowed } = installStyleFakes()
-
-const { call } = await import('@orpc/server')
-const { styleTagHandlers } = await import('./style-tag-handlers')
-
-function ctx() {
-  return {
-    db: fakeDb as unknown as never,
-    auth: fakeAuth as unknown as never,
-    reqHeaders: new Headers(),
-  }
-}
-
-beforeEach(() => {
-  resetStore()
-  setUser({ id: 'user-a' })
-  setPermissionAllowed(true)
+beforeEach(async () => {
+  await utils.resetTestDb()
+  await utils.seedUser()
 })
 
 describe('styleTagHandlers.list', () => {
   test('returns all tags', async () => {
-    seedTag({ label: 'zoom' })
-    seedTag({ label: 'alpha' })
-    const result = await call(styleTagHandlers.list, undefined as never, { context: ctx() })
+    await utils.seedStyleTag({ label: 'zoom' })
+    await utils.seedStyleTag({ label: 'alpha' })
+    const result = await call(styleTagHandlers.list, undefined as never, {
+      context: utils.testContext(),
+    })
     expect(result).toHaveLength(2)
+    expect(result.map((tag) => tag.label)).toEqual(['alpha', 'zoom'])
   })
 
   test('returns empty array when no tags', async () => {
-    const result = await call(styleTagHandlers.list, undefined as never, { context: ctx() })
+    const result = await call(styleTagHandlers.list, undefined as never, {
+      context: utils.testContext(),
+    })
     expect(result).toEqual([])
   })
 })
@@ -46,41 +32,39 @@ describe('styleTagHandlers.create (admin)', () => {
     const result = await call(
       styleTagHandlers.create,
       { label: 'minimalist', category: 'aesthetic' },
-      { context: ctx() },
+      { context: utils.testContext() },
     )
     expect(result.label).toBe('minimalist')
-    expect(store.styleTags).toHaveLength(1)
   })
 
   test('rejects duplicate label with CONFLICT', async () => {
-    seedTag({ label: 'streetwear' })
+    await utils.seedStyleTag({ label: 'streetwear' })
     await expect(
       call(
         styleTagHandlers.create,
         { label: 'streetwear', category: 'aesthetic' },
-        { context: ctx() },
+        { context: utils.testContext() },
       ),
     ).rejects.toThrow()
   })
 
   test('FORBIDDEN when caller lacks admin-manage', async () => {
-    setPermissionAllowed(false)
+    await utils.resetTestDb()
+    await utils.seedUser({ role: 'new' })
     await expect(
       call(
         styleTagHandlers.create,
         { label: 'x', category: 'aesthetic' },
-        { context: ctx() },
+        { context: utils.testContext() },
       ),
     ).rejects.toThrow()
   })
 
   test('rejects invalid category', async () => {
     await expect(
-      call(
-        styleTagHandlers.create,
-        { label: 'x', category: 'bogus' } as never,
-        { context: ctx() },
-      ),
+      call(styleTagHandlers.create, { label: 'x', category: 'bogus' } as never, {
+        context: utils.testContext(),
+      }),
     ).rejects.toThrow()
   })
 })

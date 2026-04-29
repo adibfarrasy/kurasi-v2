@@ -7,12 +7,11 @@ import { fitAdjustmentHandlers } from './fit-adjustment-handlers'
 import { onboardingHandlers } from './onboarding-handlers'
 import { outfitHandlers } from './outfit-handlers'
 import { outfitRecommendationHandlers } from './outfit-recommendation-handlers'
+import { savedStyleHandlers } from './saved-style-handlers'
 import { shareClickHandlers } from './share-click-handlers'
 import { shareEventHandlers } from './share-event-handlers'
 import { shareableCardHandlers } from './shareable-card-handlers'
 import { sharedOutfitHandlers } from './shared-outfit-handlers'
-import { base } from './orpc-base'
-import { savedStyleHandlers } from './saved-style-handlers'
 import { styleCardHandlers } from './style-card-handlers'
 import { styleInteractionHandlers } from './style-interaction-handlers'
 import { styleTagHandlers } from './style-tag-handlers'
@@ -34,10 +33,6 @@ export const router = {
   shareableCard: shareableCardHandlers,
   shareEvent: shareEventHandlers,
   shareClick: shareClickHandlers,
-  helloWorld: base.handler(async () => {
-    return 'Hello World'
-  }),
-  createCatImage: base.handler(async () => {}),
 }
 
 export const handler = new RPCHandler(router, {

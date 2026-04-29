@@ -16,8 +16,13 @@ async function loadTagsForCards(
   db: {
     select: (shape?: unknown) => {
       from: (t: unknown) => {
-        innerJoin: (t: unknown, on: unknown) => {
-          where: (w: unknown) => Promise<Array<{ cardId: string; tag: typeof styleTag.$inferSelect }>>
+        innerJoin: (
+          t: unknown,
+          on: unknown,
+        ) => {
+          where: (
+            w: unknown,
+          ) => Promise<Array<{ cardId: string; tag: typeof styleTag.$inferSelect }>>
         }
       }
     }
@@ -88,7 +93,7 @@ const feedStyleCards = requirePermission({ permission: { styleCard: ['read'] } }
       page.map((c) => c.id),
     )
     const items = page.map((c) => ({ ...c, tags: tagsByCard.get(c.id) ?? [] }))
-    const nextCursor = hasMore ? page[page.length - 1]!.createdAt.toISOString() : null
+    const nextCursor = hasMore ? page[page.length - 1]?.createdAt.toISOString() : null
     return { items, nextCursor }
   })
 
@@ -118,10 +123,7 @@ const createCard = requirePermission({ permission: { styleCard: ['admin-manage']
     const { db } = context
     return db.transaction(async (tx) => {
       if (input.tagIds.length > 0) {
-        const tagRows = await tx
-          .select()
-          .from(styleTag)
-          .where(inArray(styleTag.id, input.tagIds))
+        const tagRows = await tx.select().from(styleTag).where(inArray(styleTag.id, input.tagIds))
         if (tagRows.length !== new Set(input.tagIds).size) {
           throw new ORPCError('BAD_REQUEST', { message: 'unknown tag id' })
         }
@@ -134,7 +136,10 @@ const createCard = requirePermission({ permission: { styleCard: ['admin-manage']
           status: 'active',
         })
         .returning()
-      const card = inserted[0]!
+      const card = inserted[0]
+      if (!card) {
+        throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'Failed to create card' })
+      }
       if (input.tagIds.length > 0) {
         await tx
           .insert(styleCardTag)

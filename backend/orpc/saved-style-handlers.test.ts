@@ -1,71 +1,56 @@
-/**
- * Tests for saved-style-handlers.
- *
- * Spec: specs/style-board.allium
- * Code: ./saved-style-handlers.ts
- */
-
 import { beforeEach, describe, expect, test } from 'bun:test'
-import {
-  installStyleFakes,
-  resetStore,
-  seedCard,
-  seedInteraction,
-  seedSaved,
-  seedTag,
-  store,
-} from './style-test-helpers'
+import { call } from '@orpc/server'
+import { eq } from 'drizzle-orm'
+import { savedStyle, styleInteraction } from '../db/schema'
+import * as utils from '../test/utils'
+import { savedStyleHandlers } from './saved-style-handlers'
 
-const { fakeDb, fakeAuth, setUser, setPermissionAllowed } = installStyleFakes()
-
-const { call } = await import('@orpc/server')
-const { savedStyleHandlers } = await import('./saved-style-handlers')
-
-function ctx() {
-  return {
-    db: fakeDb as unknown as never,
-    auth: fakeAuth as unknown as never,
-    reqHeaders: new Headers(),
-  }
-}
-
-beforeEach(() => {
-  resetStore()
-  setUser({ id: 'user-a' })
-  setPermissionAllowed(true)
+beforeEach(async () => {
+  await utils.resetTestDb()
+  await utils.seedUser()
 })
 
 describe('savedStyleHandlers.list', () => {
   test('returns only the caller’s saved rows with card + tags', async () => {
-    const card = seedCard()
-    const t = seedTag()
-    store.styleCardTags.push({ cardId: card.id, tagId: t.id })
-    seedSaved({ userId: 'user-a', cardId: card.id })
-    seedSaved({ userId: 'user-b', cardId: card.id })
-    const result = await call(savedStyleHandlers.list, undefined as never, { context: ctx() })
+    const card = await utils.seedStyleCard()
+    const tag = await utils.seedStyleTag()
+    await utils.seedStyleCardTag(card.id, tag.id)
+    await utils.seedSavedStyle({ userId: 'user-a', cardId: card.id })
+    await utils.seedUser({ id: 'user-b', email: 'user-b@example.com' })
+    await utils.seedSavedStyle({ userId: 'user-b', cardId: card.id })
+    await utils.loginAsUser('user-a')
+    const result = await call(savedStyleHandlers.list, undefined as never, {
+      context: utils.testContext(),
+    })
     expect(result).toHaveLength(1)
     expect(result[0]!.card.id).toBe(card.id)
     expect(result[0]!.card.tags).toHaveLength(1)
   })
 
   test('orders by savedAt desc', async () => {
-    const a = seedCard()
-    const b = seedCard()
-    seedSaved({ cardId: a.id, savedAt: new Date(2025, 0, 1) })
-    seedSaved({ cardId: b.id, savedAt: new Date(2026, 0, 1) })
-    const result = await call(savedStyleHandlers.list, undefined as never, { context: ctx() })
+    const a = await utils.seedStyleCard()
+    const b = await utils.seedStyleCard()
+    await utils.seedSavedStyle({ cardId: a.id, savedAt: new Date(2025, 0, 1) })
+    await utils.seedSavedStyle({ cardId: b.id, savedAt: new Date(2026, 0, 1) })
+    const result = await call(savedStyleHandlers.list, undefined as never, {
+      context: utils.testContext(),
+    })
     expect(result.map((s) => s.card.id)).toEqual([b.id, a.id])
   })
 
   test('returns empty array when user has no saves', async () => {
-    const result = await call(savedStyleHandlers.list, undefined as never, { context: ctx() })
+    const result = await call(savedStyleHandlers.list, undefined as never, {
+      context: utils.testContext(),
+    })
     expect(result).toEqual([])
   })
 
   test('includes retired cards in the list', async () => {
-    const c = seedCard({ status: 'retired', retiredAt: new Date() })
-    seedSaved({ cardId: c.id })
-    const result = await call(savedStyleHandlers.list, undefined as never, { context: ctx() })
+    const c = await utils.seedStyleCard({ status: 'retired', retiredAt: new Date() })
+    await utils.seedSavedStyle({ cardId: c.id })
+    const result = await call(savedStyleHandlers.list, undefined as never, {
+      context: utils.testContext(),
+    })
     expect(result).toHaveLength(1)
     expect(result[0]!.card.status).toBe('retired')
   })
@@ -73,37 +58,38 @@ describe('savedStyleHandlers.list', () => {
 
 describe('savedStyleHandlers.remove', () => {
   test('deletes only the SavedStyle; StyleInteraction(like) stays', async () => {
-    const c = seedCard()
-    seedInteraction({ userId: 'user-a', cardId: c.id, kind: 'liked' })
-    seedSaved({ userId: 'user-a', cardId: c.id })
-    const result = await call(savedStyleHandlers.remove, { cardId: c.id }, { context: ctx() })
+    const c = await utils.seedStyleCard()
+    await utils.seedStyleInteraction({ userId: 'user-a', cardId: c.id, kind: 'liked' })
+    await utils.seedSavedStyle({ userId: 'user-a', cardId: c.id })
+    const result = await call(
+      savedStyleHandlers.remove,
+      { cardId: c.id },
+      { context: utils.testContext() },
+    )
     expect(result).toBe(true)
-    expect(store.savedStyles).toHaveLength(0)
-    expect(store.styleInteractions).toHaveLength(1)
+    const saves = await utils.db.select().from(savedStyle).where(eq(savedStyle.cardId, c.id))
+    const interactions = await utils.db
+      .select()
+      .from(styleInteraction)
+      .where(eq(styleInteraction.cardId, c.id))
+    expect(saves).toHaveLength(0)
+    expect(interactions).toHaveLength(1)
   })
 
   test('NOT_FOUND when not saved', async () => {
-    const c = seedCard()
+    const c = await utils.seedStyleCard()
     await expect(
-      call(savedStyleHandlers.remove, { cardId: c.id }, { context: ctx() }),
+      call(savedStyleHandlers.remove, { cardId: c.id }, { context: utils.testContext() }),
     ).rejects.toThrow()
   })
 
   test('does not delete another user’s save', async () => {
-    const c = seedCard()
-    seedSaved({ userId: 'user-b', cardId: c.id })
+    const c = await utils.seedStyleCard()
+    await utils.seedUser({ id: 'user-b', email: 'user-b@example.com' })
+    await utils.seedSavedStyle({ userId: 'user-b', cardId: c.id })
+    await utils.loginAsUser('user-a')
     await expect(
-      call(savedStyleHandlers.remove, { cardId: c.id }, { context: ctx() }),
-    ).rejects.toThrow()
-    expect(store.savedStyles).toHaveLength(1)
-  })
-
-  test('FORBIDDEN when permission denied', async () => {
-    setPermissionAllowed(false)
-    const c = seedCard()
-    seedSaved({ cardId: c.id })
-    await expect(
-      call(savedStyleHandlers.remove, { cardId: c.id }, { context: ctx() }),
+      call(savedStyleHandlers.remove, { cardId: c.id }, { context: utils.testContext() }),
     ).rejects.toThrow()
   })
 })

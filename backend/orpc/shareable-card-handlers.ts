@@ -36,10 +36,7 @@ function stubImageUrl(id: string): string {
   return `https://cdn.kurasi.dev/cards/${id}.png`
 }
 
-async function assertMinWardrobe(
-  db: unknown,
-  userId: string,
-): Promise<void> {
+async function assertMinWardrobe(db: unknown, userId: string): Promise<void> {
   // biome-ignore lint: dynamic db shape
   const d = db as any
   const items = await d
@@ -61,11 +58,7 @@ const listCards = requirePermission({ permission: { shareableCard: ['read'] } })
     const whereClause = includeExpired
       ? eq(shareableCard.userId, user.id)
       : and(eq(shareableCard.userId, user.id), eq(shareableCard.status, 'active'))
-    return db
-      .select()
-      .from(shareableCard)
-      .where(whereClause)
-      .orderBy(desc(shareableCard.createdAt))
+    return db.select().from(shareableCard).where(whereClause).orderBy(desc(shareableCard.createdAt))
   })
 
 // find: caller-owned OR active (active cards are publicly resolvable via the
@@ -74,10 +67,7 @@ const findCard = requirePermission({ permission: { shareableCard: ['read'] } })
   .input(z.object({ id: z.uuid() }))
   .handler(async ({ context, input }) => {
     const { db, user } = context
-    const rows = await db
-      .select()
-      .from(shareableCard)
-      .where(eq(shareableCard.id, input.id))
+    const rows = await db.select().from(shareableCard).where(eq(shareableCard.id, input.id))
     const row = rows[0]
     if (!row) {
       throw new ORPCError('NOT_FOUND', { message: 'Card not found' })

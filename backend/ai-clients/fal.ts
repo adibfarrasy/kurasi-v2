@@ -1,6 +1,6 @@
 import { fal } from '@fal-ai/client'
 
-const prompt = `Create try-on picture of a person.
+const _prompt = `Create try-on picture of a person.
 - Person from image 1
 - Before try-on, make sure you replace the white tshirt the person is wearing
 - Wear shirt from image 2

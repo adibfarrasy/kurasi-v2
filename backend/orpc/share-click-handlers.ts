@@ -13,17 +13,11 @@ import { ORPCError } from '@orpc/server'
 import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { db as realDb } from '../db/db'
-import { shareClick, shareableCard } from '../db/schema'
+import { shareableCard, shareClick } from '../db/schema'
 import { requirePermission } from './authed'
 import { base } from './orpc-base'
 
-const PLATFORMS = [
-  'instagram_story',
-  'snapchat',
-  'tiktok',
-  'twitter',
-  'clipboard',
-] as const
+const PLATFORMS = ['instagram_story', 'snapchat', 'tiktok', 'twitter', 'clipboard'] as const
 
 // Public endpoint — no auth middleware. Takes { cardId, platform }; verifies
 // the card is active; inserts a ShareClick with referredUserId=null; returns
@@ -32,10 +26,7 @@ const record = base
   .input(z.object({ cardId: z.uuid(), platform: z.enum(PLATFORMS) }))
   .handler(async ({ context, input }) => {
     const { db } = context
-    const cardRows = await db
-      .select()
-      .from(shareableCard)
-      .where(eq(shareableCard.id, input.cardId))
+    const cardRows = await db.select().from(shareableCard).where(eq(shareableCard.id, input.cardId))
     const card = cardRows[0]
     if (!card) {
       throw new ORPCError('NOT_FOUND', { message: 'Card not found' })
@@ -68,10 +59,7 @@ const analytics = requirePermission({
     if (!cardRows[0]) {
       throw new ORPCError('NOT_FOUND', { message: 'Card not found' })
     }
-    const clicks = await db
-      .select()
-      .from(shareClick)
-      .where(eq(shareClick.cardId, input.cardId))
+    const clicks = await db.select().from(shareClick).where(eq(shareClick.cardId, input.cardId))
 
     const byPlatform: Record<string, number> = {}
     for (const platform of PLATFORMS) byPlatform[platform] = 0
@@ -92,10 +80,7 @@ export async function attributeClickToUser(
   newUserId: string,
   db: typeof realDb = realDb,
 ): Promise<void> {
-  await db
-    .update(shareClick)
-    .set({ referredUserId: newUserId })
-    .where(eq(shareClick.id, clickId))
+  await db.update(shareClick).set({ referredUserId: newUserId }).where(eq(shareClick.id, clickId))
 }
 
 export const shareClickHandlers = {

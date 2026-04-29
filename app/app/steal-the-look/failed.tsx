@@ -1,5 +1,5 @@
-import { Stack, useRouter } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
+import { Stack, useRouter } from 'expo-router'
 import { Image, Pressable, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Camera from '@/assets/icons/Camera.svg'
@@ -85,7 +85,8 @@ export default function StealTheLookFailed() {
                 color: 'rgba(255,255,255,0.75)',
               }}
             >
-              We noticed your image shows multiple people. We can only analyze one person's outfit at a time. Please upload a photo with a single person and try again.
+              We noticed your image shows multiple people. We can only analyze one person's outfit
+              at a time. Please upload a photo with a single person and try again.
             </Text>
           </View>
         </View>

@@ -1,14 +1,17 @@
 import { ORPCError } from '@orpc/server'
 import z from 'zod'
-import type { auth } from '../auth'
+import type { PermissionStatement } from '../permissions'
 import { authMiddleware } from './middlewares/auth'
 import { base } from './orpc-base'
 
 export const authed = base.use(authMiddleware)
 
-type UserHasPermissionBody = NonNullable<Parameters<typeof auth.api.userHasPermission>[0]>['body']
+type PermissionBody = Partial<{
+  [K in keyof PermissionStatement]: Array<PermissionStatement[K][number]>
+}>
+type PermissionArg = { permission: PermissionBody } | { permissions: PermissionBody }
 
-export const requirePermission = (arg: UserHasPermissionBody) =>
+export const requirePermission = (arg: PermissionArg) =>
   authed
     .errors({
       FORBIDDEN: {
@@ -18,10 +21,11 @@ export const requirePermission = (arg: UserHasPermissionBody) =>
     })
     .use(async ({ context, next }) => {
       const { auth, user } = context
+      const permissions = 'permission' in arg ? arg.permission : arg.permissions
 
       const result = await auth.api.userHasPermission({
         body: {
-          ...arg,
+          permissions,
           userId: user.id,
         },
       })

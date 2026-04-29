@@ -59,9 +59,7 @@ const removeSavedStyle = requirePermission({ permission: { savedStyle: ['delete'
     const { db, user } = context
     const result = await db
       .delete(savedStyle)
-      .where(
-        and(eq(savedStyle.userId, user.id), eq(savedStyle.cardId, input.cardId)),
-      )
+      .where(and(eq(savedStyle.userId, user.id), eq(savedStyle.cardId, input.cardId)))
       .returning()
     if (!result[0]) {
       throw new ORPCError('NOT_FOUND', { message: 'Saved style not found' })

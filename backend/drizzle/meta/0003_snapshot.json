@@ -129,12 +129,8 @@
           "name": "clothing_item_user_id_user_id_fk",
           "tableFrom": "clothing_item",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -272,12 +268,8 @@
           "name": "outfit_user_id_user_id_fk",
           "tableFrom": "outfit",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -285,12 +277,8 @@
           "name": "outfit_headwear_id_clothing_item_id_fk",
           "tableFrom": "outfit",
           "tableTo": "clothing_item",
-          "columnsFrom": [
-            "headwear_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["headwear_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -298,12 +286,8 @@
           "name": "outfit_base_id_clothing_item_id_fk",
           "tableFrom": "outfit",
           "tableTo": "clothing_item",
-          "columnsFrom": [
-            "base_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["base_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -311,12 +295,8 @@
           "name": "outfit_outer_id_clothing_item_id_fk",
           "tableFrom": "outfit",
           "tableTo": "clothing_item",
-          "columnsFrom": [
-            "outer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["outer_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -324,12 +304,8 @@
           "name": "outfit_bottom_id_clothing_item_id_fk",
           "tableFrom": "outfit",
           "tableTo": "clothing_item",
-          "columnsFrom": [
-            "bottom_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["bottom_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         },
@@ -337,12 +313,8 @@
           "name": "outfit_footwear_id_clothing_item_id_fk",
           "tableFrom": "outfit",
           "tableTo": "clothing_item",
-          "columnsFrom": [
-            "footwear_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["footwear_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -402,12 +374,8 @@
           "name": "user_biometrics_user_id_user_id_fk",
           "tableFrom": "user_biometrics",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -523,12 +491,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -620,12 +584,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -635,9 +595,7 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -731,9 +689,7 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},

@@ -1,5 +1,5 @@
-import { Stack, useRouter } from 'expo-router'
 import { LinearGradient } from 'expo-linear-gradient'
+import { Stack, useRouter } from 'expo-router'
 import { useEffect, useRef } from 'react'
 import { Animated, Easing, Image, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'

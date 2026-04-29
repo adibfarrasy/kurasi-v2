@@ -27,10 +27,7 @@ const likeStyleCard = requirePermission({
   .handler(async ({ context, input }) => {
     const { db, user } = context
     return db.transaction(async (tx) => {
-      const cardRows = await tx
-        .select()
-        .from(styleCard)
-        .where(eq(styleCard.id, input.cardId))
+      const cardRows = await tx.select().from(styleCard).where(eq(styleCard.id, input.cardId))
       const card = cardRows[0]
       if (!card) {
         throw new ORPCError('NOT_FOUND', { message: 'Style card not found' })
@@ -42,12 +39,7 @@ const likeStyleCard = requirePermission({
       const existing = await tx
         .select()
         .from(styleInteraction)
-        .where(
-          and(
-            eq(styleInteraction.userId, user.id),
-            eq(styleInteraction.cardId, input.cardId),
-          ),
-        )
+        .where(and(eq(styleInteraction.userId, user.id), eq(styleInteraction.cardId, input.cardId)))
       const prior = existing[0]
       if (prior) {
         if (prior.kind === 'skipped') {
@@ -59,9 +51,7 @@ const likeStyleCard = requirePermission({
         const savedRows = await tx
           .select()
           .from(savedStyle)
-          .where(
-            and(eq(savedStyle.userId, user.id), eq(savedStyle.cardId, input.cardId)),
-          )
+          .where(and(eq(savedStyle.userId, user.id), eq(savedStyle.cardId, input.cardId)))
         let saved = savedRows[0]
         if (!saved) {
           const inserted = await tx
@@ -82,10 +72,15 @@ const likeStyleCard = requirePermission({
         .insert(savedStyle)
         .values({ userId: user.id, cardId: input.cardId })
         .returning()
-      return {
-        interaction: interactionInserted[0]!,
-        saved: savedInserted[0]!,
+      const interaction = interactionInserted[0]
+      if (!interaction) {
+        throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'Failed to create interaction' })
       }
+      const saved = savedInserted[0]
+      if (!saved) {
+        throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'Failed to create saved' })
+      }
+      return { interaction, saved }
     })
   })
 
@@ -99,10 +94,7 @@ const skipStyleCard = requirePermission({
   .handler(async ({ context, input }) => {
     const { db, user } = context
     return db.transaction(async (tx) => {
-      const cardRows = await tx
-        .select()
-        .from(styleCard)
-        .where(eq(styleCard.id, input.cardId))
+      const cardRows = await tx.select().from(styleCard).where(eq(styleCard.id, input.cardId))
       const card = cardRows[0]
       if (!card) {
         throw new ORPCError('NOT_FOUND', { message: 'Style card not found' })
@@ -114,12 +106,7 @@ const skipStyleCard = requirePermission({
       const existing = await tx
         .select()
         .from(styleInteraction)
-        .where(
-          and(
-            eq(styleInteraction.userId, user.id),
-            eq(styleInteraction.cardId, input.cardId),
-          ),
-        )
+        .where(and(eq(styleInteraction.userId, user.id), eq(styleInteraction.cardId, input.cardId)))
       const prior = existing[0]
       if (prior) {
         if (prior.kind === 'liked') {
@@ -134,7 +121,11 @@ const skipStyleCard = requirePermission({
         .insert(styleInteraction)
         .values({ userId: user.id, cardId: input.cardId, kind: 'skipped' })
         .returning()
-      return inserted[0]!
+      const interaction = inserted[0]
+      if (!interaction) {
+        throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'Failed to create interaction' })
+      }
+      return interaction
     })
   })
 

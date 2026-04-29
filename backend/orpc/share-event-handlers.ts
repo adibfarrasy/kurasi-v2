@@ -4,16 +4,10 @@
 import { ORPCError } from '@orpc/server'
 import { and, desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { shareEvent, shareableCard } from '../db/schema'
+import { shareableCard, shareEvent } from '../db/schema'
 import { requirePermission } from './authed'
 
-const PLATFORMS = [
-  'instagram_story',
-  'snapchat',
-  'tiktok',
-  'twitter',
-  'clipboard',
-] as const
+const PLATFORMS = ['instagram_story', 'snapchat', 'tiktok', 'twitter', 'clipboard'] as const
 
 const record = requirePermission({ permission: { shareEvent: ['create'] } })
   .input(z.object({ cardId: z.uuid(), platform: z.enum(PLATFORMS) }))
