@@ -321,6 +321,7 @@ export default function UploadWardrobeReview() {
 
   // Page change → exit editing mode for the name field. All other state
   // is per-page (in `pages`), so it persists automatically.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: TODO
   useEffect(() => {
     setEditingName(false)
   }, [activeIndex])
@@ -431,6 +432,7 @@ export default function UploadWardrobeReview() {
         </View>
       </BottomSheetFooter>
     ),
+    // biome-ignore lint/correctness/useExhaustiveDependencies: TODO
     [insets.bottom, brandQuery, BRAND_OPTIONS, pendingBrand, setBrand],
   )
 

@@ -175,7 +175,8 @@ const itemSeeds = [
     fit: 'regular' as const,
     materials: ['cotton'],
     name: 'Official Merch',
-    customNotes: 'I got burnhole in my hoodie, all my homies think it’s stank. I need a cocoa butter kisses.',
+    customNotes:
+      'I got burnhole in my hoodie, all my homies think it’s stank. I need a cocoa butter kisses.',
   },
   {
     file: img('tees', 'tee-7.png'),

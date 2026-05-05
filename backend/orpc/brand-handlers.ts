@@ -78,7 +78,7 @@ const list = authed.handler(async ({ context }): Promise<string[]> => {
   for (const b of BUNDLED_BRANDS) push(b)
   for (const r of rows) {
     const b = r.brand
-    if (b && b.trim()) push(b.trim())
+    if (b?.trim()) push(b.trim())
   }
   out.sort((a, b) => a.localeCompare(b))
   return out

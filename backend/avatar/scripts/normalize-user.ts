@@ -25,9 +25,9 @@
  *     --body <path-or-url> --gender masc|femme
  */
 
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fal } from '@fal-ai/client'
-import fs from 'fs/promises'
 import sharp from 'sharp'
 
 /**
@@ -111,15 +111,24 @@ if (!userKey || !bodyArg || (genderArg !== 'masc' && genderArg !== 'femme')) {
 }
 const gender = genderArg as 'masc' | 'femme'
 
-const heightCm = heightArg ? parseInt(heightArg, 10) : undefined
-const weightKg = weightArg ? parseInt(weightArg, 10) : undefined
-if (heightArg !== undefined && (!Number.isFinite(heightCm) || heightCm! < 130 || heightCm! > 220)) {
-  console.error(`--height-cm must be an integer between 130 and 220.`)
-  process.exit(1)
+let heightCm: number | undefined
+if (heightArg !== undefined) {
+  const parsed = Number.parseInt(heightArg, 10)
+  if (!Number.isFinite(parsed) || parsed < 130 || parsed > 220) {
+    console.error(`--height-cm must be an integer between 130 and 220.`)
+    process.exit(1)
+  }
+  heightCm = parsed
 }
-if (weightArg !== undefined && (!Number.isFinite(weightKg) || weightKg! < 30 || weightKg! > 200)) {
-  console.error(`--weight-kg must be an integer between 30 and 200.`)
-  process.exit(1)
+
+let weightKg: number | undefined
+if (weightArg !== undefined) {
+  const parsed = Number.parseInt(weightArg, 10)
+  if (!Number.isFinite(parsed) || parsed < 30 || parsed > 200) {
+    console.error(`--weight-kg must be an integer between 30 and 200.`)
+    process.exit(1)
+  }
+  weightKg = parsed
 }
 
 const posePath = `backend/avatar/assets/pose-${gender}.png`
@@ -196,10 +205,12 @@ notes: <one short sentence describing the specific features that drove the class
   const text = String((result.data as any)?.output ?? '').trim()
   const buildLine = /build\s*:\s*(\w+)/i.exec(text)
   const notesLine = /notes\s*:\s*(.+)$/im.exec(text)
-  const build = buildLine
-    ? BUILD_VALUES.find((b) => buildLine[1]!.toLowerCase().includes(b))
-    : undefined
-  const notes = notesLine ? notesLine[1]!.trim() : ''
+  const buildKeyword = buildLine?.[1]
+  const build =
+    buildKeyword !== undefined
+      ? BUILD_VALUES.find((b) => buildKeyword.toLowerCase().includes(b))
+      : undefined
+  const notes = notesLine ? (notesLine[1]?.trim() ?? '') : ''
   if (!build) {
     console.warn(`[classify] couldn't parse build, defaulting to "average". Raw:\n${text}`)
   }

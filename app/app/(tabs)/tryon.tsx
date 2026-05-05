@@ -227,8 +227,7 @@ export default function TryOn() {
     // don't have an `owned` flag — but they're always AI-generated.
     // Wardrobe rows expose `owned`; surface the diamond when it's false.
     const aiGenerated =
-      display != null &&
-      (display === aiItem || ('owned' in display && display.owned === false))
+      display != null && (display === aiItem || ('owned' in display && display.owned === false))
     return {
       key: def.key,
       label: def.label,

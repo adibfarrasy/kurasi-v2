@@ -153,6 +153,8 @@ const progressSchema = z.discriminatedUnion('phase', [
   z.object({ phase: z.literal('error'), message: z.string() }),
 ])
 
+export type AddClothesProgress = z.infer<typeof progressSchema>
+
 const progress = authed
   .input(z.object({ sessionId: z.string() }))
   .handler(async ({ input }): Promise<z.infer<typeof progressSchema>> => {

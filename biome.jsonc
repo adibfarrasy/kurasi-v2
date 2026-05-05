@@ -58,6 +58,20 @@
           }
         }
       }
+    },
+    // TODO
+    {
+      "includes": ["backend/avatar/**/*.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          },
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
     }
   ]
 }

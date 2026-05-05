@@ -280,7 +280,6 @@ ${pass1SceneClause}`
     },
     logs: false,
   })
-  // biome-ignore lint/suspicious/noExplicitAny: fal subscribe response shape isn't typed
   const pass1Data = pass1Result.data as any
   const pass1Url = (pass1Data?.images?.[0]?.url ?? pass1Data?.image?.url) as string | undefined
   if (!pass1Url) throw new Error('[dress-avatar] pass1 returned no image URL')
@@ -298,7 +297,6 @@ ${pass1SceneClause}`
     },
     logs: false,
   })
-  // biome-ignore lint/suspicious/noExplicitAny: same as above
   const pass2Data = pass2Result.data as any
   const stagedUrl = (pass2Data?.images?.[0]?.url ?? pass2Data?.image?.url) as string | undefined
   if (!stagedUrl) throw new Error('[dress-avatar] pass2 returned no image URL')
@@ -311,7 +309,6 @@ ${pass1SceneClause}`
     input: { image_url: stagedUrl },
     logs: false,
   })
-  // biome-ignore lint/suspicious/noExplicitAny: same as above
   const rembgData = rembgResult.data as any
   const cleanUrl = (rembgData?.image?.url ?? rembgData?.images?.[0]?.url) as string | undefined
   if (!cleanUrl) throw new Error('[dress-avatar] rembg returned no image URL')

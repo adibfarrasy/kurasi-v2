@@ -271,11 +271,9 @@ function coerceItem(raw: unknown): DetectedItem | null {
 export async function detectItems(imageUrl: string): Promise<DetectResult> {
   ensureFalConfigured()
   const result = await fal.subscribe('fal-ai/any-llm/vision', {
-    // biome-ignore lint/suspicious/noExplicitAny: fal's union type is too narrow for any-llm/vision model strings
     input: { model: VISION_MODEL as any, prompt: DETECT_PROMPT, image_url: imageUrl },
     logs: false,
   })
-  // biome-ignore lint/suspicious/noExplicitAny: fal subscribe response shape isn't typed
   const text = String((result.data as any)?.output ?? '').trim()
 
   const parsed = tryParseJson(text)
@@ -350,7 +348,7 @@ function toPixelBbox(
  * Defensive: fal's SAM2 response shape isn't strongly typed, so we walk a
  * couple of common shapes before bailing out.
  */
-async function sam2BoxMask(
+async function _sam2BoxMask(
   imageUrl: string,
   pxBbox: [number, number, number, number],
 ): Promise<string> {
@@ -367,9 +365,7 @@ async function sam2BoxMask(
       prompts: [{ type: 'box', x_min, y_min, x_max, y_max }],
     },
     logs: false,
-    // biome-ignore lint/suspicious/noExplicitAny: SAM2 input shape isn't typed
   } as any)
-  // biome-ignore lint/suspicious/noExplicitAny: SAM2 response shape isn't typed
   const data = result.data as any
   const url: string | undefined =
     data?.image?.url ??
@@ -388,7 +384,7 @@ async function sam2BoxMask(
  * provided pixel bbox. Returns a transparent-background PNG buffer of just
  * the segmented item.
  */
-async function applyMaskAndCrop(
+async function _applyMaskAndCrop(
   sourceBuf: Buffer,
   maskBuf: Buffer,
   pxBbox: [number, number, number, number],
@@ -568,13 +564,10 @@ async function falEditCompose(prompt: string, imageUrls: string[]): Promise<stri
       image_urls: imageUrls,
       num_images: 1,
       image_size: { width: CANVAS_W, height: CANVAS_H },
-      // biome-ignore lint/suspicious/noExplicitAny: model accepts output_format at runtime; type is too narrow
       output_format: 'png' as any,
-      // biome-ignore lint/suspicious/noExplicitAny: see above
     } as any,
     logs: false,
   })
-  // biome-ignore lint/suspicious/noExplicitAny: fal subscribe response shape isn't typed
   const data = result.data as any
   const url: string | undefined = data?.images?.[0]?.url ?? data?.image?.url
   if (!url) {
@@ -590,7 +583,6 @@ async function falRemoveBackground(imageUrl: string): Promise<string> {
     input: { image_url: imageUrl },
     logs: false,
   })
-  // biome-ignore lint/suspicious/noExplicitAny: fal subscribe response shape isn't typed
   const data = result.data as any
   const url: string | undefined = data?.image?.url ?? data?.images?.[0]?.url
   if (!url) {
@@ -817,7 +809,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   })
 }
 
-// biome-ignore lint/suspicious/noExplicitAny: fal queue update shape varies by model
 function makeQueueLogger(tag: string): (update: any) => void {
   // IN_QUEUE  = your request is queued at fal, not yet picked up by a worker.
   // IN_PROGRESS = a worker has picked it up and is generating.
@@ -912,9 +903,7 @@ export async function tryOnFromInspiration(
           image_urls: [reachableAvatar, inspirationUrl],
           num_images: 1,
           image_size: { width: 832, height: 1248 },
-          // biome-ignore lint/suspicious/noExplicitAny: type too narrow for runtime accept
           output_format: 'png' as any,
-          // biome-ignore lint/suspicious/noExplicitAny: see above
         } as any,
         logs: true,
         onQueueUpdate: makeQueueLogger('flux-edit:tryon'),
@@ -925,7 +914,6 @@ export async function tryOnFromInspiration(
   } catch (err) {
     // Surface fal's validation detail (which is an array of {loc, msg, type}
     // objects) so we can see what was rejected.
-    // biome-ignore lint/suspicious/noExplicitAny: fal error shape is loose
     const e = err as any
     if (e?.body?.detail) {
       console.error(
@@ -936,7 +924,6 @@ export async function tryOnFromInspiration(
     throw err
   }
 
-  // biome-ignore lint/suspicious/noExplicitAny: fal subscribe response shape isn't typed
   const data = result.data as any
   const stagedUrl: string | undefined = data?.images?.[0]?.url ?? data?.image?.url
   if (!stagedUrl) {
@@ -1046,7 +1033,6 @@ export async function compositeAvatar(avatarUrl: string, items: CompositeInput[]
       COMPOSITE_TIMEOUT_MS,
       `cat-vton:${item.slot}`,
     )
-    // biome-ignore lint/suspicious/noExplicitAny: fal subscribe response shape isn't typed
     const data = result.data as any
     const url: string | undefined = data?.image?.url ?? data?.images?.[0]?.url
     if (!url) {
@@ -1089,10 +1075,8 @@ ${PHASE_B_SCENE_CLAUSE}`
         guidance_scale: 1.5,
         num_images: 1,
         image_size: { width: 832, height: 1248 },
-        // biome-ignore lint/suspicious/noExplicitAny: type too narrow for runtime accept
         output_format: 'png' as any,
         enable_safety_checker: false,
-        // biome-ignore lint/suspicious/noExplicitAny: see above
       } as any,
       logs: true,
       onQueueUpdate: makeQueueLogger('flux-edit'),
@@ -1100,7 +1084,6 @@ ${PHASE_B_SCENE_CLAUSE}`
     COMPOSITE_TIMEOUT_MS,
     'flux-edit:layer',
   )
-  // biome-ignore lint/suspicious/noExplicitAny: fal subscribe response shape isn't typed
   const data = result.data as any
   const url: string | undefined = data?.images?.[0]?.url
   if (!url) {

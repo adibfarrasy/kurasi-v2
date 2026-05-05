@@ -36,12 +36,29 @@
  *   backend/outputs/tryon-<user-key>[-<out>].png
  */
 
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fal } from '@fal-ai/client'
-import fs from 'fs/promises'
 import sharp from 'sharp'
 import { SLOT_CLAUSES } from '../services/dress-avatar-pipeline'
 import { TRYON_PROMPT } from '../services/tryon-prompt'
+
+type FalImageBundle = {
+  images?: Array<{ url?: string }>
+  image?: { url?: string }
+}
+
+type FalSubscribePayload = Awaited<ReturnType<typeof fal.subscribe>>
+
+function falErrorParts(err: unknown): {
+  status?: unknown
+  body?: unknown
+  requestId?: unknown
+} {
+  if (typeof err !== 'object' || err === null) return {}
+  const o = err as Record<string, unknown>
+  return { status: o.status, body: o.body, requestId: o.requestId }
+}
 
 // Both passes use seedream — it preserves the requested 832x1248
 // canvas (nano-banana doesn't accept image_size and the 1:1 / 3:4
@@ -318,7 +335,7 @@ console.log(
   `\n[pass1] Submitting to ${PASS1_MODEL} (${pass1ImageUrls.length} images, slots: ${garments.map((g) => g.slot).join(', ')})...`,
 )
 const pass1Start = Date.now()
-let pass1Result
+let pass1Result: FalSubscribePayload
 try {
   pass1Result = await fal.subscribe(PASS1_MODEL, {
     input: {
@@ -329,15 +346,16 @@ try {
     },
     logs: false,
   })
-} catch (err: any) {
+} catch (err: unknown) {
   console.error('[pass1] fal request failed.')
-  if (err?.status) console.error(`  status: ${err.status}`)
-  if (err?.body) console.error(`  body: ${JSON.stringify(err.body, null, 2)}`)
-  if (err?.requestId) console.error(`  requestId: ${err.requestId}`)
+  const { status, body, requestId } = falErrorParts(err)
+  if (status != null) console.error(`  status: ${status}`)
+  if (body !== undefined) console.error(`  body: ${JSON.stringify(body, null, 2)}`)
+  if (requestId !== undefined) console.error(`  requestId: ${requestId}`)
   console.error(`  prompt length: ${pass1Prompt.length} chars`)
   throw err
 }
-const pass1Data = pass1Result.data as any
+const pass1Data = pass1Result.data as FalImageBundle
 const pass1Url = (pass1Data?.images?.[0]?.url ?? pass1Data?.image?.url) as string | undefined
 if (!pass1Url) {
   console.error('[pass1] No output URL', pass1Data)
@@ -359,7 +377,7 @@ const pass2Prompt = TRYON_PROMPT
 
 console.log(`\n[pass2] Submitting to ${PASS2_MODEL} (2 images, anchored on avatar)...`)
 const pass2Start = Date.now()
-let pass2Result
+let pass2Result: FalSubscribePayload
 try {
   pass2Result = await fal.subscribe(PASS2_MODEL, {
     input: {
@@ -370,14 +388,15 @@ try {
     },
     logs: false,
   })
-} catch (err: any) {
+} catch (err: unknown) {
   console.error('[pass2] fal request failed.')
-  if (err?.status) console.error(`  status: ${err.status}`)
-  if (err?.body) console.error(`  body: ${JSON.stringify(err.body, null, 2)}`)
-  if (err?.requestId) console.error(`  requestId: ${err.requestId}`)
+  const { status, body, requestId } = falErrorParts(err)
+  if (status != null) console.error(`  status: ${status}`)
+  if (body !== undefined) console.error(`  body: ${JSON.stringify(body, null, 2)}`)
+  if (requestId !== undefined) console.error(`  requestId: ${requestId}`)
   throw err
 }
-const pass2Data = pass2Result.data as any
+const pass2Data = pass2Result.data as FalImageBundle
 const tryonUrl = (pass2Data?.images?.[0]?.url ?? pass2Data?.image?.url) as string | undefined
 if (!tryonUrl) {
   console.error('[pass2] No output URL', pass2Data)
@@ -406,7 +425,7 @@ const rembgResult = await fal.subscribe(REMBG_MODEL, {
   input: { image_url: tryonUrl },
   logs: false,
 })
-const rembgData = rembgResult.data as any
+const rembgData = rembgResult.data as FalImageBundle
 const cleanUrl: string | undefined = rembgData?.image?.url ?? rembgData?.images?.[0]?.url
 if (!cleanUrl) {
   console.error('[rembg] No bg-removal URL', rembgData)

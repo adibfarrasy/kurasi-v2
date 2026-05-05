@@ -1,3 +1,4 @@
+import type { AddClothesProgress } from 'backend/orpc/add-clothes-handlers'
 import * as ImageManipulator from 'expo-image-manipulator'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useEffect, useRef, useState } from 'react'
@@ -205,7 +206,8 @@ export default function UploadWardrobe() {
         setCardIndex(i)
         setStageIndex(0)
 
-        const uri = uris[i]!
+        const uri = uris[i]
+        if (uri === undefined) break
         console.log(`[upload-wardrobe] processing ${i + 1}/${uris.length}`)
 
         // Kick off this image's prepare + start in the background; its
@@ -243,7 +245,7 @@ export default function UploadWardrobe() {
         let item: ResultItem | null = null
         for (;;) {
           if (cancelled) return
-          let progress
+          let progress: AddClothesProgress
           try {
             progress = await client.addClothes.progress({ sessionId })
           } catch (err) {
@@ -263,7 +265,9 @@ export default function UploadWardrobe() {
               console.warn(`[upload-wardrobe] session ${i + 1} not usable:`, r.result)
               break
             }
-            item = r.items[0]!
+            const first = r.items[0]
+            if (!first) break
+            item = first
             break
           }
           await sleep(800)

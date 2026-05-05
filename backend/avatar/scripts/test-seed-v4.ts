@@ -7,8 +7,8 @@
  * Output: backend/outputs/test-seed-v4.png
  */
 
+import fs from 'node:fs/promises'
 import { fal } from '@fal-ai/client'
-import fs from 'fs/promises'
 
 const MODEL = 'fal-ai/bytedance/seedream/v4/text-to-image'
 const OUTPUT_PATH = 'backend/outputs/test-seed-v4.png'
@@ -48,7 +48,9 @@ const result = await fal.subscribe(MODEL, {
   logs: true,
   onQueueUpdate: (update) => {
     if (update.status === 'IN_PROGRESS') {
-      update.logs?.map((l) => l.message).forEach((m) => console.log(`  ${m}`))
+      for (const m of update.logs?.map((l) => l.message) ?? []) {
+        console.log(`  ${m}`)
+      }
     }
   },
 })

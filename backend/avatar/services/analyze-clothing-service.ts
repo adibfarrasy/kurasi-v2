@@ -112,11 +112,9 @@ async function visionAnalyze(imageUrl: string): Promise<{
 } | null> {
   ensureFalConfigured()
   const result = await fal.subscribe('fal-ai/any-llm/vision', {
-    // biome-ignore lint/suspicious/noExplicitAny: fal's union is too narrow for any-llm/vision model strings
     input: { model: VISION_MODEL as any, prompt: ANALYZE_PROMPT, image_url: imageUrl },
     logs: false,
   })
-  // biome-ignore lint/suspicious/noExplicitAny: fal subscribe response shape isn't typed
   const text = String((result.data as any)?.output ?? '').trim()
   if (/^\s*unsupported\s*$/im.test(text)) return null
 
@@ -133,18 +131,18 @@ async function visionAnalyze(imageUrl: string): Promise<{
   if (!(ITEM_CATEGORIES as readonly string[]).includes(cat)) return null
   const category = cat as ItemCategory
 
-  const title = titleLine ? titleLine[1]!.trim() : 'Wardrobe item'
+  const title = titleLine?.[1]?.trim() ?? 'Wardrobe item'
 
   let fit: FitProfile | null = null
-  if (FITTABLE.has(category) && fitLine) {
-    const v = fitLine[1]!.toLowerCase()
+  if (FITTABLE.has(category) && fitLine?.[1]) {
+    const v = fitLine[1].toLowerCase()
     if ((FIT_PROFILES as readonly string[]).includes(v)) fit = v as FitProfile
   }
 
   let length: GarmentLength | null = null
   const allowed = LENGTHS_BY_CATEGORY[category]
-  if (allowed && lengthLine) {
-    const v = lengthLine[1]!.toLowerCase()
+  if (allowed && lengthLine?.[1]) {
+    const v = lengthLine[1].toLowerCase()
     if (allowed.has(v as GarmentLength)) length = v as GarmentLength
   }
 
@@ -228,7 +226,9 @@ const PALETTE_LAB: { name: string; lab: Lab }[] = COLOR_PALETTE.map((p) => ({
 
 function nearestColorName(rgb: Rgb): string {
   const lab = rgbToLab(rgb)
-  let best = PALETTE_LAB[0]!.name
+  const first = PALETTE_LAB[0]
+  if (!first) return 'Gray'
+  let best = first.name
   let bestD = Infinity
   for (const p of PALETTE_LAB) {
     const d = labDist(lab, p.lab)
@@ -283,9 +283,10 @@ function kmeans(points: Rgb[], k: number, maxIter = 25): { centroid: Rgb; count:
     const sums: [number, number, number, number][] = Array.from({ length: k }, () => [0, 0, 0, 0])
     for (let i = 0; i < points.length; i++) {
       const s = sums[assign[i]!]!
-      s[0] += points[i]![0]
-      s[1] += points[i]![1]
-      s[2] += points[i]![2]
+      const pt = points[i]!
+      s[0] += pt[0]
+      s[1] += pt[1]
+      s[2] += pt[2]
       s[3] += 1
     }
     for (let j = 0; j < k; j++) {

@@ -27,10 +27,12 @@
  * --category is optional; the analyzer auto-detects it. Pass it to override.
  */
 
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fal } from '@fal-ai/client'
-import fs from 'fs/promises'
 import sharp from 'sharp'
+
+type FalSubscribePayload = Awaited<ReturnType<typeof fal.subscribe>>
 
 const EDIT_MODEL = 'fal-ai/bytedance/seedream/v5/lite/edit'
 const VISION_MODEL = 'google/gemini-2.5-flash'
@@ -419,7 +421,9 @@ const PALETTE_LAB: { name: string; lab: Lab }[] = COLOR_PALETTE.map((p) => ({
 
 function nearestColorName(rgb: Rgb): string {
   const lab = rgbToLab(rgb)
-  let best = PALETTE_LAB[0]!.name
+  const first = PALETTE_LAB[0]
+  if (!first) return 'Gray'
+  let best = first.name
   let bestD = Infinity
   for (const p of PALETTE_LAB) {
     const d = labDist(lab, p.lab)
@@ -475,9 +479,10 @@ function kmeans(points: Rgb[], k: number, maxIter = 25): { centroid: Rgb; count:
     const sums: [number, number, number, number][] = Array.from({ length: k }, () => [0, 0, 0, 0])
     for (let i = 0; i < points.length; i++) {
       const s = sums[assign[i]!]!
-      s[0] += points[i]![0]
-      s[1] += points[i]![1]
-      s[2] += points[i]![2]
+      const pt = points[i]!
+      s[0] += pt[0]
+      s[1] += pt[1]
+      s[2] += pt[2]
       s[3] += 1
     }
     for (let j = 0; j < k; j++) {
@@ -626,7 +631,7 @@ title: <text>
 category: <category-value>
 fit: <fit-value-or-null>`
 
-  let result
+  let result: FalSubscribePayload
   try {
     result = await fal.subscribe('fal-ai/any-llm/vision', {
       input: {
@@ -649,7 +654,7 @@ fit: <fit-value-or-null>`
   const categoryLine = /^\s*category\s*:\s*([a-z_]+)\s*$/im.exec(text)
   const fitLine = /^\s*fit\s*:\s*(\w+)\s*$/im.exec(text)
 
-  const title = titleLine ? titleLine[1]!.trim() : 'Wardrobe item'
+  const title = titleLine?.[1]?.trim() ?? 'Wardrobe item'
   const category: ItemCategory =
     overrideCategory ??
     (categoryLine && (ITEM_CATEGORIES as readonly string[]).includes(categoryLine[1]!)
@@ -657,8 +662,8 @@ fit: <fit-value-or-null>`
       : 'accessory')
 
   let fit: FitProfile | null = null
-  if (FITTABLE_CATEGORIES.has(category) && fitLine) {
-    const v = fitLine[1]!.toLowerCase()
+  if (FITTABLE_CATEGORIES.has(category) && fitLine?.[1]) {
+    const v = fitLine[1].toLowerCase()
     fit = (FIT_PROFILES as readonly string[]).includes(v) ? (v as FitProfile) : null
   }
 
@@ -718,7 +723,6 @@ function buildEditInput(prompt: string, imageUrls: string[]): any {
 }
 
 let stagedUrl: string
-let stagedBuf: Buffer
 
 if (mode !== 'flat') {
   const baseUrl = await toFalUrl(TRYON_BASE[mode])
@@ -738,7 +742,7 @@ CRITICAL — rotate the HEADWEAR (not the head) to fit: identify the front of th
 CRITICAL — sizing must be SNUG, not loose: the headwear is sized for THIS specific head. The inner band (the part that wraps around the wearer's head) hugs the head's circumference at the brow line — same width as the head, NOT larger, NOT floating. Looking at the head and cap from the front, the visible width of the cap's CROWN (excluding any brim) must NOT exceed the visible width of the head at the temples — the crown should look the SAME WIDTH as the head, or marginally narrower. If anything, render the headwear slightly UNDERSIZED rather than oversized — a snug fit that hugs the skull is the goal. Do NOT add airspace, slack, or extra volume around the crown. The bottom edge of the crown wraps the head at the brow just above the eyes; small overhang for a cap brim is fine, but the crown itself must NOT be wider than the head. Keep the mannequin's exact position, size, and appearance from image 2 unchanged. Keep the deep teal background from image 2 unchanged — same color, no gradient, no shadow. Preserve the headwear's exact color, material, pattern, branding, stitching, and proportions from image 1 — do not invent or alter any design detail. Do not add any human figure. ${sharedSuffix}`
 
   console.log(`[edit] mode=${mode}, submitting to ${EDIT_MODEL}...`)
-  let editResult
+  let editResult: FalSubscribePayload
   try {
     editResult = await fal.subscribe(EDIT_MODEL, {
       input: buildEditInput(tryonPrompt, [inputUrl, baseUrl]),
@@ -768,7 +772,7 @@ CRITICAL — sizing must be SNUG, not loose: the headwear is sized for THIS spec
   const prompt = FLAT_PROMPTS[finalCategory] ?? FLAT_PROMPTS.accessory!
 
   console.log(`[edit] mode=${mode}, submitting to ${EDIT_MODEL}...`)
-  let editResult
+  let editResult: FalSubscribePayload
   try {
     editResult = await fal.subscribe(EDIT_MODEL, {
       input: buildEditInput(prompt, [inputUrl]),
@@ -789,7 +793,7 @@ CRITICAL — sizing must be SNUG, not loose: the headwear is sized for THIS spec
   stagedUrl = url
 }
 
-stagedBuf = await fetchToBuffer(stagedUrl)
+const stagedBuf = await fetchToBuffer(stagedUrl)
 await fs.writeFile(`backend/outputs/cleanup-${baseName}-raw.png`, stagedBuf)
 console.log(`[edit] generated (${Date.now() - t0}ms)`)
 

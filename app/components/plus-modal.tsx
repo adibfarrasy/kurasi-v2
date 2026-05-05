@@ -243,8 +243,8 @@ export const PlusModal = forwardRef<PlusModalHandle>((_props, ref) => {
             gap: 11,
           }}
         >
-          {actions.flatMap((a, i) => [
-            <Divider key={`d${i}`} />,
+          {actions.flatMap((a) => [
+            <Divider key={`before-${a.title}`} />,
             <ActionRow key={a.title} action={a} />,
           ])}
           <Divider />
