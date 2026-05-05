@@ -48,8 +48,8 @@ describe('outfitHandlers.list', () => {
 describe('outfitHandlers.create', () => {
   test('persists a caller-owned outfit filling all worn slots when items exist', async () => {
     const headwear = await utils.seedClothingItem({ category: 'headwear' })
-    const base = await utils.seedClothingItem({ category: 'tee' })
-    const outer = await utils.seedClothingItem({ category: 'outer' })
+    const base = await utils.seedClothingItem({ category: 'shirt' })
+    const outer = await utils.seedClothingItem({ category: 'jacket' })
     const bottom = await utils.seedClothingItem({ category: 'pants' })
     const footwear = await utils.seedClothingItem({ category: 'footwear' })
     const result = await call(
@@ -75,7 +75,7 @@ describe('outfitHandlers.create', () => {
   })
 
   test('persists a caller-owned outfit with one or more slots', async () => {
-    const base = await utils.seedClothingItem({ category: 'tee' })
+    const base = await utils.seedClothingItem({ category: 'shirt' })
     const footwear = await utils.seedClothingItem({ category: 'footwear' })
     const result = await call(
       outfitHandlers.create,
@@ -109,14 +109,6 @@ describe('outfitHandlers.create', () => {
         context: utils.testContext(),
       }),
     ).rejects.toThrow()
-  })
-
-  test('allows archived items in outfit history', async () => {
-    const archived = await utils.seedClothingItem({ status: 'archived', archivedAt: new Date() })
-    const result = await call(outfitHandlers.create, { baseId: archived.id } as never, {
-      context: utils.testContext(),
-    })
-    expect(result!.baseId).toBe(archived.id)
   })
 })
 

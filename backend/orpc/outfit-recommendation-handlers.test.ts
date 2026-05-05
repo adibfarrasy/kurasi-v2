@@ -99,16 +99,6 @@ describe('outfitRecommendationHandlers.request', () => {
     ).rejects.toThrow()
   })
 
-  test('archived items do not count toward the wardrobe minimum', async () => {
-    for (let i = 0; i < 4; i++) await utils.seedClothingItem({ status: 'active' })
-    await utils.seedClothingItem({ status: 'archived' })
-    await expect(
-      call(outfitRecommendationHandlers.request, { kind: 'gap_filling' } as never, {
-        context: utils.testContext(),
-      }),
-    ).rejects.toThrow()
-  })
-
   test('rejects unknown kind value', async () => {
     await seedFiveItems()
     await expect(

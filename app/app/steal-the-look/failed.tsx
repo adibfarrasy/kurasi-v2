@@ -1,55 +1,60 @@
-import { LinearGradient } from 'expo-linear-gradient'
-import { Stack, useRouter } from 'expo-router'
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { Image, Pressable, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import Camera from '@/assets/icons/Camera.svg'
-import Warning from '@/assets/icons/Warning.svg'
+import Warning from '@/assets/Warning.svg'
+import { Camera } from '@/components/textured-icons'
+
+const ERROR = '#FF0D00'
 
 export default function StealTheLookFailed() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  const { uri, reason } = useLocalSearchParams<{ uri?: string; reason?: string }>()
+
+  const { title, body } =
+    reason === 'multiple_people'
+      ? {
+          title: "Can't proceed with the outfit breakdown",
+          body: "We noticed your image shows multiple people. We can only analyze one person's outfit at a time. Please upload a photo with a single person and try again.",
+        }
+      : {
+          title: 'TODO error title',
+          body: 'TODO error message',
+        }
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={{ flex: 1, backgroundColor: '#0a0203' }}>
-        <LinearGradient
-          colors={['#1a0608', '#3a0a0d', '#0a0203']}
-          locations={[0, 0.55, 1]}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-        />
-
+      <View style={{ flex: 1, backgroundColor: '#e5e5e5' }}>
         <View
           style={{
             flex: 1,
-            paddingTop: insets.top + 100,
+            paddingTop: insets.top + 24,
             paddingHorizontal: 20,
             alignItems: 'center',
           }}
         >
+          {/* Outer: white frame + red glow shadow (no overflow, so iOS
+              actually renders the shadow). Inner: image clipped. */}
           <View
             style={{
+              alignSelf: 'center',
               width: '100%',
-              maxHeight: 352,
-              height: 352,
-              borderRadius: 14,
-              backgroundColor: '#1a0608',
-              boxShadow: '0px 0px 100px 0px #FC0000A8',
+              maxWidth: 353,
+              height: 460,
+              padding: 8,
+              borderRadius: 4,
+              backgroundColor: '#fff',
               shadowColor: '#FC0000',
               shadowOffset: { width: 0, height: 0 },
-              shadowRadius: 100,
-              shadowOpacity: 0.66,
+              shadowOpacity: 0.25,
+              shadowRadius: 50,
+              elevation: 14,
             }}
           >
-            <View
-              style={{
-                flex: 1,
-                borderRadius: 14,
-                overflow: 'hidden',
-              }}
-            >
+            <View style={{ flex: 1, overflow: 'hidden' }}>
               <Image
-                source={require('@/assets/default_man.png')}
+                source={uri ? { uri } : require('@/assets/default-man.png')}
                 style={{ width: '100%', height: '100%' }}
                 resizeMode="cover"
               />
@@ -58,26 +63,22 @@ export default function StealTheLookFailed() {
 
           <View
             style={{
-              marginTop: 40,
-              width: '100%',
-              gap: 12,
+              marginTop: 32,
+              width: 353,
+              maxWidth: '100%',
               paddingHorizontal: 12,
+              gap: 12,
             }}
           >
-            <Warning width={28} height={28} color="#FFA0A0" fill="#FFA0A0" />
+            <Warning width={24} height={24} color={ERROR} fill={ERROR} />
             <Text
-              style={{
-                textShadowColor: 'rgba(252, 0, 0, 0.66)',
-                textShadowOffset: { width: 0, height: 0 },
-                textShadowRadius: 100,
-              }}
-              className="font-funnel font-medium text-base text-[#FFA0A0]"
+              className="font-funnel font-bold text-[16px] leading-[22px] tracking-[-0.16px]"
+              style={{ color: ERROR }}
             >
-              Can't proceed with the outfit breakdown
+              {title}
             </Text>
-            <Text className="font-funnel font-normal text-[14px] leading-[18px] text-[rgba(255,255,255,0.75)]">
-              We noticed your image shows multiple people. We can only analyze one person's outfit
-              at a time. Please upload a photo with a single person and try again.
+            <Text className="font-funnel font-normal text-[14px] leading-[18px] text-black">
+              {body}
             </Text>
           </View>
         </View>
@@ -93,21 +94,15 @@ export default function StealTheLookFailed() {
             style={{
               height: 56,
               borderRadius: 99,
-              backgroundColor: '#fff',
-              borderWidth: 1,
-              borderColor: 'rgba(0,0,0,0.1)',
-              paddingTop: 12,
-              paddingRight: 12,
-              paddingBottom: 14,
-              paddingLeft: 12,
+              backgroundColor: '#000',
               alignItems: 'center',
               justifyContent: 'center',
               flexDirection: 'row',
               gap: 10,
             }}
           >
-            <Camera width={20} height={20} color="#000" fill="#000" />
-            <Text className="font-funnel font-medium text-[16px] leading-[24px] tracking-[-0.24px] text-black">
+            <Camera width={20} height={20} color="#fff" fill="#fff" />
+            <Text className="font-funnel font-medium text-[16px] leading-[24px] tracking-[-0.24px] text-white">
               Upload another picture
             </Text>
           </Pressable>

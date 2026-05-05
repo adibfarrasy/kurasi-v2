@@ -201,6 +201,37 @@ export function DevToolsPanel({ onClose, storageRows, onRefreshStorage }: DevToo
           >
             <Text style={btn.pillText}>Failed</Text>
           </Pressable>
+          <Pressable
+            style={pressStyle(btn.pill)}
+            onPress={() => {
+              router.push('/tryon')
+              onClose()
+            }}
+          >
+            <Text style={btn.pillText}>Try On</Text>
+          </Pressable>
+        </View>
+
+        <Text className="text-[12px] font-semibold text-gray-500 mt-2">Upload Wardrobe</Text>
+        <View style={btn.row}>
+          <Pressable
+            style={pressStyle(btn.pill)}
+            onPress={() => {
+              router.push('/upload-wardrobe')
+              onClose()
+            }}
+          >
+            <Text style={btn.pillText}>Processing</Text>
+          </Pressable>
+          <Pressable
+            style={pressStyle(btn.pill)}
+            onPress={() => {
+              router.push('/upload-wardrobe-review')
+              onClose()
+            }}
+          >
+            <Text style={btn.pillText}>Review form</Text>
+          </Pressable>
         </View>
 
         <Pressable style={pressStyle(btn.refresh)} onPress={onRefreshStorage}>

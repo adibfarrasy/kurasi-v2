@@ -1,6 +1,11 @@
 import { ORPCError } from '@orpc/server'
 import { and, desc, eq, ne } from 'drizzle-orm'
 import { z } from 'zod'
+import {
+  FIT_PROFILES,
+  GARMENT_LENGTHS,
+  ITEM_CATEGORIES,
+} from '../avatar/services/steal-the-look-pipeline'
 import { clothingItem, outfit } from '../db/schema'
 import { outfitInsertSchema, outfitUpdateSchema } from '../zod-schemas'
 import { authed } from './authed'
@@ -114,10 +119,125 @@ const rateOutfit = authed
     return result[0]
   })
 
+// ──────────────────────────────────────────────────────────────────────────
+// Try-On Save flow
+//
+// The Try On screen ends with a Save sheet that may include a mix of:
+//   - wardrobe items (already in clothing_item — pass `wardrobeId`)
+//   - AI items from the steal-the-look draft (NOT in clothing_item — pass
+//     the full `aiItem` payload; we promote them as owned=false rows)
+// We resolve every slot to a clothing_item id, then write a single outfit
+// row referencing those ids. The hero preview is local-only (the draft
+// atom + regenHeroUrl state) — not persisted server-side.
+// ──────────────────────────────────────────────────────────────────────────
+
+const colorSchema = z.object({
+  name: z.string(),
+  hex: z.string(),
+  ratio: z.number(),
+})
+
+const aiItemPayloadSchema = z.object({
+  imageUrl: z.string(),
+  category: z.enum(ITEM_CATEGORIES),
+  brand: z.string().nullable(),
+  fit: z.enum(FIT_PROFILES).nullable(),
+  length: z.enum(GARMENT_LENGTHS).nullable(),
+  colors: z.array(colorSchema),
+})
+
+const slotInputSchema = z
+  .object({
+    category: z.enum(ITEM_CATEGORIES),
+    wardrobeId: z.uuid().optional(),
+    aiItem: aiItemPayloadSchema.optional(),
+  })
+  .refine((v) => !!v.wardrobeId !== !!v.aiItem, {
+    message: 'slot must specify exactly one of wardrobeId or aiItem',
+  })
+
+const CATEGORY_TO_SLOT_KEY = {
+  headwear: 'headwearId',
+  shirt: 'baseId',
+  jacket: 'outerId',
+  pants: 'bottomId',
+  footwear: 'footwearId',
+} as const
+
+const saveFromTryOn = authed
+  .input(
+    z.object({
+      name: z.string().nullable(),
+      heroImageUrl: z.string().nullable(),
+      slots: z.array(slotInputSchema).min(1),
+    }),
+  )
+  .handler(async ({ context, input }) => {
+    const { db, user } = context
+
+    // Resolve each slot to a clothing_item id. AI payloads are promoted
+    // as owned=false rows; wardrobe ids are validated to belong to the
+    // caller and be non-removed.
+    const slotIds: Partial<
+      Record<(typeof CATEGORY_TO_SLOT_KEY)[keyof typeof CATEGORY_TO_SLOT_KEY], string>
+    > = {}
+    for (const slot of input.slots) {
+      let itemId: string
+      if (slot.wardrobeId) {
+        const rows = await db
+          .select()
+          .from(clothingItem)
+          .where(and(eq(clothingItem.id, slot.wardrobeId), eq(clothingItem.userId, user.id)))
+        const row = rows[0]
+        if (!row || row.status === 'removed') {
+          throw new ORPCError('BAD_REQUEST', { message: 'slot item not available' })
+        }
+        if (row.category !== slot.category) {
+          throw new ORPCError('BAD_REQUEST', { message: 'slot category mismatch' })
+        }
+        itemId = row.id
+      } else if (slot.aiItem) {
+        const inserted = await db
+          .insert(clothingItem)
+          .values({
+            userId: user.id,
+            imageUrl: slot.aiItem.imageUrl,
+            category: slot.aiItem.category,
+            brand: slot.aiItem.brand,
+            fit: slot.aiItem.fit,
+            length: slot.aiItem.length,
+            colors: slot.aiItem.colors,
+            owned: false,
+          })
+          .returning()
+        const row = inserted[0]
+        if (!row)
+          throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'failed to save ai item' })
+        itemId = row.id
+      } else {
+        // Unreachable per slotInputSchema refine — narrows the type.
+        throw new ORPCError('BAD_REQUEST', { message: 'invalid slot' })
+      }
+      slotIds[CATEGORY_TO_SLOT_KEY[slot.category]] = itemId
+    }
+
+    const result = await db
+      .insert(outfit)
+      .values({
+        userId: user.id,
+        name: input.name,
+        heroImageUrl: input.heroImageUrl,
+        ...slotIds,
+      })
+      .returning()
+    return result[0]
+  })
+
 export const outfitHandlers = {
   list: listOutfits,
   find: findOutfit,
   create: createOutfit,
+  saveFromTryOn,
   update: updateOutfit,
   delete: deleteOutfit,
   rate: rateOutfit,

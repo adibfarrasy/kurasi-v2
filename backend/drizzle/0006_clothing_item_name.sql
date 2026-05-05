@@ -1,0 +1,1 @@
+ALTER TABLE "clothing_item" ADD COLUMN "name" text;

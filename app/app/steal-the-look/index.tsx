@@ -1,27 +1,22 @@
+import * as ImagePicker from 'expo-image-picker'
 import { Stack, useRouter } from 'expo-router'
-import { Image, Pressable, ScrollView, Text, View } from 'react-native'
+import {
+  ActionSheetIOS,
+  Alert,
+  Image,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import Camera from '@/assets/icons/Camera.svg'
-import XIcon from '@/assets/icons/X.svg'
+import { CheckCircle, XCircle } from '@/components/textured-icons'
+import { TopFlair } from '@/components/top-flair'
 
-// Inline check + cross marks rendered as small filled circles with glyph
 function StatusBadge({ kind }: { kind: 'do' | 'dont' }) {
-  const bg = kind === 'do' ? '#089511' : '#E90000'
-  const glyph = kind === 'do' ? '✓' : '✕'
-  return (
-    <View
-      style={{
-        width: 18,
-        height: 18,
-        borderRadius: 9,
-        backgroundColor: bg,
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      <Text className="text-[11px] font-bold leading-3 text-white">{glyph}</Text>
-    </View>
-  )
+  const Icon = kind === 'do' ? CheckCircle : XCircle
+  return <Icon width={20} height={20} />
 }
 
 function GuideCard({
@@ -36,55 +31,72 @@ function GuideCard({
   caption: string
 }) {
   return (
-    <View
-      style={{
-        flexDirection: 'row',
-        backgroundColor: kind === 'do' ? 'white' : 'transparent',
-        borderRadius: 4,
-        overflow: 'hidden',
-        gap: 16,
-        height: 168,
-        paddingTop: 4,
-        paddingRight: 16,
-        paddingBottom: 4,
-        paddingLeft: 4,
-      }}
-    >
+    <View>
+      {/* DO card has the torn-paper top edge + white bg. DON'T card sits on
+          the page bg with no flair. */}
+      {kind === 'do' ? <TopFlair /> : null}
       <View
         style={{
-          alignSelf: 'stretch',
-          aspectRatio: 88 / 110,
-          backgroundColor: '#e5e5e5',
-          overflow: 'hidden',
+          backgroundColor: kind === 'do' ? '#fff' : 'transparent',
+          borderRadius: 4,
+          flexDirection: 'row',
+          gap: 8,
+          paddingTop: 4,
+          paddingRight: 16,
+          paddingBottom: 4,
+          paddingLeft: 4,
         }}
       >
-        <Image
-          source={
-            kind === 'do'
-              ? require('@/assets/stealthelook-do.png')
-              : require('@/assets/stealthelook-dont.png')
-          }
-          style={{ width: '100%', height: '100%' }}
-          resizeMode="cover"
-        />
-      </View>
-      <View style={{ flex: 1, paddingTop: 32, paddingBottom: 8, gap: 4 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <StatusBadge kind={kind} />
-          <Text
-            className={`font-funnel text-[13px] font-bold tracking-[0.6px] ${
-              kind === 'do' ? 'text-[#089511]' : 'text-[#E90000]'
-            }`}
-          >
-            {title}
+        <View
+          style={{
+            width: 107,
+            height: 160,
+            borderRadius: 1,
+            backgroundColor: '#e5e5e5',
+            overflow: 'hidden',
+          }}
+        >
+          <Image
+            source={
+              kind === 'do'
+                ? require('@/assets/stealthelook-do.png')
+                : require('@/assets/stealthelook-dont.png')
+            }
+            style={{ width: '100%', height: '100%' }}
+            resizeMode="cover"
+          />
+        </View>
+        <View
+          style={{
+            flex: 1,
+            justifyContent: 'space-between',
+            paddingLeft: 8,
+            paddingRight: 8,
+            paddingBottom: 4,
+          }}
+        >
+          {/* Top spacer — keeps the title+body group around the vertical
+              middle (with caption pinned to the bottom via space-between). */}
+          <View />
+          <View style={{ gap: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <StatusBadge kind={kind} />
+              <Text
+                className={`font-funnel text-[16px] leading-[22px] tracking-[-0.16px] ${
+                  kind === 'do' ? 'font-bold text-[#089511]' : 'font-normal text-[#E90000]'
+                }`}
+              >
+                {title}
+              </Text>
+            </View>
+            <Text className="font-funnel font-normal text-[16px] leading-[22px] tracking-[-0.16px] text-black">
+              {body}
+            </Text>
+          </View>
+          <Text className="font-funnel font-normal text-[12px] leading-[16px] tracking-[0.06px] text-[#666666]">
+            {caption}
           </Text>
         </View>
-        <Text className="font-funnel font-normal text-[16px] leading-[22px] tracking-[-0.16px] text-black">
-          {body}
-        </Text>
-        <Text className="mt-auto font-funnel text-[12px] leading-[16px] tracking-[0.06px] text-[#6b7280]">
-          {caption}
-        </Text>
       </View>
     </View>
   )
@@ -94,50 +106,92 @@ export default function StealTheLookIntro() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
 
+  async function pickFromLibrary() {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
+    if (!perm.granted) {
+      Alert.alert(
+        'Permission needed',
+        'Please allow photo library access to upload an inspiration.',
+      )
+      return
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.9,
+    })
+    if (!result.canceled && result.assets[0]) {
+      router.push({
+        pathname: '/steal-the-look/analyzing',
+        params: { uri: result.assets[0].uri },
+      })
+    }
+  }
+
+  async function takePhoto() {
+    const perm = await ImagePicker.requestCameraPermissionsAsync()
+    if (!perm.granted) {
+      Alert.alert('Permission needed', 'Please allow camera access to capture an inspiration.')
+      return
+    }
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        quality: 0.9,
+      })
+      if (!result.canceled && result.assets[0]) {
+        router.push({
+          pathname: '/steal-the-look/analyzing',
+          params: { uri: result.assets[0].uri },
+        })
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Could not open the camera.'
+      Alert.alert('Camera unavailable', message)
+    }
+  }
+
+  function onUploadPress() {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Take Photo', 'Choose from Library'],
+          cancelButtonIndex: 0,
+        },
+        (idx) => {
+          if (idx === 1) takePhoto()
+          else if (idx === 2) pickFromLibrary()
+        },
+      )
+    } else {
+      Alert.alert('Upload a picture', undefined, [
+        { text: 'Take Photo', onPress: takePhoto },
+        { text: 'Choose from Library', onPress: pickFromLibrary },
+        { text: 'Cancel', style: 'cancel' },
+      ])
+    }
+  }
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={{ flex: 1, backgroundColor: '#e5e5e5' }}>
         <ScrollView
           contentContainerStyle={{
-            paddingTop: insets.top + 12,
+            paddingTop: insets.top + 24,
             paddingHorizontal: 20,
             paddingBottom: 140,
           }}
         >
-          <View
-            style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <Text className="font-funnel font-normal text-[20px] leading-[24px] tracking-[-0.3px] text-black">
-              Upload
-            </Text>
-            <Pressable
-              onPress={() => router.back()}
-              hitSlop={12}
-              style={{
-                width: 28,
-                height: 28,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <XIcon width={20} height={20} color="#000" />
-            </Pressable>
-          </View>
-
-          <Text className="mt-3 font-bebas text-[48px] leading-[52px] text-black">
-            OU
-            <Text className="font-kirang text-[58px] leading-[52px]">t</Text>
-            FIT INSPIR
-            <Text className="font-kirang text-[58px] leading-[52px]">At</Text>
-            ION
+          <Text className="font-bebas text-[36px] leading-[40px] tracking-[0.5px] text-black">
+            STE<Text className="font-kirang text-[44px] leading-[44px]">A</Text>L T
+            <Text className="font-kirang text-[44px] leading-[44px]">H</Text>E{' '}
+            <Text className="font-kirang text-[44px] leading-[44px]">L</Text>OOK
+          </Text>
+          <Text className="mt-1 font-funnel font-normal text-[16px] leading-[22px] tracking-[-0.16px] text-black">
+            Upload an outfit inspiration
           </Text>
 
-          <View style={{ marginTop: 56, gap: 17 }}>
+          <View style={{ marginTop: 32, gap: 17 }}>
             <GuideCard
               kind="do"
               title="DO"
@@ -162,24 +216,22 @@ export default function StealTheLookIntro() {
           }}
         >
           <Pressable
-            onPress={() => router.push('/steal-the-look/analyzing')}
+            onPress={onUploadPress}
             style={{
               height: 56,
               borderRadius: 99,
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.15)',
               backgroundColor: '#000',
-              paddingTop: 12,
-              paddingRight: 12,
-              paddingBottom: 14,
-              paddingLeft: 12,
               alignItems: 'center',
               justifyContent: 'center',
               flexDirection: 'row',
               gap: 10,
             }}
           >
-            <Camera width={20} height={20} color="#fff" fill="#fff" />
+            <Image
+              source={require('@/assets/picture.png')}
+              style={{ width: 24, height: 20, tintColor: '#fff' }}
+              resizeMode="contain"
+            />
             <Text className="font-funnel font-medium text-[16px] leading-[24px] tracking-[-0.24px] text-white">
               Upload a picture
             </Text>

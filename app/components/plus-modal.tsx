@@ -6,8 +6,10 @@ import {
 import { BlurView } from 'expo-blur'
 import { useRouter } from 'expo-router'
 import { forwardRef, useImperativeHandle, useRef } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import Animated, { interpolate, useAnimatedProps, useAnimatedStyle } from 'react-native-reanimated'
+import { LightbulbFilament, TShirtUpload, X as XIcon } from '@/components/textured-icons'
+import { TopFlair } from '@/components/top-flair'
 
 const AnimatedBlurView = Animated.createAnimatedComponent(BlurView)
 
@@ -16,7 +18,6 @@ function BlurBackdrop({
   animatedIndex,
   onPress,
 }: BottomSheetBackdropProps & { onPress?: () => void }) {
-  // Fade the backdrop as the sheet slides from 0 (open) to -1 (closed).
   const tintStyle = useAnimatedStyle(() => ({
     opacity: interpolate(animatedIndex.value, [-1, 0], [0, 1], 'clamp'),
   }))
@@ -36,50 +37,21 @@ function BlurBackdrop({
   )
 }
 
-import LightbulbFilament from '@/assets/icons/LightbulbFilament.svg'
-import NewFit from '@/assets/icons/NewFit.svg'
-import TShirt from '@/assets/icons/TShirt.svg'
-import TShirtUpload from '@/assets/icons/TShirtUpload.svg'
-import XIcon from '@/assets/icons/X.svg'
-
 export type PlusModalHandle = {
   present: () => void
   dismiss: () => void
 }
 
-type IconKind = 'lightbulb' | 'newfit' | 'upload' | 'tshirt'
+type IconKind = 'lightbulb' | 'upload'
 
 type Action = {
   title: string
   subtitle: string
   icon: IconKind
+  withStar?: boolean
+  count?: number
+  unit?: string
   onPress?: () => void
-}
-
-function buildActions(onStealTheLook: () => void): Action[] {
-  return [
-    {
-      title: 'Steal the Look',
-      subtitle: 'Upload an inspiration, and the AI will analyze it for you',
-      icon: 'lightbulb',
-      onPress: onStealTheLook,
-    },
-    {
-      title: 'Try New Fit',
-      subtitle: 'Found something you like in the store? Try it on virtually with our AI',
-      icon: 'newfit',
-    },
-    {
-      title: 'Upload Wardrobe',
-      subtitle: 'Add items into your wardrobe collection',
-      icon: 'upload',
-    },
-    {
-      title: 'Describe a clothing',
-      subtitle: 'Our AI will create it for you',
-      icon: 'tshirt',
-    },
-  ]
 }
 
 const ICON_MAP: Record<
@@ -87,46 +59,102 @@ const ICON_MAP: Record<
   React.ComponentType<{ width: number; height: number; color: string }>
 > = {
   lightbulb: LightbulbFilament,
-  newfit: NewFit,
   upload: TShirtUpload,
-  tshirt: TShirt,
+}
+
+function buildActions(onStealTheLook: () => void, onAddClothes: () => void): Action[] {
+  return [
+    {
+      title: 'Steal the Look',
+      subtitle: 'Upload an inspiration, and the AI will analyze it for you',
+      icon: 'lightbulb',
+      withStar: true,
+      count: 6,
+      onPress: onStealTheLook,
+    },
+    {
+      title: 'Add Clothes',
+      subtitle: 'Add items into your wardrobe collection',
+      icon: 'upload',
+      withStar: true,
+      count: 1,
+      unit: '/image',
+      onPress: onAddClothes,
+    },
+  ]
 }
 
 function ActionRow({ action }: { action: Action }) {
+  const Icon = ICON_MAP[action.icon]
   return (
     <Pressable
       onPress={action.onPress}
       style={{
-        maxWidth: 353,
-        width: '100%',
-        alignSelf: 'center',
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#fff',
-        borderRadius: 15,
-        paddingTop: 16,
-        paddingRight: 24,
-        paddingBottom: 16,
-        paddingLeft: 24,
+        alignSelf: 'stretch',
+        maxWidth: 353,
+        paddingTop: 8,
+        paddingBottom: 8,
         gap: 24,
+        borderRadius: 15,
       }}
     >
-      <View style={{ width: 241, height: 56, gap: 2, justifyContent: 'center' }}>
-        <Text className="font-funnel font-normal text-[16px] leading-[22px] tracking-[-0.16px] text-black">
-          {action.title}
-        </Text>
-        <Text className="font-funnel text-[12px] leading-[16px] tracking-[0.06px] text-[#6b7280]">
+      <View style={{ flex: 1, gap: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Text className="font-funnel font-normal text-[16px] leading-[22px] tracking-[-0.16px] text-black">
+            {action.title}
+          </Text>
+          {action.withStar ? (
+            <View
+              style={{
+                flexDirection: 'row',
+                height: 18,
+                gap: 4,
+                alignItems: 'center',
+              }}
+            >
+              <Image
+                source={require('@/assets/star.png')}
+                style={{
+                  width: 14,
+                  height: 14,
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0.33, height: 0.44 },
+                  shadowOpacity: 0.66,
+                  shadowRadius: 0,
+                }}
+                resizeMode="contain"
+              />
+              {action.count !== undefined ? (
+                <Text className="font-funnel font-bold text-[14px] leading-[18px] text-black">
+                  {action.count}
+                </Text>
+              ) : null}
+              {action.unit ? (
+                <Text
+                  className="font-funnel font-normal text-[12px] leading-[16px] text-[#666666]"
+                  style={{ letterSpacing: 0.06 }}
+                >
+                  {action.unit}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+        <Text className="font-funnel font-normal text-[12px] leading-[16px] tracking-[0.06px] text-[#666666]">
           {action.subtitle}
         </Text>
       </View>
       <View style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}>
-        {(() => {
-          const Icon = ICON_MAP[action.icon]
-          return <Icon width={40} height={40} color="#000" />
-        })()}
+        <Icon width={32} height={32} color="#000" />
       </View>
     </Pressable>
   )
+}
+
+function Divider() {
+  return <View style={{ height: 1, backgroundColor: '#E5E5E5', marginHorizontal: -20 }} />
 }
 
 export const PlusModal = forwardRef<PlusModalHandle>((_props, ref) => {
@@ -138,63 +166,92 @@ export const PlusModal = forwardRef<PlusModalHandle>((_props, ref) => {
     dismiss: () => sheetRef.current?.dismiss(),
   }))
 
-  const actions = buildActions(() => {
-    sheetRef.current?.dismiss()
-    router.push('/steal-the-look')
-  })
+  const actions = buildActions(
+    () => {
+      sheetRef.current?.dismiss()
+      router.push('/steal-the-look')
+    },
+    () => {
+      sheetRef.current?.dismiss()
+      router.push('/upload-wardrobe-guide')
+    },
+  )
 
   return (
     <BottomSheetModal
       ref={sheetRef}
-      snapPoints={['100%']}
+      enableDynamicSizing
       enablePanDownToClose
-      handleComponent={null}
-      backgroundStyle={{ backgroundColor: 'transparent' }}
+      // Transparent sheet bg + a backgroundComponent whose `top` offset
+      // matches the FULL handle height (X close button row + TopFlair).
+      // That keeps the entire handle stack — including the torn-paper
+      // flair — rendered over the blurred backdrop instead of over a
+      // white card, so the flair reads transparent. AddItemSheet uses
+      // the same pattern with a smaller (12px) offset since its handle
+      // is only the flair.
+      backgroundStyle={{ backgroundColor: 'transparent', borderRadius: 0 }}
+      backgroundComponent={({ style }) => (
+        <View
+          style={[style, { backgroundColor: '#fff', top: 72, borderRadius: 0 }]}
+          pointerEvents="none"
+        />
+      )}
+      handleComponent={() => (
+        <View>
+          <View
+            style={{
+              height: 60,
+              alignItems: 'flex-end',
+              justifyContent: 'flex-start',
+              paddingHorizontal: 20,
+            }}
+          >
+            <Pressable
+              onPress={() => sheetRef.current?.dismiss()}
+              hitSlop={8}
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 99,
+                backgroundColor: '#fff',
+                alignItems: 'center',
+                justifyContent: 'center',
+                shadowColor: '#000',
+                shadowOffset: { width: 0.5, height: 1 },
+                shadowOpacity: 0.4,
+                shadowRadius: 1,
+                elevation: 1,
+              }}
+            >
+              <XIcon width={24} height={24} color="#000" />
+            </Pressable>
+          </View>
+          <TopFlair />
+        </View>
+      )}
       backdropComponent={(props) => (
         <BlurBackdrop {...props} onPress={() => sheetRef.current?.dismiss()} />
       )}
     >
-      <BottomSheetView
-        style={{
-          flex: 1,
-          padding: 16,
-          gap: 10,
-          justifyContent: 'flex-end',
-          paddingBottom: 52,
-        }}
-      >
-        {actions.map((a) => (
-          <ActionRow key={a.title} action={a} />
-        ))}
+      <BottomSheetView>
         <View
           style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: 12,
-            marginTop: 4,
+            paddingTop: 11,
+            paddingRight: 20,
+            paddingBottom: 50,
+            paddingLeft: 20,
+            gap: 11,
           }}
         >
-          <Text className="font-funnel font-normal text-[20px] leading-[24px] tracking-[-0.3px] text-black">
-            Close
-          </Text>
-          <Pressable
-            onPress={() => sheetRef.current?.dismiss()}
-            style={{
-              width: 64,
-              height: 48,
-              borderRadius: 99,
-              backgroundColor: '#000',
-              borderWidth: 2,
-              borderColor: 'rgba(255,255,255,0.25)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <XIcon width={24} height={24} color="#fff" />
-          </Pressable>
+          {actions.flatMap((a, i) => [
+            <Divider key={`d${i}`} />,
+            <ActionRow key={a.title} action={a} />,
+          ])}
+          <Divider />
         </View>
       </BottomSheetView>
     </BottomSheetModal>
   )
 })
+
+PlusModal.displayName = 'PlusModal'

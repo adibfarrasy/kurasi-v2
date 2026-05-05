@@ -9,8 +9,8 @@
 -- outfits are constructed and adjusted.
 --
 -- Includes:
---   - WardrobeItem (photo, category, color, material, brand, fit, pattern, occasion)
---   - Favouriting and archiving items
+--   - WardrobeItem (photo, category, color, brand, fit, length, custom notes)
+--   - Soft-removal of items (preserving historical outfits)
 --   - Outfit: a saved combination of items by position (headwear, base, outer,
 --     bottom, footwear)
 --   - Outfit tags (occasion, season, vibe)
@@ -38,26 +38,34 @@ use "./auth.allium" as auth
 ------------------------------------------------------------
 
 enum ItemCategory {
-    tee
-    | collared_shirt
-    | outer
+    headwear
+    | shirt
+    | jacket
     | pants
-    | shorts
-    | headwear
     | footwear
-    | bag
-    | scarf
-    | accessory
-    | dress
-    | skirt
 }
 
 enum FitProfile {
-    tight
-    | slim
-    | standard
+    skinny
+    | regular
     | relaxed
     | oversize
+}
+
+-- Hem position. The full enum is the union of the jacket and pants
+-- ranges; per-category validity is enforced at the rule layer.
+--   jacket: cropped | waist | hip | thigh | knee | full_length
+--   pants:  thigh_shorts | knee_shorts | ankle_length | full_length
+enum GarmentLength {
+    cropped
+    | waist
+    | hip
+    | thigh
+    | knee
+    | full_length
+    | thigh_shorts
+    | knee_shorts
+    | ankle_length
 }
 
 enum OutfitPosition {
@@ -82,27 +90,25 @@ entity WardrobeItem {
     owner: auth/User
     image_url: String
     category: ItemCategory
-    primary_color: String
-    secondary_color: String?
-    materials: Set<String>
+    -- Dominant fabric colors as a list, sorted descending by ratio.
+    -- Each entry: a human-readable name, a hex string, and integer percent
+    -- (ratios across all entries sum to 100). Single-color items list one
+    -- entry at 100%.
+    colors: List<{ name: String, hex: String, ratio: Integer }>
     brand: String?
     fit: FitProfile?
-    pattern: String?
-    occasions: Set<String>
+    -- Hem position. Only meaningful for jacket and pants (otherwise null).
+    -- Validity per category: see GarmentLength enum comment.
+    length: GarmentLength?
     custom_notes: String?
-    is_favorite: Boolean
-    status: active | archived | removed
+    status: active | removed
     created_at: Timestamp
 
     transitions status {
-        active -> archived
-        archived -> active
         active -> removed
-        archived -> removed
         terminal: removed
     }
 
-    archived_at: Timestamp when status = archived
     removed_at: Timestamp when status = removed
 
     -- Outfits that reference this item in any position.
@@ -149,29 +155,31 @@ rule AddWardrobeItem {
         actor,
         image_url,
         category,
-        primary_color,
-        secondary_color?,
-        materials?,
+        colors,
         brand?,
         fit?,
-        pattern?,
-        occasions?,
+        length?,
         custom_notes?
     )
     requires: actor.status = active
+    -- length is only meaningful for jacket and pants; reject any other
+    -- category that tries to set it.
+    requires: length = null or category = jacket or category = pants
+    -- Per-category length validity.
+    requires: length = null or (
+        (category = jacket and length in {cropped, waist, hip, thigh, knee, full_length})
+        or
+        (category = pants and length in {thigh_shorts, knee_shorts, ankle_length, full_length})
+    )
     ensures: WardrobeItem.created(
         owner: actor,
         image_url: image_url,
         category: category,
-        primary_color: primary_color,
-        secondary_color: secondary_color,
-        materials: materials ?? {},
+        colors: colors,
         brand: brand,
         fit: fit,
-        pattern: pattern,
-        occasions: occasions ?? {},
+        length: length,
         custom_notes: custom_notes,
-        is_favorite: false,
         status: active,
         created_at: now
     )
@@ -182,50 +190,30 @@ rule UpdateWardrobeItem {
     when: UpdateWardrobeItem(
         item,
         category?,
-        primary_color?,
-        secondary_color?,
-        materials?,
+        colors?,
         brand?,
         fit?,
-        pattern?,
-        occasions?,
+        length?,
         custom_notes?
     )
     requires: item.status != removed
+    -- Same length validity as AddWardrobeItem, evaluated against the
+    -- effective category (the new category if provided, else the
+    -- existing one).
+    let effective_category = category ?? item.category
+    requires: length = null or effective_category = jacket or effective_category = pants
+    requires: length = null or (
+        (effective_category = jacket and length in {cropped, waist, hip, thigh, knee, full_length})
+        or
+        (effective_category = pants and length in {thigh_shorts, knee_shorts, ankle_length, full_length})
+    )
     ensures:
         if category != null: item.category = category
-        if primary_color != null: item.primary_color = primary_color
-        if secondary_color != null: item.secondary_color = secondary_color
-        if materials != null: item.materials = materials
+        if colors != null: item.colors = colors
         if brand != null: item.brand = brand
         if fit != null: item.fit = fit
-        if pattern != null: item.pattern = pattern
-        if occasions != null: item.occasions = occasions
+        if length != null: item.length = length
         if custom_notes != null: item.custom_notes = custom_notes
-}
-
-rule ToggleFavorite {
-    when: ToggleFavorite(item)
-    requires: item.status = active
-    ensures: item.is_favorite = not item.is_favorite
-}
-
--- Seasonal archive: the item stays in the wardrobe but is hidden from the
--- default browse view and not offered for outfit construction.
-rule ArchiveItem {
-    when: ArchiveItem(item)
-    requires: item.status = active
-    ensures:
-        item.status = archived
-        item.archived_at = now
-}
-
-rule UnarchiveItem {
-    when: UnarchiveItem(item)
-    requires: item.status = archived
-    ensures:
-        item.status = active
-        item.archived_at = null
 }
 
 -- Soft-remove an item from the wardrobe while preserving outfit history. The
@@ -367,20 +355,17 @@ surface WardrobeBrowse {
     context user: auth/User where status = active
 
     let items = WardrobeItems where owner = user and status = active
-    let favorites = WardrobeItems where owner = user and status = active and is_favorite
-    let archived = WardrobeItems where owner = user and status = archived
 
     exposes:
         for item in items:
             item.image_url
             item.category
-            item.primary_color
+            item.colors
             item.brand
-            item.is_favorite
             item.outfit_count
 
     provides:
-        AddWardrobeItem(user, image_url, category, primary_color)
+        AddWardrobeItem(user, image_url, category, colors)
 }
 
 surface WardrobeItemDetail {
@@ -391,22 +376,15 @@ surface WardrobeItemDetail {
     exposes:
         item.image_url
         item.category
-        item.primary_color
-        item.secondary_color
-        item.materials
+        item.colors
         item.brand
         item.fit
-        item.pattern
-        item.occasions
+        item.length
         item.custom_notes
-        item.is_favorite
         item.outfit_count
 
     provides:
         UpdateWardrobeItem(item) when item.status != removed
-        ToggleFavorite(item) when item.status = active
-        ArchiveItem(item) when item.status = active
-        UnarchiveItem(item) when item.status = archived
         RemoveItemPreservingOutfits(item) when item.status != removed
         RemoveItemAndOutfits(item) when item.status != removed
 }
@@ -456,4 +434,3 @@ surface OutfitDetail {
 ------------------------------------------------------------
 
 open question "Can an outfit include multiple accessory items simultaneously (e.g. hat + bag + belt), or is the five-position model (headwear/base/outer/bottom/footwear) the complete vocabulary?"
-open question "Does archiving an item affect existing outfits that use it, or only hide it from new-outfit flows?"

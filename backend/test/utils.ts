@@ -10,10 +10,7 @@ import {
   outfit,
   outfitRecommendationRequest,
   savedStyle,
-  shareableCard,
-  shareClick,
   sharedOutfit,
-  shareEvent,
   styleCard,
   styleCardTag,
   styleInteraction,
@@ -23,7 +20,6 @@ import {
 import type { ORPCContext } from '../orpc/orpc-base'
 
 type TestUser = typeof user.$inferSelect
-const MS_PER_DAY = 24 * 60 * 60 * 1000
 
 const databaseUrl = process.env.DATABASE_URL
 if (!databaseUrl) {
@@ -84,10 +80,7 @@ export async function resetTestDb() {
       "saved_style",
       "fit_adjustment",
       "outfit_recommendation_request",
-      "shared_outfit",
-      "shareable_card",
-      "share_event",
-      "share_click"
+      "shared_outfit"
     restart identity cascade
   `)
   currentHeaders = new Headers()
@@ -153,8 +146,8 @@ export async function seedClothingItem(overrides: Partial<typeof clothingItem.$i
     .values({
       userId: 'user-a',
       imageUrl: 'https://example.com/item.jpg',
-      category: 'tee',
-      primaryColor: 'black',
+      category: 'shirt',
+      colors: [{ name: 'black', hex: '#1a1a1a', ratio: 100 }],
       ...overrides,
     })
     .returning()
@@ -275,53 +268,6 @@ export async function seedRecommendation(
       userId: 'user-a',
       kind: 'gap_filling',
       status: 'pending',
-      ...overrides,
-    })
-    .returning()
-  return expectSeededRow(row)
-}
-
-export async function seedShareableCard(
-  overrides: Partial<typeof shareableCard.$inferInsert> = {},
-) {
-  const now = new Date()
-  const [row] = await db
-    .insert(shareableCard)
-    .values({
-      userId: 'user-a',
-      kind: 'outfit',
-      theme: 'light',
-      renderedImageUrl: 'https://cdn.kurasi.dev/cards/stub.png',
-      status: 'active',
-      createdAt: now,
-      expiresAt: new Date(now.getTime() + 90 * MS_PER_DAY),
-      ...overrides,
-    })
-    .returning()
-  return expectSeededRow(row)
-}
-
-export async function seedShareEvent(overrides: Partial<typeof shareEvent.$inferInsert> = {}) {
-  const cardId = overrides.cardId ?? (await seedShareableCard()).id
-  const [row] = await db
-    .insert(shareEvent)
-    .values({
-      cardId,
-      platform: 'instagram_story',
-      ...overrides,
-    })
-    .returning()
-  return expectSeededRow(row)
-}
-
-export async function seedShareClick(overrides: Partial<typeof shareClick.$inferInsert> = {}) {
-  const cardId = overrides.cardId ?? (await seedShareableCard()).id
-  const [row] = await db
-    .insert(shareClick)
-    .values({
-      cardId,
-      platform: 'instagram_story',
-      referredUserId: null,
       ...overrides,
     })
     .returning()

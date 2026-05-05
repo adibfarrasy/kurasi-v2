@@ -5,26 +5,22 @@ import { clothingItem, outfit, userBiometrics } from './db/schema'
 export const clothingItemSelectSchema = createSelectSchema(clothingItem)
 
 // Server-controlled fields are stripped from the insert shape. userId comes
-// from auth context; id/timestamps/archivedAt/removedAt/status/isFavorite
-// are all managed by the server.
+// from auth context; id/timestamps/removedAt/status are all managed by
+// the server.
 export const clothingItemInsertSchema = createInsertSchema(clothingItem).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-  archivedAt: true,
   removedAt: true,
   status: true,
-  isFavorite: true,
 })
 
 export const clothingItemUpdateSchema = createUpdateSchema(clothingItem)
   .omit({
     createdAt: true,
     updatedAt: true,
-    archivedAt: true,
     removedAt: true,
     status: true,
-    isFavorite: true,
     userId: true,
   })
   .extend({ id: z.uuid() })

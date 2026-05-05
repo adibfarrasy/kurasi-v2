@@ -23,6 +23,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     'expo-router',
     'expo-secure-store',
     'expo-web-browser',
+    'expo-image',
+    [
+      'expo-image-picker',
+      {
+        photosPermission: 'Kurasi needs access to your photos to analyze outfit inspirations.',
+        cameraPermission: 'Kurasi needs camera access to capture outfit inspirations.',
+      },
+    ],
     [
       'expo-font',
       {

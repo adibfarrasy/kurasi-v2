@@ -1,17 +1,18 @@
 import { ORPCError, onError, ValidationError } from '@orpc/server'
 import { RPCHandler } from '@orpc/server/fetch'
 import * as z from 'zod'
+import { addClothesHandlers } from './add-clothes-handlers'
 import { biometricsHandlers } from './biometrics-handlers'
+import { brandHandlers } from './brand-handlers'
 import { clothingItemHandlers } from './clothing-item-handlers'
 import { fitAdjustmentHandlers } from './fit-adjustment-handlers'
 import { onboardingHandlers } from './onboarding-handlers'
 import { outfitHandlers } from './outfit-handlers'
 import { outfitRecommendationHandlers } from './outfit-recommendation-handlers'
+import { regenerateFitHandlers } from './regenerate-fit-handlers'
 import { savedStyleHandlers } from './saved-style-handlers'
-import { shareClickHandlers } from './share-click-handlers'
-import { shareEventHandlers } from './share-event-handlers'
-import { shareableCardHandlers } from './shareable-card-handlers'
 import { sharedOutfitHandlers } from './shared-outfit-handlers'
+import { stealTheLookHandlers } from './steal-the-look-handlers'
 import { styleCardHandlers } from './style-card-handlers'
 import { styleInteractionHandlers } from './style-interaction-handlers'
 import { styleTagHandlers } from './style-tag-handlers'
@@ -30,9 +31,10 @@ export const router = {
   fitAdjustment: fitAdjustmentHandlers,
   sharedOutfit: sharedOutfitHandlers,
   outfitRecommendation: outfitRecommendationHandlers,
-  shareableCard: shareableCardHandlers,
-  shareEvent: shareEventHandlers,
-  shareClick: shareClickHandlers,
+  stealTheLook: stealTheLookHandlers,
+  regenerateFit: regenerateFitHandlers,
+  addClothes: addClothesHandlers,
+  brand: brandHandlers,
 }
 
 export const handler = new RPCHandler(router, {
@@ -52,6 +54,27 @@ export const handler = new RPCHandler(router, {
           data: z.flattenError(zodError),
           cause: error.cause,
         })
+      }
+
+      // Without this, any unhandled error becomes a generic "Internal server
+      // error" on the client with no server-side trace. Also dump to a file
+      // so the trace survives a hot-reload-triggered server restart.
+      console.error('[orpc] handler error:', error)
+      try {
+        const fs = require('node:fs')
+        const path = require('node:path')
+        const logPath = path.resolve(import.meta.dir, '..', 'outputs', 'orpc-errors.log')
+        fs.mkdirSync(path.dirname(logPath), { recursive: true })
+        fs.appendFileSync(
+          logPath,
+          `[${new Date().toISOString()}]\n${
+            error instanceof Error
+              ? `${error.message}\n${error.stack ?? ''}`
+              : JSON.stringify(error)
+          }\n\n`,
+        )
+      } catch {
+        // best-effort; don't crash the error handler
       }
     }),
   ],

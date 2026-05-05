@@ -8,9 +8,19 @@
 export type Tone = 'warm' | 'cool' | 'neutral'
 
 export const TONE_GRADIENTS: Record<Tone, [string, string]> = {
-  warm: ['#8B867E', '#B3AFA2'],
-  cool: ['#86A0C1', '#C0D6F2'],
-  neutral: ['#BDC4CB', '#D3D7DB'],
+  warm: ['#AAA7A1', '#CAC7BE'],
+  cool: ['#9BABBF', '#C9D7E8'],
+  neutral: ['#E5E5E5', '#E5E5E5'],
+}
+
+// Darker shade per tone, used for accent text and tinted icons (e.g.
+// the "✓ My Fit" indicator on the Try On page when the current
+// combination is already saved). Calibrated to read clearly against
+// the corresponding gradient background.
+export const TONE_ACCENTS: Record<Tone, string> = {
+  warm: '#977153',
+  cool: '#4879B4',
+  neutral: '#000000',
 }
 
 const WARM = new Set([

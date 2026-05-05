@@ -5,78 +5,50 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1776718438401,
-      "tag": "0000_init",
+      "when": 1777895990444,
+      "tag": "0000_auth",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1776719010606,
-      "tag": "0001_add_trial_started_at",
+      "when": 1777896005974,
+      "tag": "0001_payments",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "7",
-      "when": 1776720095693,
-      "tag": "0002_add_outfit",
+      "when": 1777896034319,
+      "tag": "0002_onboarding",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "7",
-      "when": 1776720369859,
-      "tag": "0003_add_biometrics",
+      "when": 1777896050687,
+      "tag": "0003_wardrobe",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "7",
-      "when": 1776720967485,
-      "tag": "0004_add_onboarding_progress",
+      "when": 1777896063701,
+      "tag": "0004_fit_page",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "7",
-      "when": 1776722108919,
-      "tag": "0005_add_subscription",
+      "when": 1777896076203,
+      "tag": "0005_style_board",
       "breakpoints": true
     },
     {
       "idx": 6,
       "version": "7",
-      "when": 1776722785031,
-      "tag": "0006_add_style_board",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1776723330663,
-      "tag": "0007_add_fit_page_remainder",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1776723929979,
-      "tag": "0008_add_social_share",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1777459577281,
-      "tag": "0009_eager_black_cat",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1777483461101,
-      "tag": "0010_open_triton",
+      "when": 1777929537899,
+      "tag": "0006_clothing_item_name",
       "breakpoints": true
     }
   ]

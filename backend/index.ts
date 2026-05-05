@@ -6,6 +6,7 @@ import { db } from './db/db'
 import { handler } from './orpc/orpc-router'
 
 const CLOTHING_ROOT = resolve(import.meta.dir, '..', 'clothing articles')
+const AVATAR_ASSETS_ROOT = resolve(import.meta.dir, 'avatar', 'assets')
 
 const certPath = process.env.TLS_CERT_PATH
 const keyPath = process.env.TLS_KEY_PATH
@@ -43,6 +44,17 @@ const server = serve({
       const rel = decodeURIComponent(url.pathname.replace(/^\/static\/clothing\//, ''))
       const target = normalize(join(CLOTHING_ROOT, rel))
       if (!target.startsWith(CLOTHING_ROOT)) {
+        return new Response('Forbidden', { status: 403 })
+      }
+      const file = Bun.file(target)
+      return new Response(file)
+    },
+
+    '/static/avatar-assets/*': (req) => {
+      const url = new URL(req.url)
+      const rel = decodeURIComponent(url.pathname.replace(/^\/static\/avatar-assets\//, ''))
+      const target = normalize(join(AVATAR_ASSETS_ROOT, rel))
+      if (!target.startsWith(AVATAR_ASSETS_ROOT)) {
         return new Response('Forbidden', { status: 403 })
       }
       const file = Bun.file(target)

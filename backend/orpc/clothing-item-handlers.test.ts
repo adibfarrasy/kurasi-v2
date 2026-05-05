@@ -5,20 +5,7 @@ import { clothingItem, onboardingProgress, outfit } from '../db/schema'
 import * as utils from '../test/utils'
 import { clothingItemHandlers } from './clothing-item-handlers'
 
-const SCHEMA_CATEGORIES = [
-  'tee',
-  'collared_shirt',
-  'outer',
-  'pants',
-  'shorts',
-  'headwear',
-  'footwear',
-  'bag',
-  'scarf',
-  'accessory',
-  'dress',
-  'skirt',
-] as const
+const SCHEMA_CATEGORIES = ['headwear', 'shirt', 'jacket', 'pants', 'footwear'] as const
 
 beforeEach(async () => {
   await utils.resetTestDb()
@@ -27,12 +14,17 @@ beforeEach(async () => {
 
 describe('clothingItemHandlers.list', () => {
   test('returns only caller-owned active items with outfit counts', async () => {
-    const counted = await utils.seedClothingItem({ primaryColor: 'red' })
-    await utils.seedClothingItem({ primaryColor: 'green' })
+    const counted = await utils.seedClothingItem({
+      colors: [{ name: 'red', hex: '#c82832', ratio: 100 }],
+    })
+    await utils.seedClothingItem({ colors: [{ name: 'green', hex: '#3a8a3a', ratio: 100 }] })
     await utils.seedOutfit({ baseId: counted.id })
     await utils.seedOutfit({ footwearId: counted.id })
     await utils.seedUser({ id: 'user-b', email: 'user-b@example.com' })
-    await utils.seedClothingItem({ userId: 'user-b', primaryColor: 'blue' })
+    await utils.seedClothingItem({
+      userId: 'user-b',
+      colors: [{ name: 'blue', hex: '#2858b4', ratio: 100 }],
+    })
     await utils.loginAsUser('user-a')
 
     const result = await call(clothingItemHandlers.list, undefined as never, {
@@ -44,24 +36,21 @@ describe('clothingItemHandlers.list', () => {
     expect(result.find((item) => item.id === counted.id)?.outfitCount).toBe(2)
   })
 
-  test('excludes archived by default, includes archived when requested, never includes removed', async () => {
-    await utils.seedClothingItem({ primaryColor: 'active', status: 'active' })
+  test('excludes removed items', async () => {
     await utils.seedClothingItem({
-      primaryColor: 'archived',
-      status: 'archived',
-      archivedAt: new Date(),
+      colors: [{ name: 'active', hex: '#000', ratio: 100 }],
+      status: 'active',
     })
-    await utils.seedClothingItem({ primaryColor: 'gone', status: 'removed', removedAt: new Date() })
+    await utils.seedClothingItem({
+      colors: [{ name: 'gone', hex: '#000', ratio: 100 }],
+      status: 'removed',
+      removedAt: new Date(),
+    })
 
-    const activeOnly = await call(clothingItemHandlers.list, undefined as never, {
+    const result = await call(clothingItemHandlers.list, undefined as never, {
       context: utils.testContext(),
     })
-    expect(activeOnly.map((item) => item.primaryColor)).toEqual(['active'])
-
-    const withArchived = await call(clothingItemHandlers.list, { includeArchived: true } as never, {
-      context: utils.testContext(),
-    })
-    expect(withArchived.map((item) => item.primaryColor).sort()).toEqual(['active', 'archived'])
+    expect(result.map((item) => item.colors[0]?.name)).toEqual(['active'])
   })
 
   test('throws UNAUTHORIZED when no session; succeeds when authenticated', async () => {
@@ -127,13 +116,17 @@ describe('clothingItemHandlers.create', () => {
       clothingItemHandlers.create,
       {
         imageUrl: 'https://example.com/tee.jpg',
-        category: 'tee',
-        primaryColor: 'blue',
+        category: 'shirt',
+        colors: [{ name: 'blue', hex: '#2858b4', ratio: 100 }],
         userId: 'attacker',
       } as never,
       { context: utils.testContext() },
     )
-    expect(result).toMatchObject({ category: 'tee', primaryColor: 'blue', userId: 'user-a' })
+    expect(result).toMatchObject({
+      category: 'shirt',
+      colors: [{ name: 'blue', hex: '#2858b4', ratio: 100 }],
+      userId: 'user-a',
+    })
   })
 
   test('rejects invalid input', async () => {
@@ -143,15 +136,19 @@ describe('clothingItemHandlers.create', () => {
         {
           imageUrl: 'https://example.com/x.jpg',
           category: 'jumpsuit',
-          primaryColor: 'red',
+          colors: [{ name: 'red', hex: '#c82832', ratio: 100 }],
         } as never,
         { context: utils.testContext() },
       ),
     ).rejects.toThrow()
     await expect(
-      call(clothingItemHandlers.create, { category: 'tee', primaryColor: 'black' } as never, {
-        context: utils.testContext(),
-      }),
+      call(
+        clothingItemHandlers.create,
+        { category: 'shirt', colors: [{ name: 'black', hex: '#1a1a1a', ratio: 100 }] } as never,
+        {
+          context: utils.testContext(),
+        },
+      ),
     ).rejects.toThrow()
   })
 
@@ -160,7 +157,11 @@ describe('clothingItemHandlers.create', () => {
     for (let i = 0; i < 4; i++) await utils.seedClothingItem()
     await call(
       clothingItemHandlers.create,
-      { imageUrl: 'https://example.com/x.jpg', category: 'tee', primaryColor: 'black' } as never,
+      {
+        imageUrl: 'https://example.com/x.jpg',
+        category: 'shirt',
+        colors: [{ name: 'black', hex: '#1a1a1a', ratio: 100 }],
+      } as never,
       { context: utils.testContext() },
     )
     const [progress] = await utils.db
@@ -177,8 +178,8 @@ describe('clothingItemHandlers.create', () => {
       clothingItemHandlers.create,
       {
         imageUrl: 'https://example.com/a.jpg',
-        category: 'tee',
-        primaryColor: 'silver',
+        category: 'shirt',
+        colors: [{ name: 'silver', hex: '#c0c0c0', ratio: 100 }],
       } as never,
       { context: utils.testContext() },
     )
@@ -196,8 +197,8 @@ describe('clothingItemHandlers.create', () => {
       clothingItemHandlers.create,
       {
         imageUrl: 'https://example.com/fifth.jpg',
-        category: 'tee',
-        primaryColor: 'black',
+        category: 'shirt',
+        colors: [{ name: 'black', hex: '#1a1a1a', ratio: 100 }],
       } as never,
       { context: utils.testContext() },
     )
@@ -210,8 +211,8 @@ describe('clothingItemHandlers.create', () => {
       clothingItemHandlers.create,
       {
         imageUrl: 'https://example.com/sixth.jpg',
-        category: 'tee',
-        primaryColor: 'white',
+        category: 'shirt',
+        colors: [{ name: 'white', hex: '#f0eee9', ratio: 100 }],
       } as never,
       { context: utils.testContext() },
     )
@@ -230,7 +231,11 @@ describe('clothingItemHandlers.create', () => {
     for (let i = 0; i < 4; i++) await utils.seedClothingItem()
     await call(
       clothingItemHandlers.create,
-      { imageUrl: 'https://example.com/last.jpg', category: 'tee', primaryColor: 'black' } as never,
+      {
+        imageUrl: 'https://example.com/last.jpg',
+        category: 'shirt',
+        colors: [{ name: 'black', hex: '#1a1a1a', ratio: 100 }],
+      } as never,
       { context: utils.testContext() },
     )
     const [progress] = await utils.db
@@ -255,7 +260,7 @@ describe('clothingItemHandlers.create', () => {
         {
           imageUrl: `https://example.com/cat-${n++}.jpg`,
           category,
-          primaryColor: 'taupe',
+          colors: [{ name: 'taupe', hex: '#9a8c7a', ratio: 100 }],
         } as never,
         { context: utils.testContext() },
       )
@@ -266,15 +271,17 @@ describe('clothingItemHandlers.create', () => {
 
 describe('clothingItemHandlers.update', () => {
   test('updates owned rows without clobbering unrelated fields', async () => {
-    const item = await utils.seedClothingItem({ primaryColor: 'red', brand: 'Acme', fit: 'slim' })
+    const item = await utils.seedClothingItem({
+      colors: [{ name: 'red', hex: '#c82832', ratio: 100 }],
+      brand: 'Acme',
+    })
     const result = await call(
       clothingItemHandlers.update,
-      { id: item.id, primaryColor: 'green' } as never,
+      { id: item.id, colors: [{ name: 'green', hex: '#3a8a3a', ratio: 100 }] } as never,
       { context: utils.testContext() },
     )
-    expect(result.primaryColor).toBe('green')
+    expect(result.colors[0]?.name).toBe('green')
     expect(result.brand).toBe('Acme')
-    expect(result.fit).toBe('slim')
   })
 
   test('throws for another user’s row or invalid id', async () => {
@@ -282,46 +289,22 @@ describe('clothingItemHandlers.update', () => {
     const other = await utils.seedClothingItem({ userId: 'user-b' })
     await utils.loginAsUser('user-a')
     await expect(
-      call(clothingItemHandlers.update, { id: other.id, primaryColor: 'x' } as never, {
-        context: utils.testContext(),
-      }),
+      call(
+        clothingItemHandlers.update,
+        { id: other.id, colors: [{ name: 'x', hex: '#000', ratio: 100 }] } as never,
+        {
+          context: utils.testContext(),
+        },
+      ),
     ).rejects.toThrow()
     await expect(
-      call(clothingItemHandlers.update, { id: 'not-a-uuid', primaryColor: 'x' } as never, {
-        context: utils.testContext(),
-      }),
-    ).rejects.toThrow()
-  })
-})
-
-describe('clothingItemHandlers status mutations', () => {
-  test('archives and unarchives an item', async () => {
-    const item = await utils.seedClothingItem()
-    const archived = await call(clothingItemHandlers.archive, { id: item.id } as never, {
-      context: utils.testContext(),
-    })
-    expect(archived.status).toBe('archived')
-    expect(archived.archivedAt).not.toBeNull()
-
-    const active = await call(clothingItemHandlers.unarchive, { id: item.id } as never, {
-      context: utils.testContext(),
-    })
-    expect(active.status).toBe('active')
-    expect(active.archivedAt).toBeNull()
-  })
-
-  test('toggles favorite only on active caller-owned items', async () => {
-    const item = await utils.seedClothingItem({ isFavorite: false })
-    const result = await call(clothingItemHandlers.toggleFavorite, { id: item.id } as never, {
-      context: utils.testContext(),
-    })
-    expect(result!.isFavorite).toBe(true)
-
-    const archived = await utils.seedClothingItem({ status: 'archived', archivedAt: new Date() })
-    await expect(
-      call(clothingItemHandlers.toggleFavorite, { id: archived.id } as never, {
-        context: utils.testContext(),
-      }),
+      call(
+        clothingItemHandlers.update,
+        { id: 'not-a-uuid', colors: [{ name: 'x', hex: '#000', ratio: 100 }] } as never,
+        {
+          context: utils.testContext(),
+        },
+      ),
     ).rejects.toThrow()
   })
 })

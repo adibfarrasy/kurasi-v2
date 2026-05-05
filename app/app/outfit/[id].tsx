@@ -1,12 +1,12 @@
 import { useQueries } from '@tanstack/react-query'
+import { Image as ExpoImage } from 'expo-image'
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Animated,
   Dimensions,
   type FlatList as FlatListType,
-  Image,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
@@ -14,11 +14,9 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import PencilLine from '@/assets/icons/PencilLine.svg'
-import ShareFat from '@/assets/icons/ShareFat.svg'
-import XIcon from '@/assets/icons/X.svg'
 import { HeroFloor } from '@/components/hero-floor'
 import { SlotStrip } from '@/components/slot-strip'
+import { PencilLine, Share as ShareFat, X as XIcon } from '@/components/textured-icons'
 import { ToneBackground } from '@/components/tone-background'
 import { type client, orpc } from '@/lib/orpc-client'
 import { getOutfitTone } from '@/lib/outfit-tone'
@@ -53,10 +51,12 @@ function HeroPage({
   index,
   scrollX,
   showFloor,
+  heroImageUrl,
 }: {
   index: number
   scrollX: Animated.Value
   showFloor: boolean
+  heroImageUrl: string | null
 }) {
   // React Compiler does not stabilize Animated interpolation nodes; keeping
   // useMemo avoids recreated interpolations resetting native-driver scroll UX.
@@ -102,13 +102,27 @@ function HeroPage({
             overflow: 'visible',
           }}
         >
-          <HeroFloor source={require('@/assets/default_man.png')} topOffset={0} maxHeight={520} />
+          <HeroFloor
+            source={heroImageUrl ? { uri: heroImageUrl } : require('@/assets/default-man.png')}
+            topOffset={0}
+            maxHeight={520}
+          />
         </View>
       ) : (
-        <Image
-          source={require('@/assets/default_man.png')}
-          style={{ maxHeight: 520, marginTop: -120 }}
-          resizeMode="contain"
+        <ExpoImage
+          source={heroImageUrl ? { uri: heroImageUrl } : require('@/assets/default-man.png')}
+          style={{
+            // ExpoImage doesn't infer width from height — neither for URI
+            // sources nor for local require()s the way RN Image does. Pin
+            // to the pipeline's 832×1248 aspect (the default_man asset
+            // matches this portrait ratio too) so the carousel pages
+            // don't collapse to width=0.
+            height: 520,
+            aspectRatio: 832 / 1248,
+            marginTop: -120,
+          }}
+          contentFit="contain"
+          cachePolicy="memory-disk"
         />
       )}
     </Animated.View>
@@ -147,10 +161,18 @@ export default function OutfitDetail() {
     scrollX.setValue(idx * PAGE_WIDTH)
   }, [loading, outfits, id, scrollX])
 
+  // Prefetch every outfit's hero into expo-image's shared cache so
+  // swiping through the carousel doesn't stall on cold fetches. Same
+  // cache the <ExpoImage> below reads from, so repeat calls are no-ops.
+  useEffect(() => {
+    const urls = outfits.map((o) => o.heroImageUrl).filter((u): u is string => !!u)
+    if (urls.length > 0) ExpoImage.prefetch(urls, 'memory-disk')
+  }, [outfits])
+
   const itemsById = new Map(items.map((i) => [i.id, i]))
   const activeOutfit = outfits[activeIndex] ?? null
   const activeSlots = activeOutfit ? slotItemsFor(activeOutfit, itemsById) : []
-  const tone = getOutfitTone(activeSlots.map((s) => s.item.primaryColor))
+  const tone = getOutfitTone(activeSlots.map((s) => s.item.colors[0]?.name))
   const padded = String(activeIndex + 1).padStart(2, '0')
 
   function onMomentumEnd(e: NativeSyntheticEvent<NativeScrollEvent>) {
@@ -178,10 +200,13 @@ export default function OutfitDetail() {
             >
               {padded}
             </Text>
-            <Text className="font-kirang mt-[5px] text-[28px] uppercase leading-[28px] text-white">
+            <Text
+              style={{ letterSpacing: -0.36 }}
+              className="font-funnel mt-2 font-bold text-[24px] leading-[24px] text-white"
+            >
               {activeOutfit?.name ?? 'Outfit'}
             </Text>
-            <Text className="mt-[43px] font-funnel text-[11px] leading-[14px] text-[rgba(255,255,255,0.55)]">
+            <Text className="mt-[36px] font-funnel text-[11px] leading-[14px] text-[rgba(255,255,255,0.55)]">
               tags
             </Text>
             {activeOutfit?.tags.map((t) => (
@@ -211,7 +236,14 @@ export default function OutfitDetail() {
                 data={outfits}
                 horizontal
                 initialScrollIndex={activeIndex}
-                initialNumToRender={outfits.length}
+                // Only the visible page on first render. Adjacent pages
+                // mount lazily as the user starts scrolling — otherwise
+                // every hero image races to fetch at once and the active
+                // one ends up queued behind the rest, causing a multi-
+                // second delay before anything appears.
+                initialNumToRender={1}
+                windowSize={3}
+                maxToRenderPerBatch={1}
                 showsHorizontalScrollIndicator={false}
                 keyExtractor={(o: Outfit) => o.id}
                 onMomentumScrollEnd={onMomentumEnd}
@@ -230,12 +262,13 @@ export default function OutfitDetail() {
                 })}
                 style={{ flex: 1, overflow: 'visible' }}
                 CellRendererComponent={CellWrapper}
-                renderItem={({ index }: { item: Outfit; index: number }) => {
+                renderItem={({ item, index }: { item: Outfit; index: number }) => {
                   return (
                     <HeroPage
                       index={index}
                       scrollX={scrollX}
                       showFloor={!isScrolling && index === activeIndex}
+                      heroImageUrl={item.heroImageUrl}
                     />
                   )
                 }}
@@ -250,7 +283,7 @@ export default function OutfitDetail() {
               slots={activeSlots.map((s) => ({
                 key: s.label,
                 label: s.label,
-                item: s.item,
+                item: { ...s.item, aiGenerated: !s.item.owned },
               }))}
             />
 
