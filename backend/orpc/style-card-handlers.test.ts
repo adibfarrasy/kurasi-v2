@@ -71,28 +71,17 @@ describe('styleCardHandlers.feed', () => {
     expect(result.items).toHaveLength(2)
     expect(result.nextCursor).toBeNull()
   })
-
-  test('includes tags for each card', async () => {
-    const c = await utils.seedStyleCard()
-    const t1 = await utils.seedStyleTag({ label: 'minimalist' })
-    await utils.seedStyleCardTag(c.id, t1.id)
-    const result = await call(styleCardHandlers.feed, {}, { context: utils.testContext() })
-    expect(result.items[0]!.tags[0]!.label).toBe('minimalist')
-  })
 })
 
 describe('styleCardHandlers.find', () => {
-  test('returns card + tags for an active card', async () => {
+  test('returns an active card', async () => {
     const c = await utils.seedStyleCard()
-    const t = await utils.seedStyleTag()
-    await utils.seedStyleCardTag(c.id, t.id)
     const result = await call(
       styleCardHandlers.find,
       { id: c.id },
       { context: utils.testContext() },
     )
     expect(result!.id).toBe(c.id)
-    expect(result!.tags).toHaveLength(1)
   })
 
   test('returns a retired card (saved-board viewing)', async () => {
@@ -116,37 +105,13 @@ describe('styleCardHandlers.find', () => {
 })
 
 describe('styleCardHandlers.createCard', () => {
-  test('creates an active card with tags', async () => {
-    const t1 = await utils.seedStyleTag({ label: 'streetwear' })
-    const t2 = await utils.seedStyleTag({ label: 'oversize' })
+  test('creates an active card', async () => {
     const result = await call(
       styleCardHandlers.createCard,
-      { imageUrl: 'https://img/new.jpg', sourceAttribution: 'Pinterest', tagIds: [t1.id, t2.id] },
+      { imageUrl: 'https://img/new.jpg', sourceAttribution: 'Pinterest' },
       { context: utils.testContext() },
     )
     expect(result.status).toBe('active')
-    expect(result.tags).toHaveLength(2)
-  })
-
-  test('creates an active card without tags', async () => {
-    await utils.resetTestDb()
-    await utils.seedUser()
-    const result = await call(
-      styleCardHandlers.createCard,
-      { imageUrl: 'https://img/x.jpg', sourceAttribution: 'y', tagIds: [] },
-      { context: utils.testContext() },
-    )
-    expect(result.status).toBe('active')
-  })
-
-  test('rejects unknown tag id', async () => {
-    await expect(
-      call(
-        styleCardHandlers.createCard,
-        { imageUrl: 'x', sourceAttribution: 'y', tagIds: [crypto.randomUUID()] },
-        { context: utils.testContext() },
-      ),
-    ).rejects.toThrow()
   })
 })
 

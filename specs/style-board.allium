@@ -6,8 +6,7 @@
 -- not upload to the style board themselves.
 --
 -- Includes:
---   - StyleCard: curated inspiration images with style tags
---   - StyleTag: named style categories (streetwear, minimalist, vintage...)
+--   - StyleCard: curated inspiration images
 --   - User interaction history (like/skip) to drive recommendations and avoid
 --     showing the same card twice
 --   - SavedStyle: an entry in the user's personal board
@@ -27,12 +26,6 @@ use "./auth.allium" as auth
 -- Enumerations
 ------------------------------------------------------------
 
-enum StyleTagCategory {
-    main_style
-    | aesthetic
-    | keyword
-}
-
 enum InteractionKind {
     liked
     | skipped
@@ -42,18 +35,11 @@ enum InteractionKind {
 -- Entities and Variants
 ------------------------------------------------------------
 
-entity StyleTag {
-    name: String
-    description: String?
-    category: StyleTagCategory
-}
-
 entity StyleCard {
     image_url: String
     title: String?
     description: String?
     source_attribution: String
-    tags: Set<StyleTag>
     created_at: Timestamp
     status: published | retired
 
@@ -212,7 +198,6 @@ surface StyleFeed {
         for card in candidates:
             card.image_url
             card.title
-            card.tags
             card.like_count
 
     provides:
@@ -231,15 +216,9 @@ surface PersonalStyleBoard {
         for s in saved:
             s.card.image_url
             s.card.title
-            s.card.tags
             s.saved_at
 
     provides:
         RemoveFromBoard(saved)
 }
 
-------------------------------------------------------------
--- Open Questions
-------------------------------------------------------------
-
-open question "Should StyleTags be user-facing filterable entities, or only internal signals for ranking?"

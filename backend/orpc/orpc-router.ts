@@ -15,7 +15,6 @@ import { sharedOutfitHandlers } from './shared-outfit-handlers'
 import { stealTheLookHandlers } from './steal-the-look-handlers'
 import { styleCardHandlers } from './style-card-handlers'
 import { styleInteractionHandlers } from './style-interaction-handlers'
-import { styleTagHandlers } from './style-tag-handlers'
 import { subscriptionHandlers } from './subscription-handlers'
 
 export const router = {
@@ -27,7 +26,6 @@ export const router = {
   styleCard: styleCardHandlers,
   styleInteraction: styleInteractionHandlers,
   savedStyle: savedStyleHandlers,
-  styleTag: styleTagHandlers,
   fitAdjustment: fitAdjustmentHandlers,
   sharedOutfit: sharedOutfitHandlers,
   outfitRecommendation: outfitRecommendationHandlers,

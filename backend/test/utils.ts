@@ -12,9 +12,7 @@ import {
   savedStyle,
   sharedOutfit,
   styleCard,
-  styleCardTag,
   styleInteraction,
-  styleTag,
   type user,
 } from '../db/schema'
 import type { ORPCContext } from '../orpc/orpc-base'
@@ -73,9 +71,7 @@ export async function resetTestDb() {
       "outfit",
       "onboarding_progress",
       "user_biometrics",
-      "style_tag",
       "style_card",
-      "style_card_tag",
       "style_interaction",
       "saved_style",
       "fit_adjustment",
@@ -169,18 +165,6 @@ export async function seedOutfit(overrides: Partial<typeof outfit.$inferInsert> 
   return expectSeededRow(row)
 }
 
-export async function seedStyleTag(overrides: Partial<typeof styleTag.$inferInsert> = {}) {
-  const [row] = await db
-    .insert(styleTag)
-    .values({
-      label: `tag-${crypto.randomUUID()}`,
-      category: 'aesthetic',
-      ...overrides,
-    })
-    .returning()
-  return expectSeededRow(row)
-}
-
 export async function seedStyleCard(overrides: Partial<typeof styleCard.$inferInsert> = {}) {
   const [row] = await db
     .insert(styleCard)
@@ -192,10 +176,6 @@ export async function seedStyleCard(overrides: Partial<typeof styleCard.$inferIn
     })
     .returning()
   return expectSeededRow(row)
-}
-
-export async function seedStyleCardTag(cardId: string, tagId: string) {
-  await db.insert(styleCardTag).values({ cardId, tagId })
 }
 
 export async function seedStyleInteraction(

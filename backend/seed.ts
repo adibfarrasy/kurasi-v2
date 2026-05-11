@@ -21,9 +21,7 @@ import {
   outfit,
   savedStyle,
   styleCard,
-  styleCardTag,
   styleInteraction,
-  styleTag,
   subscription,
   user,
   userBiometrics,
@@ -524,23 +522,7 @@ await db.insert(outfit).values(
 )
 console.log(`  → ${outfitSeeds.length} outfits`)
 
-// --- style board: tags + cards + saves -----------------------------------
-
-const tagLabels: Array<{
-  label: string
-  category: 'aesthetic' | 'color' | 'silhouette' | 'occasion' | 'season'
-}> = [
-  { label: 'minimalist', category: 'aesthetic' },
-  { label: 'streetwear', category: 'aesthetic' },
-  { label: 'workwear', category: 'aesthetic' },
-  { label: 'oversize', category: 'silhouette' },
-  { label: 'tailored', category: 'silhouette' },
-  { label: 'neutral', category: 'color' },
-]
-
-const tagRows = await db.insert(styleTag).values(tagLabels).onConflictDoNothing().returning()
-
-const allTags = tagRows.length > 0 ? tagRows : await db.select().from(styleTag)
+// --- style board: cards + saves ------------------------------------------
 
 const cardRows = await db
   .insert(styleCard)
@@ -551,19 +533,6 @@ const cardRows = await db
     })),
   )
   .returning()
-
-await db.insert(styleCardTag).values(
-  cardRows.flatMap((c, i) => {
-    // biome-ignore lint/style/noNonNullAssertion: it's fine
-    const t1 = allTags[i % allTags.length]!
-    // biome-ignore lint/style/noNonNullAssertion: it's fine
-    const t2 = allTags[(i + 2) % allTags.length]!
-    return [
-      { cardId: c.id, tagId: t1.id },
-      { cardId: c.id, tagId: t2.id },
-    ]
-  }),
-)
 
 await db.insert(savedStyle).values(cardRows.slice(0, 3).map((c) => ({ userId, cardId: c.id })))
 
