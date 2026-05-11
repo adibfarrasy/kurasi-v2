@@ -6,6 +6,7 @@ import { biometricsHandlers } from './biometrics-handlers'
 import { brandHandlers } from './brand-handlers'
 import { clothingItemHandlers } from './clothing-item-handlers'
 import { fitAdjustmentHandlers } from './fit-adjustment-handlers'
+import { normalizeAvatarHandlers } from './normalize-avatar-handlers'
 import { onboardingHandlers } from './onboarding-handlers'
 import { outfitHandlers } from './outfit-handlers'
 import { outfitRecommendationHandlers } from './outfit-recommendation-handlers'
@@ -32,6 +33,7 @@ export const router = {
   stealTheLook: stealTheLookHandlers,
   regenerateFit: regenerateFitHandlers,
   addClothes: addClothesHandlers,
+  normalizeAvatar: normalizeAvatarHandlers,
   brand: brandHandlers,
 }
 
