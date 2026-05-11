@@ -1,9 +1,12 @@
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { Image, Pressable, Text, View } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { TAB_BAR_BOTTOM_GAP } from '@/lib/layout'
 
 export default function Onboarding1() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
 
   return (
     <View className="flex-1 bg-white">
@@ -39,7 +42,8 @@ export default function Onboarding1() {
       <View className="flex-1" />
 
       <Pressable
-        className="mx-[30px] mb-[50px] h-[56px] bg-black/90 rounded-full items-center justify-center"
+        className="mx-[30px] h-[56px] bg-black/90 rounded-full items-center justify-center"
+        style={{ marginBottom: insets.bottom + TAB_BAR_BOTTOM_GAP }}
         onPress={() => router.push('/onboarding-2')}
       >
         <Text className="text-white text-[16px] font-medium tracking-[-0.24px]">Continue</Text>
