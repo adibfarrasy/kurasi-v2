@@ -29,6 +29,7 @@
     "expo": "^55.0.18",
     "expo-auth-session": "~55.0.15",
     "expo-blur": "~55.0.14",
+    "expo-camera": "^55.0.18",
     "expo-constants": "~55.0.15",
     "expo-dev-client": "~55.0.28",
     "expo-font": "~55.0.6",
