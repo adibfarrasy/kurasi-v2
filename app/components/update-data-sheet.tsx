@@ -1,8 +1,16 @@
 import type { BottomSheetModal } from '@gorhom/bottom-sheet'
 import { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet'
 import { useAtom } from 'jotai'
-import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from 'react'
-import { Image, Pressable, Text, View } from 'react-native'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import {
+  Dimensions,
+  Image,
+  Keyboard,
+  type KeyboardEvent,
+  Pressable,
+  Text,
+  View,
+} from 'react-native'
 import { FlairSheet } from '@/components/flair-sheet'
 import { X as XIcon } from '@/components/textured-icons'
 import { TopFlair } from '@/components/top-flair'
@@ -34,6 +42,60 @@ export const UpdateDataSheet = forwardRef<UpdateDataSheetHandle>((_props, ref) =
   // Keeping them local means cancelling (X out) doesn't write back.
   const [draftHeight, setDraftHeight] = useState(height)
   const [draftWeight, setDraftWeight] = useState(weight)
+  // Keyboard-avoidance via dynamic top padding. The content is shorter
+  // than the available space, so scrolling can't move Name *lower* on
+  // the viewport. Instead we PUSH the content down with extra paddingTop
+  // when the keyboard appears, so Name lands 20pt above the keyboard
+  // top (and Height/Weight, which is below Name in layout, gets pushed
+  // below the keyboard and becomes hidden).
+  const nameInputBoxRef = useRef<View>(null)
+  const [extraTopPadding, setExtraTopPadding] = useState(0)
+  // Tracks whether the keyboard is *actually* open. iOS re-fires
+  // keyboardDidShow when the predictive bar resizes on each keystroke,
+  // and re-firing the measure-and-pad routine while padding is already
+  // applied would stack additional padding and jitter the sheet. We
+  // only compute once per real show-cycle.
+  const keyboardOpenRef = useRef(false)
+  const GAP_ABOVE_KEYBOARD = 20
+
+  useEffect(() => {
+    function onShow(e: KeyboardEvent) {
+      if (keyboardOpenRef.current) return
+      keyboardOpenRef.current = true
+      const kb = e.endCoordinates.height
+      const box = nameInputBoxRef.current
+      if (!box) return
+      box.measureInWindow((_x, y, _w, h) => {
+        const currentBottomScreenY = y + h
+        const targetBottomScreenY = Dimensions.get('window').height - kb - GAP_ABOVE_KEYBOARD
+        const delta = targetBottomScreenY - currentBottomScreenY
+        setExtraTopPadding(Math.max(0, delta))
+      })
+    }
+    function onHide() {
+      // Only act once per real hide cycle. Without this, willHide +
+      // didHide + onBlur all fire and we'd snapToIndex three times.
+      if (!keyboardOpenRef.current) return
+      keyboardOpenRef.current = false
+      setExtraTopPadding(0)
+      // Force the sheet back to its 100% snap point. gorhom's
+      // keyboardBlurBehavior="restore" sometimes leaves the sheet at
+      // an intermediate height — explicit snapToIndex(0) guarantees
+      // we land at the only snap point we configured.
+      sheetRef.current?.snapToIndex(0)
+    }
+    // Listen for both `Will` and `Did` — iOS occasionally skips `Did`
+    // when the keyboard is dismissed via tap-outside or chevron. The
+    // `Will` event fires reliably for those paths.
+    const willHideSub = Keyboard.addListener('keyboardWillHide', onHide)
+    const showSub = Keyboard.addListener('keyboardDidShow', onShow)
+    const hideSub = Keyboard.addListener('keyboardDidHide', onHide)
+    return () => {
+      willHideSub.remove()
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [])
 
   useImperativeHandle(ref, () => ({
     present: () => {
@@ -122,6 +184,11 @@ export const UpdateDataSheet = forwardRef<UpdateDataSheetHandle>((_props, ref) =
       // the wheel scroll and starts dismissing the sheet mid-spin. The X
       // button (and pan-down on the handle) still dismiss.
       enableContentPanningGesture={mode === 'form'}
+      // When the soft keyboard dismisses, restore the sheet to its
+      // pre-keyboard snap point. Without this gorhom leaves the sheet
+      // in the keyboard-adjusted position, so tapping outside the
+      // keyboard would shrink the sheet permanently for that present.
+      keyboardBlurBehavior="restore"
       handleComponent={handleComponent}
       backgroundComponent={backgroundComponent}
     >
@@ -133,8 +200,9 @@ export const UpdateDataSheet = forwardRef<UpdateDataSheetHandle>((_props, ref) =
             and the wheel-picker highlight band can extend to the device
             edges. Inner sections re-apply paddingHorizontal: 24. The 15px
             spacing between every divider and its neighbouring content is
-            locked from Figma. */}
-        <View style={{ paddingBottom: 40 }}>
+            locked from Figma. extraTopPadding pushes the content down
+            when the keyboard is up so Name lands above the keyboard. */}
+        <View style={{ paddingTop: extraTopPadding, paddingBottom: 40 }}>
           {/* Top divider — 15px below the TopFlair's bottom edge. */}
           <View style={{ height: 1, backgroundColor: '#E5E5E5', marginTop: 15 }} />
           <View style={{ paddingHorizontal: 24, paddingTop: 15 }}>
@@ -164,6 +232,16 @@ export const UpdateDataSheet = forwardRef<UpdateDataSheetHandle>((_props, ref) =
                 weight={weight}
                 onPickHeight={() => setMode('height')}
                 onPickWeight={() => setMode('weight')}
+                nameInputBoxRef={nameInputBoxRef}
+                onNameBlur={() => {
+                  // Belt-and-braces: even if keyboard events don't fire,
+                  // losing focus means the keyboard is going away. Reset
+                  // padding AND force the sheet snap back to 100%.
+                  if (!keyboardOpenRef.current) return
+                  keyboardOpenRef.current = false
+                  setExtraTopPadding(0)
+                  sheetRef.current?.snapToIndex(0)
+                }}
               />
             </View>
           ) : (
@@ -218,6 +296,8 @@ function FormBody({
   weight,
   onPickHeight,
   onPickWeight,
+  nameInputBoxRef,
+  onNameBlur,
 }: {
   name: string
   onChangeName: (v: string) => void
@@ -225,24 +305,37 @@ function FormBody({
   weight: number
   onPickHeight: () => void
   onPickWeight: () => void
+  nameInputBoxRef: React.RefObject<View | null>
+  onNameBlur: () => void
 }) {
   return (
     <View style={{ gap: 16, marginTop: 15 }}>
       <FieldLabel>Name</FieldLabel>
-      <BottomSheetTextInput
-        value={name}
-        onChangeText={onChangeName}
-        placeholder="Your name"
-        placeholderTextColor="#9A9A9A"
-        style={{
-          backgroundColor: '#F0F0F0',
-          borderRadius: 4,
-          paddingHorizontal: 16,
-          paddingVertical: 14,
-          fontSize: 16,
-          color: '#000',
-        }}
-      />
+      <View ref={nameInputBoxRef}>
+        <BottomSheetTextInput
+          value={name}
+          onChangeText={onChangeName}
+          onBlur={onNameBlur}
+          // 75-char cap on the displayed name. The OS enforces this at
+          // the platform layer so paste of a longer string is truncated
+          // server-side too.
+          maxLength={75}
+          placeholder="Your name"
+          placeholderTextColor="#9A9A9A"
+          // Match the ai-balance "Other" input: brand-red caret on iOS
+          // (selectionColor) and Android (cursorColor).
+          selectionColor="#FF0D00"
+          cursorColor="#FF0D00"
+          style={{
+            backgroundColor: '#F0F0F0',
+            borderRadius: 4,
+            paddingHorizontal: 16,
+            paddingVertical: 14,
+            fontSize: 16,
+            color: '#000',
+          }}
+        />
+      </View>
 
       <View style={{ flexDirection: 'row', gap: 12 }}>
         <View style={{ flex: 1, gap: 8 }}>

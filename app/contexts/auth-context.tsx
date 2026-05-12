@@ -1,19 +1,8 @@
-import { useAtomValue } from 'jotai'
-import { createContext, useContext } from 'react'
+import * as WebBrowser from 'expo-web-browser'
+import { createContext, useContext, useRef } from 'react'
 import { authClient } from '@/lib/auth-client'
-import { devSkipGatesAtom } from '@/state/onboarding'
 
 type User = typeof authClient.$Infer.Session.user
-
-const MOCK_USER = {
-  id: 'dev-user',
-  name: 'Dev User',
-  email: 'dev@kurasi.app',
-  emailVerified: true,
-  image: null,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-} as unknown as User
 
 export interface AuthContextValue {
   user: User | null
@@ -29,11 +18,29 @@ const AuthContext = createContext<AuthContextValue | null>(null)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const session = authClient.useSession()
-  const skipGates = useAtomValue(devSkipGatesAtom)
-  const realUser = session.data?.user ?? null
-  const user = realUser ?? (skipGates ? MOCK_USER : null)
-  const isAuthenticated = !!realUser || skipGates
-  const isInitialLoading = skipGates ? false : session.isPending
+  const user = session.data?.user ?? null
+  const isAuthenticated = !!user
+  const isInitialLoading = session.isPending
+  const signInInFlight = useRef(false)
+
+  async function socialSignIn(provider: 'google' | 'apple') {
+    if (signInInFlight.current) return
+    signInInFlight.current = true
+    try {
+      // Clear any lingering ASWebAuthenticationSession from a previous
+      // attempt so the new one doesn't trip "Another web browser is
+      // already open." Safe no-op if nothing is open.
+      WebBrowser.dismissAuthSession()
+      await authClient.signIn.social({
+        provider,
+        callbackURL: '/auth-callback',
+      })
+    } catch (error) {
+      console.error(error)
+    } finally {
+      signInInFlight.current = false
+    }
+  }
 
   return (
     <AuthContext
@@ -42,21 +49,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated,
         isInitialLoading,
         isLoading: isInitialLoading,
-        loginWithGoogle: async () => {
-          try {
-            await authClient.signIn.social({
-              provider: 'google',
-              callbackURL: '/auth-callback',
-            })
-          } catch (error) {
-            console.error(error)
-          }
-        },
-        loginWithApple: () => {
-          authClient.signIn.social({
-            provider: 'apple',
-          })
-        },
+        loginWithGoogle: () => socialSignIn('google'),
+        loginWithApple: () => socialSignIn('apple'),
         logout: () => authClient.signOut(),
       }}
     >

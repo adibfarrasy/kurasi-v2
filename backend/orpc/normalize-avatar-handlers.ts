@@ -1,8 +1,11 @@
+import { eq } from 'drizzle-orm'
 import * as z from 'zod'
 import {
   type NormalizeAvatarPhase,
   normalizeAvatar,
 } from '../avatar/services/normalize-avatar-service'
+import { db as appDb } from '../db/db'
+import { userBiometrics } from '../db/schema'
 import { authed } from './authed'
 
 // Normalize Avatar flow:
@@ -66,6 +69,19 @@ async function runPipeline(
     })
     console.log(`[normalize-avatar:${userId}] done ${Date.now() - start}ms → ${avatarUrl}`)
     sessions.set(sessionId, { phase: 'done', avatarUrl })
+    // Persist the generated avatar so try-on and other surfaces can find
+    // it after the in-memory session expires. user_biometrics is created
+    // by biometrics.set during onboarding-3, so an update is sufficient.
+    // Best-effort: log + swallow so a DB hiccup never breaks the avatar
+    // result the client is already polling for.
+    try {
+      await appDb
+        .update(userBiometrics)
+        .set({ defaultAvatarUrl: avatarUrl, updatedAt: new Date() })
+        .where(eq(userBiometrics.userId, userId))
+    } catch (e) {
+      console.warn(`[normalize-avatar:${userId}] persist defaultAvatarUrl failed:`, e)
+    }
   } catch (err) {
     console.error(`[normalize-avatar:${userId}] pipeline error:`, err)
     sessions.set(sessionId, {

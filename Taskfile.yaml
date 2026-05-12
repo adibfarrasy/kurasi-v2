@@ -64,6 +64,12 @@ tasks:
     cmds:
       - bun --env-file=.env.development.local seed.ts
 
+  reset-onboarding:local:
+    desc: 'Reset onboarding for a user (default: dev user). Pass another email with `-- other@example.com`'
+    dir: backend
+    cmds:
+      - bun --env-file=.env.development.local scripts/reset-onboarding.ts {{.CLI_ARGS}}
+
   reset-db:local:
     desc: Reset local DB (remove Postgres volume, recreate stack, run migrations)
     dir: backend

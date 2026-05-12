@@ -1,3 +1,4 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { useAtom, useSetAtom } from 'jotai'
@@ -7,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TopFlair } from '@/components/top-flair'
 import { WHEEL_ITEM_HEIGHT, WHEEL_VISIBLE_COUNT, WheelPicker } from '@/components/wheel-picker'
 import { TAB_BAR_BOTTOM_GAP } from '@/lib/layout'
+import { orpc } from '@/lib/orpc-client'
 import { startAvatarJob } from '@/lib/start-avatar-job'
 import {
   avatarJobErrorAtom,
@@ -37,6 +39,11 @@ export default function Onboarding3() {
   const [avatarSourceUri, setAvatarSourceUri] = useAtom(avatarJobSourceUriAtom)
   const [pillWidth, setPillWidth] = useState(0)
   const [continueBusy, setContinueBusy] = useState(false)
+  // Persist height/weight to the backend so user_biometrics exists for
+  // downstream surfaces (try-on, fit recommendations). Without this the
+  // row never gets created and the try-on screen has no avatar to render.
+  const setBiometricsMutation = useMutation(orpc.biometrics.set.mutationOptions())
+  const queryClient = useQueryClient()
 
   const genderIndex = Math.max(0, GENDERS.indexOf(gender))
   const heightIndex = Math.max(0, HEIGHTS.indexOf(height))
@@ -44,7 +51,22 @@ export default function Onboarding3() {
 
   async function onContinue() {
     if (continueBusy) return
-    // No face uploaded — skip the backend call entirely; the membership-card
+    // Persist biometrics first — height/weight always, face if captured.
+    // This is fire-and-forget for navigation purposes; we don't block the
+    // flow on the response. The mutation auto-handles existing rows
+    // (server upserts by user_id).
+    try {
+      await setBiometricsMutation.mutateAsync({
+        heightCm: height,
+        weightKg: weight,
+        facePhotoUrl: faceUri ?? undefined,
+      })
+      queryClient.invalidateQueries({ queryKey: orpc.biometrics.get.queryKey() })
+    } catch (err) {
+      console.warn('[onboarding-3] biometrics.set failed:', err)
+    }
+
+    // No face uploaded — skip the avatar pipeline; the membership-card
     // page will keep showing the static mannequin.
     if (!faceUri) {
       router.push('/onboarding-membership-card')

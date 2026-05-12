@@ -5,6 +5,7 @@ import { addClothesHandlers } from './add-clothes-handlers'
 import { biometricsHandlers } from './biometrics-handlers'
 import { brandHandlers } from './brand-handlers'
 import { clothingItemHandlers } from './clothing-item-handlers'
+import { creditHandlers } from './credit-handlers'
 import { fitAdjustmentHandlers } from './fit-adjustment-handlers'
 import { normalizeAvatarHandlers } from './normalize-avatar-handlers'
 import { onboardingHandlers } from './onboarding-handlers'
@@ -24,6 +25,7 @@ export const router = {
   biometrics: biometricsHandlers,
   onboarding: onboardingHandlers,
   subscription: subscriptionHandlers,
+  credit: creditHandlers,
   styleCard: styleCardHandlers,
   styleInteraction: styleInteractionHandlers,
   savedStyle: savedStyleHandlers,

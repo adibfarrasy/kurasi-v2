@@ -82,6 +82,8 @@ export default function TryOn() {
   const wardrobe = wardrobeQuery.data ?? []
   const outfitsQuery = useQuery(orpc.outfit.list.queryOptions())
   const savedOutfits = outfitsQuery.data ?? []
+  const biometricsQuery = useQuery(orpc.biometrics.get.queryOptions())
+  const defaultAvatarUrl = biometricsQuery.data?.defaultAvatarUrl ?? null
 
   // Resolve the current Try On combination to clothing_item ids per slot
   // column, matching the outfit table's shape. AI draft items don't live
@@ -129,13 +131,26 @@ export default function TryOn() {
         ) ?? null)
       : null
 
+  // Fallback chain for the avatar hero, in priority order:
+  //   1. The composited hero of a saved outfit the current Try-On matches
+  //   2. The latest regenerated hero from this session
+  //   3. The hero of an in-progress draft outfit
+  //   4. The user's normalized default avatar (from onboarding's
+  //      normalize-user pipeline; stored on userBiometrics.defaultAvatarUrl)
+  //   5. The generic mannequin silhouette, used while biometrics is still
+  //      loading or for the rare case where defaultAvatarUrl is null
+  //      (better visual than flashing the bundled default-man during the
+  //      query roundtrip — HeroFloor also uses mannequin as the
+  //      placeholder while the remote URL is being fetched).
   const heroSource = matchedOutfit?.heroImageUrl
     ? { uri: matchedOutfit.heroImageUrl }
     : regenHeroUrl
       ? { uri: regenHeroUrl }
       : draft?.heroImageUrl
         ? { uri: draft.heroImageUrl }
-        : require('@/assets/default-man.png')
+        : defaultAvatarUrl
+          ? { uri: defaultAvatarUrl }
+          : require('@/assets/mannequin.png')
 
   // Page tone shifts off neutral once we're actually rendering a
   // composited avatar — either because the current slots already match

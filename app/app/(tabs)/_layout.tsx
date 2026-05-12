@@ -1,6 +1,5 @@
 import { LinearGradient } from 'expo-linear-gradient'
 import { Redirect, Tabs } from 'expo-router'
-import { useAtomValue } from 'jotai'
 import { useRef, useState } from 'react'
 import { Image, Pressable, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -8,7 +7,6 @@ import { PlusModal, type PlusModalHandle } from '@/components/plus-modal'
 import { BookmarkSimple, Dresser, Sparkle } from '@/components/textured-icons'
 import { useAuth } from '@/contexts/auth-context'
 import { TAB_BAR_BOTTOM_GAP, TAB_BAR_ITEM_BAND, TAB_BAR_PADDING_TOP } from '@/lib/layout'
-import { devSkipGatesAtom } from '@/state/onboarding'
 
 const ICON_SIZE = 26
 const ACTIVE = '#FF0D00'
@@ -104,12 +102,11 @@ function PlusTabButton({ onPress }: { onPress?: () => void }) {
 
 export default function TabsLayout() {
   const { isAuthenticated, isInitialLoading } = useAuth()
-  const skipGates = useAtomValue(devSkipGatesAtom)
   const plusRef = useRef<PlusModalHandle>(null)
   const insets = useSafeAreaInsets()
 
   if (isInitialLoading) return null
-  if (!isAuthenticated && !skipGates) return <Redirect href="/login" />
+  if (!isAuthenticated) return <Redirect href="/login" />
 
   // Tab-bar geometry derived from the device's bottom inset so the visible
   // 16pt gap above the home indicator (or screen edge on devices without

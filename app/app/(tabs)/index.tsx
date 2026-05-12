@@ -2,7 +2,7 @@ import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs'
 import { useQueries } from '@tanstack/react-query'
 import { Image as ExpoImage } from 'expo-image'
 import { useRouter } from 'expo-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
@@ -12,7 +12,10 @@ import {
   Text,
   View,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Svg, { Path, Rect, Text as SvgText } from 'react-native-svg'
+import { ProfileSheet, type ProfileSheetHandle } from '@/components/profile-sheet'
+import { List } from '@/components/textured-icons'
 import { type client, orpc } from '@/lib/orpc-client'
 
 type Outfit = Awaited<ReturnType<typeof client.outfit.list>>[number]
@@ -168,6 +171,8 @@ function OutfitCard({
 
 export default function SavedOutfits() {
   const tabBarHeight = useBottomTabBarHeight()
+  const insets = useSafeAreaInsets()
+  const profileSheetRef = useRef<ProfileSheetHandle>(null)
   const [outfitsQuery, itemsQuery] = useQueries({
     queries: [
       orpc.outfit.list.queryOptions(),
@@ -216,6 +221,17 @@ export default function SavedOutfits() {
       className="flex-1 pt-16"
       style={{ backgroundColor: '#EBEBEB', paddingBottom: tabBarHeight }}
     >
+      {/* Header hamburger pinned top-right. Mirrors the try-on tab's
+          profile-sheet entry point so the action lives in the same place
+          across tabs. */}
+      <Pressable
+        onPress={() => profileSheetRef.current?.present()}
+        hitSlop={12}
+        style={{ position: 'absolute', top: insets.top + 12, right: 20, zIndex: 10 }}
+      >
+        <List width={24} height={24} color="#000" />
+      </Pressable>
+
       <View className="px-6 mb-4">
         <Text className="font-bebas text-[48px] leading-[52px] text-black">
           S<Text className="font-kirang text-[58px] leading-[52px]">A</Text>VED OU
@@ -292,6 +308,8 @@ export default function SavedOutfits() {
           ))}
         </ScrollView>
       )}
+
+      <ProfileSheet ref={profileSheetRef} />
     </View>
   )
 }

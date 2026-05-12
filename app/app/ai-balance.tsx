@@ -1,7 +1,20 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Stack, useRouter } from 'expo-router'
-import { useState } from 'react'
-import { Image, Pressable, ScrollView, Text, View } from 'react-native'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  Alert,
+  Dimensions,
+  Image,
+  Keyboard,
+  type KeyboardEvent,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { orpc } from '@/lib/orpc-client'
 
 type PackageId = '20' | '50' | '100' | 'other'
 
@@ -26,15 +39,93 @@ const PACKAGES: {
 export default function AiBalance() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<PackageId>('20')
+  const [customAmount, setCustomAmount] = useState<string>('')
+  const scrollRef = useRef<ScrollView>(null)
+  // Ref to the input-box View so we can measure its absolute screen Y on
+  // focus / keyboard-show. Using `measureInWindow` instead of `onLayout`
+  // because layout-Y is in the ScrollView's content space, which doesn't
+  // account for the screen-space offset of the ScrollView itself (the
+  // AI-BALANCE header above it).
+  const inputBoxRef = useRef<View>(null)
+  // Current scroll offset, tracked via onScroll so we can compute deltas
+  // when the keyboard appears.
+  const scrollYRef = useRef<number>(0)
+  const keyboardHeightRef = useRef<number>(0)
+  const GAP_ABOVE_KEYBOARD = 20
+
+  const scrollInputAboveKeyboard = useCallback(() => {
+    const kb = keyboardHeightRef.current
+    const box = inputBoxRef.current
+    if (!kb || !box) return
+    box.measureInWindow((_x, y, _w, h) => {
+      const currentBottomScreenY = y + h
+      const targetBottomScreenY = Dimensions.get('window').height - kb - GAP_ABOVE_KEYBOARD
+      const delta = currentBottomScreenY - targetBottomScreenY
+      const next = scrollYRef.current + delta
+      scrollRef.current?.scrollTo({ y: Math.max(0, next), animated: true })
+    })
+  }, [])
+
+  useEffect(() => {
+    function onShow(e: KeyboardEvent) {
+      keyboardHeightRef.current = e.endCoordinates.height
+      scrollInputAboveKeyboard()
+    }
+    function onHide() {
+      keyboardHeightRef.current = 0
+    }
+    const showSub = Keyboard.addListener('keyboardDidShow', onShow)
+    const hideSub = Keyboard.addListener('keyboardDidHide', onHide)
+    return () => {
+      showSub.remove()
+      hideSub.remove()
+    }
+  }, [scrollInputAboveKeyboard])
+  const balanceQuery = useQuery(orpc.credit.getBalance.queryOptions())
+  const balance = balanceQuery.data?.balance ?? 0
+  // Mock payment: no IAP yet. Server records the grant + bumps balance.
+  const purchaseMutation = useMutation(orpc.credit.purchase.mutationOptions())
 
   const selected = PACKAGES.find((p) => p.id === selectedId)!
-  // For the "Other" card we don't yet have an entered amount, so the
-  // summary box shows zeros. Replace with the user-entered number when
-  // the custom-amount input is wired up.
-  const baseCost = selected.credits ? selected.credits * 1 : 0 // 1$/credit pre-discount
-  const discountAmount = selected.price != null ? baseCost - selected.price : 0
-  const totalDue = selected.price ?? 0
+  const isOther = selectedId === 'other'
+  const parsedCustom = isOther ? parseInt(customAmount, 10) : Number.NaN
+  // Effective credits about to be purchased — fixed for the 3 packs,
+  // the user-entered integer for "Other".
+  const purchaseCredits = isOther
+    ? Number.isFinite(parsedCustom) && parsedCustom > 0
+      ? parsedCustom
+      : 0
+    : (selected.credits ?? 0)
+  // "Other" pricing: $1/credit, with a 10% discount once the base cost
+  // reaches $10. The fixed packs have their own pre-baked prices.
+  const baseCost = purchaseCredits * 1
+  const otherDiscountPct = baseCost >= 10 ? 10 : 0
+  const otherDiscountAmount = (baseCost * otherDiscountPct) / 100
+  const discountAmount = isOther
+    ? otherDiscountAmount
+    : selected.price != null
+      ? baseCost - selected.price
+      : 0
+  const totalDue = isOther ? baseCost - otherDiscountAmount : (selected.price ?? 0)
+  const discountPctDisplay = isOther ? otherDiscountPct : selected.discountPct
+  const canPurchase = purchaseCredits > 0 && !purchaseMutation.isPending
+
+  async function onContinue() {
+    if (!canPurchase) return
+    try {
+      await purchaseMutation.mutateAsync({ amount: purchaseCredits })
+      // Refresh the balance everywhere — profile sheet, this screen, any
+      // other consumer.
+      queryClient.invalidateQueries({ queryKey: orpc.credit.getBalance.queryKey() })
+      Alert.alert('Purchase complete', `+${purchaseCredits} AI credits added.`, [
+        { text: 'OK', onPress: () => router.back() },
+      ])
+    } catch (err) {
+      Alert.alert('Purchase failed', err instanceof Error ? err.message : 'Please try again.')
+    }
+  }
 
   return (
     <>
@@ -80,11 +171,20 @@ export default function AiBalance() {
         </View>
 
         <ScrollView
+          ref={scrollRef}
+          onScroll={(e) => {
+            scrollYRef.current = e.nativeEvent.contentOffset.y
+          }}
+          scrollEventThrottle={16}
           contentContainerStyle={{
             paddingTop: 16,
-            paddingBottom: 160,
+            // Bottom padding leaves room for the absolute Continue CTA
+            // *and* enough headroom to scroll the input above the numpad
+            // when "Other" is selected.
+            paddingBottom: 460,
           }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           {/* All page content (except the bottom CTA) is locked to a
               333px column and center-aligned, matching the Figma frame
@@ -116,9 +216,9 @@ export default function AiBalance() {
             >
               <Text
                 className="font-funnel font-bold text-black"
-                style={{ fontSize: 60, lineHeight: 60, letterSpacing: -0.9, width: 98 }}
+                style={{ fontSize: 60, lineHeight: 60, letterSpacing: -0.9 }}
               >
-                150
+                {balance}
               </Text>
               <Image
                 source={require('@/assets/star.png')}
@@ -168,11 +268,68 @@ export default function AiBalance() {
               />
             </View>
 
+            {/* Custom-amount input — visible only when "Other" is selected.
+                Numpad keyboard so users get a clean digit-only entry.
+                Box border is Monochrome-5 grey (#8F8F8F); only the caret
+                uses the Monochrome-Highlight-3 red (#FF0D00). */}
+            {isOther ? (
+              <View
+                ref={inputBoxRef}
+                style={{
+                  marginTop: 20,
+                  height: 48,
+                  borderWidth: 1,
+                  borderColor: '#8F8F8F',
+                  backgroundColor: '#fff',
+                  paddingTop: 12,
+                  paddingBottom: 12,
+                  paddingLeft: 15,
+                  paddingRight: 15,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <TextInput
+                  value={customAmount}
+                  onChangeText={(t) => setCustomAmount(t.replace(/[^0-9]/g, ''))}
+                  placeholder="0"
+                  placeholderTextColor="#8F8F8F"
+                  keyboardType="number-pad"
+                  inputMode="numeric"
+                  autoFocus
+                  onFocus={() => {
+                    // Fallback for cases where the keyboard is already
+                    // open (e.g. user re-selects Other after dismissing).
+                    // The Keyboard.didShow listener will re-fire normally
+                    // when the keyboard transitions from hidden → shown.
+                    scrollInputAboveKeyboard()
+                  }}
+                  // selectionColor controls the caret + selection highlight
+                  // on both iOS and Android. cursorColor is Android-only and
+                  // newer (>= RN 0.71) — included as a belt-and-braces for
+                  // older simulator OS images.
+                  selectionColor="#FF0D00"
+                  cursorColor="#FF0D00"
+                  className="font-funnel font-bold text-black flex-1"
+                  style={{ fontSize: 20, lineHeight: 24, letterSpacing: -0.3 }}
+                />
+                <Text
+                  className="font-funnel font-normal"
+                  style={{ fontSize: 16, lineHeight: 22, letterSpacing: -0.16, color: '#666' }}
+                >
+                  AI Credit
+                </Text>
+              </View>
+            ) : null}
+
             {/* Summary box. Thin gray border, light fill, three rows with a
-              divider between the discount line and the total. */}
+              divider between the discount line and the total. When the
+              custom-amount input is showing (Other selected), the gap to
+              this summary is 20px; otherwise 32px from the cards row. */}
             <View
               style={{
-                marginTop: 32,
+                marginTop: isOther ? 20 : 32,
                 borderWidth: 1,
                 borderColor: '#8F8F8F',
                 backgroundColor: 'transparent',
@@ -187,7 +344,7 @@ export default function AiBalance() {
                     className="font-funnel font-normal text-black"
                     style={{ fontSize: 16, lineHeight: 22, letterSpacing: -0.16 }}
                   >
-                    Discount • <Text className="font-bold">{selected.discountPct}%</Text>
+                    Discount • <Text className="font-bold">{discountPctDisplay}%</Text>
                   </Text>
                 }
                 value={`$${discountAmount.toFixed(2)}`}
@@ -201,11 +358,12 @@ export default function AiBalance() {
         {/* Continue CTA pinned to bottom, matching upload-wardrobe-guide. */}
         <View style={{ position: 'absolute', left: 20, right: 20, bottom: insets.bottom + 16 }}>
           <Pressable
-            onPress={() => router.back()}
+            onPress={onContinue}
+            disabled={!canPurchase}
             style={{
               height: 56,
               borderRadius: 99,
-              backgroundColor: '#000',
+              backgroundColor: canPurchase ? '#000' : '#8F8F8F',
               alignItems: 'center',
               justifyContent: 'center',
             }}
@@ -214,7 +372,7 @@ export default function AiBalance() {
               className="font-funnel font-medium text-white"
               style={{ fontSize: 16, lineHeight: 24, letterSpacing: -0.24 }}
             >
-              Continue
+              {purchaseMutation.isPending ? 'Processing…' : 'Continue'}
             </Text>
           </Pressable>
         </View>

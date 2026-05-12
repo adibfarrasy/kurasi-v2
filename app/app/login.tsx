@@ -1,4 +1,3 @@
-import { Redirect } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { Image, ImageBackground, Pressable, Text, View } from 'react-native'
 import Svg, { Path } from 'react-native-svg'
@@ -17,15 +16,7 @@ function AppleLogo({ size = 24 }: { size?: number }) {
 }
 
 export default function Login() {
-  const { isAuthenticated, isInitialLoading, loginWithGoogle } = useAuth()
-
-  if (isInitialLoading) {
-    return null
-  }
-
-  if (isAuthenticated) {
-    return <Redirect href="/" />
-  }
+  const { loginWithGoogle, loginWithApple } = useAuth()
 
   return (
     <ImageBackground source={require('@/assets/splash.png')} className="flex-1 px-8">
@@ -58,7 +49,10 @@ export default function Login() {
       </View>
 
       <View className="mb-12 gap-4">
-        <Pressable className="flex-row items-center justify-center self-stretch h-14 bg-white/90 rounded-full px-3 py-3.5">
+        <Pressable
+          className="flex-row items-center justify-center self-stretch h-14 bg-white/90 rounded-full px-3 py-3.5"
+          onPress={() => loginWithApple()}
+        >
           <View className="pl-2">
             <AppleLogo size={24} />
           </View>

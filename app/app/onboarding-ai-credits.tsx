@@ -1,9 +1,11 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { Dimensions, Image, Pressable, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useOnboarding } from '@/hooks/use-onboarding'
 import { TAB_BAR_BOTTOM_GAP } from '@/lib/layout'
+import { orpc } from '@/lib/orpc-client'
 
 const { width: SCREEN_W } = Dimensions.get('window')
 
@@ -15,9 +17,23 @@ export default function OnboardingAiCredits() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { completeOnboarding } = useOnboarding()
+  const queryClient = useQueryClient()
+  // Server-side completion: flips OnboardingProgress.status to completed
+  // and grants the signup credit reward. Idempotent.
+  const completeMutation = useMutation(orpc.onboarding.complete.mutationOptions())
 
-  function onContinue() {
+  async function onContinue() {
     completeOnboarding()
+    try {
+      await completeMutation.mutateAsync({})
+      // Refresh credit balance (new 15 credits) and biometrics (the
+      // normalize-avatar pipeline persists defaultAvatarUrl as it
+      // finishes, which try-on reads on mount).
+      queryClient.invalidateQueries({ queryKey: orpc.credit.getBalance.queryKey() })
+      queryClient.invalidateQueries({ queryKey: orpc.biometrics.get.queryKey() })
+    } catch (err) {
+      console.warn('[onboarding-ai-credits] completion failed:', err)
+    }
     router.replace('/')
   }
 
