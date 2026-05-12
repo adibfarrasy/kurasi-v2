@@ -70,6 +70,12 @@ tasks:
     cmds:
       - bun --env-file=.env.development.local scripts/reset-onboarding.ts {{.CLI_ARGS}}
 
+  reset-credits:local:
+    desc: 'Reset credit balance to 0 (or a custom amount). `-- 5` sets to 5; `-- email 5` targets a different user.'
+    dir: backend
+    cmds:
+      - bun --env-file=.env.development.local scripts/reset-credits.ts {{.CLI_ARGS}}
+
   reset-db:local:
     desc: Reset local DB (remove Postgres volume, recreate stack, run migrations)
     dir: backend
