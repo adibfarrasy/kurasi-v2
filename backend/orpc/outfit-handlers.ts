@@ -61,7 +61,7 @@ const createOutfit = authed.input(outfitInsertSchema).handler(async ({ context, 
 })
 
 const updateOutfit = authed
-  .input(outfitUpdateSchema.pick({ id: true, name: true, tags: true, notes: true }))
+  .input(outfitUpdateSchema.pick({ id: true, name: true, notes: true }))
   .handler(async ({ context, input }) => {
     const { db, user } = context
     const { id, ...updateData } = input

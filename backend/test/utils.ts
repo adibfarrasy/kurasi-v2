@@ -156,7 +156,6 @@ export async function seedOutfit(overrides: Partial<typeof outfit.$inferInsert> 
     .values({
       userId: 'user-a',
       name: null,
-      tags: [],
       notes: null,
       status: 'active',
       ...overrides,

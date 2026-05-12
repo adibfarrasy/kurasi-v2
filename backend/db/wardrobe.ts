@@ -90,7 +90,6 @@ export const outfit = pgTable(
     outerId: uuid('outer_id').references(() => clothingItem.id, { onDelete: 'set null' }),
     bottomId: uuid('bottom_id').references(() => clothingItem.id, { onDelete: 'set null' }),
     footwearId: uuid('footwear_id').references(() => clothingItem.id, { onDelete: 'set null' }),
-    tags: text('tags').array().notNull().default([]),
     notes: text('notes'),
     rating: text('rating', { enum: ['loved', 'ok', 'didnt_work'] }),
     wornAt: timestamp('worn_at'),

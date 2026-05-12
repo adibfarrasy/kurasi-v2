@@ -64,6 +64,13 @@
       "when": 1778591939235,
       "tag": "0008_add_credits_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778626438277,
+      "tag": "0009_drop_outfit_tags",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+ALTER TABLE "outfit" DROP COLUMN "tags";

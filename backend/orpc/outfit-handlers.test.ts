@@ -79,7 +79,7 @@ describe('outfitHandlers.create', () => {
     const footwear = await utils.seedClothingItem({ category: 'footwear' })
     const result = await call(
       outfitHandlers.create,
-      { name: 'fit', baseId: base.id, footwearId: footwear.id, tags: ['casual'] } as never,
+      { name: 'fit', baseId: base.id, footwearId: footwear.id } as never,
       { context: utils.testContext() },
     )
     expect(result).toMatchObject({
@@ -87,7 +87,6 @@ describe('outfitHandlers.create', () => {
       name: 'fit',
       baseId: base.id,
       footwearId: footwear.id,
-      tags: ['casual'],
     })
   })
 
@@ -130,23 +129,22 @@ describe('outfitHandlers.find', () => {
 
 describe('outfitHandlers.update', () => {
   test('updates only supplied fields — partial patches leave other editable columns intact', async () => {
-    const row = await utils.seedOutfit({ name: 'orig', tags: ['a', 'b'], notes: 'sticky' })
-    const result = await call(outfitHandlers.update, { id: row.id, tags: ['c'] } as never, {
+    const row = await utils.seedOutfit({ name: 'orig', notes: 'sticky' })
+    const result = await call(outfitHandlers.update, { id: row.id, notes: 'updated' } as never, {
       context: utils.testContext(),
     })
-    expect(result.tags).toEqual(['c'])
+    expect(result.notes).toBe('updated')
     expect(result.name).toBe('orig')
-    expect(result.notes).toBe('sticky')
   })
 
   test('updates editable fields on active caller-owned outfit', async () => {
-    const row = await utils.seedOutfit({ name: 'old', tags: ['daily'], notes: 'old note' })
+    const row = await utils.seedOutfit({ name: 'old', notes: 'old note' })
     const result = await call(
       outfitHandlers.update,
-      { id: row.id, name: 'new', tags: ['date'], notes: 'new note' } as never,
+      { id: row.id, name: 'new', notes: 'new note' } as never,
       { context: utils.testContext() },
     )
-    expect(result).toMatchObject({ name: 'new', tags: ['date'], notes: 'new note' })
+    expect(result).toMatchObject({ name: 'new', notes: 'new note' })
   })
 
   test('NOT_FOUND for deleted or another user’s outfit', async () => {

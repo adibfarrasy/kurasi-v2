@@ -206,17 +206,6 @@ export default function OutfitDetail() {
             >
               {activeOutfit?.name ?? 'Outfit'}
             </Text>
-            <Text className="mt-[36px] font-funnel text-[11px] leading-[14px] text-[rgba(255,255,255,0.55)]">
-              tags
-            </Text>
-            {activeOutfit?.tags.map((t) => (
-              <Text
-                key={t}
-                className="font-funnel text-[12px] leading-[16px] text-[rgba(255,255,255,0.7)]"
-              >
-                #{t}
-              </Text>
-            ))}
           </View>
 
           {loading ? (
@@ -298,6 +287,13 @@ export default function OutfitDetail() {
               }}
             >
               <Pressable
+                onPress={() =>
+                  activeOutfit &&
+                  router.push({
+                    pathname: '/outfit/edit/[id]',
+                    params: { id: activeOutfit.id },
+                  })
+                }
                 style={{
                   flex: 1,
                   height: 48,
