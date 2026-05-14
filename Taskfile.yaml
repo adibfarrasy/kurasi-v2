@@ -109,6 +109,12 @@ tasks:
     cmds:
       - bun run build:ios:simulator -- --non-interactive
 
+  app-build:android:
+    desc: Build Android APK locally (preview profile) → app/kurasi-preview.apk
+    dir: app
+    cmds:
+      - bun run build:android -- --non-interactive
+
   # Lint
   lint:
     desc: Run Biome linter

@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "doctor": "npx expo-doctor",
     "build:ios": "eas build --platform ios --profile development",
-    "build:ios:simulator": "eas build --platform ios --profile development-simulator"
+    "build:ios:simulator": "eas build --platform ios --profile development-simulator",
+    "build:android": "eas build --platform android --profile preview --local --output kurasi-preview.apk"
   },
   "dependencies": {
     "@better-auth/expo": "catalog:",
