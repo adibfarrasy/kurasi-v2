@@ -16,7 +16,10 @@
       }
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://kurasi-development.fly.dev"
+      }
     },
     "production": {
       "autoIncrement": true,

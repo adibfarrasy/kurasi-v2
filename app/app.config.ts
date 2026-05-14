@@ -1,45 +1,48 @@
-import type { ConfigContext, ExpoConfig } from 'expo/config'
+import type { ConfigContext, ExpoConfig } from "expo/config";
 
-const ROOT = '..'
-const GF = `${ROOT}/node_modules/@expo-google-fonts`
+const ROOT = "..";
+const GF = `${ROOT}/node_modules/@expo-google-fonts`;
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  scheme: 'kurasi',
-  userInterfaceStyle: 'automatic',
-  orientation: 'default',
-  name: 'Kurasi',
-  slug: 'kurasi',
+  scheme: "kurasi",
+  userInterfaceStyle: "automatic",
+  orientation: "default",
+  name: "Kurasi",
+  slug: "kurasi",
   extra: {
     eas: {
-      projectId: '8a76902a-1db0-4fae-b9a5-b2e61d253ac7',
+      projectId: "8a76902a-1db0-4fae-b9a5-b2e61d253ac7",
     },
   },
-  owner: 'kurasi',
+  owner: "kurasi",
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
   },
   plugins: [
-    'expo-router',
-    'expo-secure-store',
-    'expo-web-browser',
-    'expo-image',
+    "expo-router",
+    "expo-secure-store",
+    "expo-web-browser",
+    "expo-image",
     [
-      'expo-image-picker',
+      "expo-image-picker",
       {
-        photosPermission: 'Kurasi needs access to your photos to analyze outfit inspirations.',
-        cameraPermission: 'Kurasi needs camera access to capture outfit inspirations.',
+        photosPermission:
+          "Kurasi needs access to your photos to analyze outfit inspirations.",
+        cameraPermission:
+          "Kurasi needs camera access to capture outfit inspirations.",
       },
     ],
     [
-      'expo-camera',
+      "expo-camera",
       {
-        cameraPermission: 'Kurasi needs camera access to capture your face for your avatar.',
+        cameraPermission:
+          "Kurasi needs camera access to capture your face for your avatar.",
       },
     ],
     [
-      'expo-font',
+      "expo-font",
       {
         ios: {
           fonts: [
@@ -53,7 +56,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         android: {
           fonts: [
             {
-              fontFamily: 'Funnel Sans',
+              fontFamily: "Funnel Sans",
               fontDefinitions: [
                 {
                   path: `${GF}/funnel-sans/400Regular/FunnelSans_400Regular.ttf`,
@@ -70,7 +73,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
               ],
             },
             {
-              fontFamily: 'Bebas Neue',
+              fontFamily: "Bebas Neue",
               fontDefinitions: [
                 {
                   path: `${GF}/bebas-neue/400Regular/BebasNeue_400Regular.ttf`,
@@ -79,7 +82,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
               ],
             },
             {
-              fontFamily: 'Kirang Haerang',
+              fontFamily: "Kirang Haerang",
               fontDefinitions: [
                 {
                   path: `${GF}/kirang-haerang/400Regular/KirangHaerang_400Regular.ttf`,
@@ -92,25 +95,28 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     [
-      'expo-splash-screen',
+      "expo-splash-screen",
       {
-        image: './assets/splash@3x.png',
+        image: "./assets/splash@3x.png",
         // Android uses `resizeMode`; iOS uses `imageResizeMode`.
-        resizeMode: 'cover',
-        imageResizeMode: 'cover',
+        resizeMode: "cover",
+        imageResizeMode: "cover",
         // Make the splash image much larger than the default (100).
         imageWidth: 300,
         android: {
-          resizeMode: 'cover',
+          resizeMode: "cover",
           imageWidth: 300,
         },
       },
     ],
   ],
   ios: {
-    bundleIdentifier: 'com.ryanditjia.kurasi',
+    bundleIdentifier: "com.ryanditjia.kurasi",
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
     },
   },
-})
+  android: {
+    package: "com.kurasi",
+  },
+});
