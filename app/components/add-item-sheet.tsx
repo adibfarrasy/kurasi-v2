@@ -9,6 +9,7 @@ import {
 import { useQuery } from '@tanstack/react-query'
 import { BlurView } from 'expo-blur'
 import { LinearGradient } from 'expo-linear-gradient'
+import { useRouter } from 'expo-router'
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import Animated, { interpolate, useAnimatedProps, useAnimatedStyle } from 'react-native-reanimated'
@@ -94,6 +95,7 @@ export type AddItemSheetHandle = {
 }
 
 export const AddItemSheet = forwardRef<AddItemSheetHandle>((_props, ref) => {
+  const router = useRouter()
   const sheetRef = useRef<BottomSheetModal>(null)
   // Separate modal for the destructive-action confirmation. Slides up
   // OVER the main sheet from the bottom — feels like an alert dialog
@@ -454,7 +456,8 @@ export const AddItemSheet = forwardRef<AddItemSheetHandle>((_props, ref) => {
               <Pressable
                 key="__upload__"
                 onPress={() => {
-                  // TODO: hook up the upload-new-item flow.
+                  sheetRef.current?.dismiss()
+                  router.push('/upload-wardrobe-guide')
                 }}
                 style={{
                   width: 100,

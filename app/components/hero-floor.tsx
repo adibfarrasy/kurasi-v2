@@ -19,10 +19,15 @@ export function HeroFloor({
    *  edge. Otherwise bottom-aligns via flex-end. */
   topOffset,
   maxHeight,
+  /** Asset shown while a remote `source` is still being fetched. Defaults to
+   *  the generic mannequin silhouette — much less jarring than flashing the
+   *  bundled default-man before the user's actual avatar lands. */
+  placeholder = require('@/assets/mannequin.png'),
 }: {
   source: ImageSourcePropType
   topOffset?: number
   maxHeight?: number
+  placeholder?: ImageSourcePropType
 }) {
   const [box, setBox] = useState<{
     width: number
@@ -82,6 +87,12 @@ export function HeroFloor({
       ) : null}
       <ExpoImage
         source={source}
+        // Mannequin (or whatever the caller passes) renders during the
+        // network fetch + decode window. expo-image swaps to the real
+        // source once it's ready, with `transition` animating the
+        // crossfade.
+        placeholder={placeholder}
+        placeholderContentFit="contain"
         style={{
           height: '100%',
           maxHeight,

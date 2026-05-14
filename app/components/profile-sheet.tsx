@@ -1,7 +1,8 @@
 import type { BottomSheetModal } from '@gorhom/bottom-sheet'
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet'
+import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'expo-router'
-import { useAtomValue } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react'
 import { Image, Pressable, Text, View } from 'react-native'
 import { FlairSheet } from '@/components/flair-sheet'
@@ -9,7 +10,13 @@ import { MembershipCardView } from '@/components/membership-card-view'
 import { X as XIcon } from '@/components/textured-icons'
 import { TopFlair } from '@/components/top-flair'
 import { UpdateDataSheet, type UpdateDataSheetHandle } from '@/components/update-data-sheet'
+import { useAuth } from '@/contexts/auth-context'
+import { useOnboarding } from '@/hooks/use-onboarding'
+import { orpc } from '@/lib/orpc-client'
+import { resetAvatarJobAtom } from '@/state/avatar-job'
+import { capturedFaceAtom } from '@/state/face-capture'
 import { cardNameAtom } from '@/state/membership'
+import { signaturePathsAtom } from '@/state/signature'
 
 export type ProfileSheetHandle = {
   present: () => void
@@ -25,9 +32,29 @@ export const ProfileSheet = forwardRef<ProfileSheetHandle>((_props, ref) => {
   const updateDataRef = useRef<UpdateDataSheetHandle>(null)
   const router = useRouter()
   const name = useAtomValue(cardNameAtom)
+  const { logout, user } = useAuth()
+  const { resetOnboarding } = useOnboarding()
+  const resetAvatarJob = useSetAtom(resetAvatarJobAtom)
+  const setCapturedFace = useSetAtom(capturedFaceAtom)
+  const setCardName = useSetAtom(cardNameAtom)
+  const setSignaturePaths = useSetAtom(signaturePathsAtom)
+  const balanceQuery = useQuery(orpc.credit.getBalance.queryOptions())
+  const balance = balanceQuery.data?.balance ?? 0
+  // Dev-only: a "Reset onboarding" action shows up for the dev account.
+  // Lets you re-enter the onboarding flow without uninstalling the app
+  // (the server-side wipe is `task reset-onboarding:local`; this clears
+  // the MMKV flag that the route gate reads).
+  const isDevUser = user?.email === 'adibfarrasy@gmail.com'
 
   useImperativeHandle(ref, () => ({
-    present: () => sheetRef.current?.present(),
+    present: () => {
+      // Refetch credit balance every time the sheet is opened so the
+      // displayed number reflects any spends/grants since the last view.
+      // Fire-and-forget: the cached value renders immediately while the
+      // network refetch happens in the background.
+      balanceQuery.refetch()
+      sheetRef.current?.present()
+    },
     dismiss: () => sheetRef.current?.dismiss(),
   }))
 
@@ -183,13 +210,13 @@ export const ProfileSheet = forwardRef<ProfileSheetHandle>((_props, ref) => {
           {/* Balance number deliberately KEEPS the larger weight/size to
               match Figma — the only piece of copy on this sheet that
               deviates from the 16/22 Funnel-normal pattern. */}
-          {/* 150 balance: FunnelSans 700, 20/24, letter-spacing -1.5%
+          {/* Balance: FunnelSans 700, 20/24, letter-spacing -1.5%
               (= 20 × -0.015 = -0.3). Locked from Figma. */}
           <Text
             className="font-funnel font-bold"
             style={{ fontSize: 20, lineHeight: 24, letterSpacing: -0.3, color: '#000' }}
           >
-            150
+            {balance}
           </Text>
           <Pressable
             onPress={() => {
@@ -238,7 +265,34 @@ export const ProfileSheet = forwardRef<ProfileSheetHandle>((_props, ref) => {
           }}
         />
         <ActionRow icon={require('@/assets/key.png')} label="Change Password" />
-        <ActionRow icon={require('@/assets/sign-out.png')} label="Log Out" />
+        {isDevUser ? (
+          <ActionRow
+            icon={require('@/assets/key.png')}
+            label="Reset onboarding (dev)"
+            onPress={() => {
+              sheetRef.current?.dismiss()
+              // Clear MMKV onboarding flag AND all in-memory onboarding
+              // atoms. Jotai's plain `atom` survives the dev reset because
+              // it's not MMKV-backed; without an explicit clear, stale
+              // values like the previous faceUri trick onboarding-3 into
+              // skipping the avatar pipeline ("same photo, reuse session").
+              resetOnboarding()
+              resetAvatarJob()
+              setCapturedFace(null)
+              setCardName('')
+              setSignaturePaths([])
+              router.replace('/onboarding-1')
+            }}
+          />
+        ) : null}
+        <ActionRow
+          icon={require('@/assets/sign-out.png')}
+          label="Log Out"
+          onPress={() => {
+            sheetRef.current?.dismiss()
+            logout()
+          }}
+        />
         {/* Closing divider line below the last row, matching the
             top-of-each-row dividers above. */}
         <View style={{ height: 1, backgroundColor: '#E5E5E5' }} />

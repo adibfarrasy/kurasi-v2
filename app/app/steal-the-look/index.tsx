@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { CheckCircle, XCircle } from '@/components/textured-icons'
+import { CheckCircle, XCircle, X as XIcon } from '@/components/textured-icons'
 import { TopFlair } from '@/components/top-flair'
 
 function StatusBadge({ kind }: { kind: 'do' | 'dont' }) {
@@ -175,6 +175,25 @@ export default function StealTheLookIntro() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={{ flex: 1, backgroundColor: '#e5e5e5' }}>
+        {/* Close button — top-right, above content. Returns to previous
+            screen so the user can bail out of the analyzer flow without
+            scrolling for a back button. */}
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={12}
+          style={{
+            position: 'absolute',
+            top: insets.top + 12,
+            right: 20,
+            zIndex: 10,
+            width: 32,
+            height: 32,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <XIcon width={24} height={24} color="#000" />
+        </Pressable>
         <ScrollView
           contentContainerStyle={{
             paddingTop: insets.top + 24,
