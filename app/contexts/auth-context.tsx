@@ -1,5 +1,6 @@
 import * as WebBrowser from 'expo-web-browser'
 import { createContext, useContext, useRef } from 'react'
+import { Platform } from 'react-native'
 import { authClient } from '@/lib/auth-client'
 
 type User = typeof authClient.$Infer.Session.user
@@ -29,8 +30,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Clear any lingering ASWebAuthenticationSession from a previous
       // attempt so the new one doesn't trip "Another web browser is
-      // already open." Safe no-op if nothing is open.
-      WebBrowser.dismissAuthSession()
+      // already open." iOS only — Android has no such session, and
+      // dismissAuthSession() throws UnavailabilityError there.
+      if (Platform.OS === 'ios') {
+        WebBrowser.dismissAuthSession()
+      }
       await authClient.signIn.social({
         provider,
         callbackURL: '/auth-callback',
