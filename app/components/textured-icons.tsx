@@ -70,3 +70,7 @@ export const X = makeIcon(require('@/assets/x.png'))
 export const Camera = makeIcon(require('@/assets/camera.png'))
 export const CheckCircle = makeIcon(require('@/assets/check-circle.png'))
 export const XCircle = makeIcon(require('@/assets/x-circle.png'))
+// Edit-screen toolbar trio: crop-frame, landscape-in-frame, t-shirt.
+export const Canvas = makeIcon(require('@/assets/canvas.png'))
+export const Background = makeIcon(require('@/assets/Image.png'))
+export const TShirtEdit = makeIcon(require('@/assets/t-shirt-edit.png'))
