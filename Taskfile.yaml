@@ -23,6 +23,11 @@ tasks:
     cmds:
       - bun run ios
 
+  ios-dev-device:
+    dir: app
+    cmds:
+      - bun run ios:device
+
   be-dev:
     desc: Run backend development
     dir: backend
@@ -65,13 +70,13 @@ tasks:
       - bun --env-file=.env.development.local seed.ts
 
   reset-onboarding:local:
-    desc: 'Reset onboarding for a user (default: dev user). Pass another email with `-- other@example.com`'
+    desc: "Reset onboarding for a user (default: dev user). Pass another email with `-- other@example.com`"
     dir: backend
     cmds:
       - bun --env-file=.env.development.local scripts/reset-onboarding.ts {{.CLI_ARGS}}
 
   reset-credits:local:
-    desc: 'Reset credit balance to 0 (or a custom amount). `-- 5` sets to 5; `-- email 5` targets a different user.'
+    desc: "Reset credit balance to 0 (or a custom amount). `-- 5` sets to 5; `-- email 5` targets a different user."
     dir: backend
     cmds:
       - bun --env-file=.env.development.local scripts/reset-credits.ts {{.CLI_ARGS}}

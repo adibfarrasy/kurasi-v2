@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
 const envSchema = z.object({
-  DATABASE_URL: z.url(),
-  BETTER_AUTH_SECRET: z.string(),
-  BETTER_AUTH_URL: z.url(),
+  DATABASE_URL: z.url().default('postgresql://postgres:postgres@127.0.0.1:5437/postgres'),
+  BETTER_AUTH_SECRET: z.string().default('pjYoNyLj24cwwpr2ybnZem6OVcnGUwDk'),
+  BETTER_AUTH_URL: z.url().default('http://localhost:8989'),
   GOOGLE_CLIENT_ID: z.string().default(''), // web client ID (used server-side for OAuth)
   GOOGLE_CLIENT_SECRET: z.string().default(''),
   GOOGLE_IOS_CLIENT_ID: z.string().default(''),

@@ -15,6 +15,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       projectId: '8a76902a-1db0-4fae-b9a5-b2e61d253ac7',
     },
   },
+  owner: 'kurasi',
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
