@@ -325,9 +325,7 @@ export async function normalizeAvatar(input: NormalizeAvatarInput): Promise<Norm
     },
     logs: false,
   })
-  // biome-ignore lint/suspicious/noExplicitAny: fal output is untyped
   const pass1Url = ((pass1Result.data as any)?.images?.[0]?.url ??
-    // biome-ignore lint/suspicious/noExplicitAny: fal output is untyped
     (pass1Result.data as any)?.image?.url) as string | undefined
   if (!pass1Url) throw new Error('seedream pass1 returned no image url')
   logPhase('pass1', Date.now() - pass1Start)
@@ -348,9 +346,7 @@ export async function normalizeAvatar(input: NormalizeAvatarInput): Promise<Norm
     },
     logs: false,
   })
-  // biome-ignore lint/suspicious/noExplicitAny: fal output is untyped
   const pass2Url = ((pass2Result.data as any)?.images?.[0]?.url ??
-    // biome-ignore lint/suspicious/noExplicitAny: fal output is untyped
     (pass2Result.data as any)?.image?.url) as string | undefined
   if (!pass2Url) throw new Error('seedream pass2 returned no image url')
   logPhase('pass2', Date.now() - pass2Start)
@@ -371,9 +367,7 @@ export async function normalizeAvatar(input: NormalizeAvatarInput): Promise<Norm
     },
     logs: false,
   })
-  // biome-ignore lint/suspicious/noExplicitAny: fal output is untyped
   const baseUrl = ((swapResult.data as any)?.image?.url ??
-    // biome-ignore lint/suspicious/noExplicitAny: fal output is untyped
     (swapResult.data as any)?.images?.[0]?.url) as string | undefined
   if (!baseUrl) throw new Error('faceswap returned no image url')
   logPhase('faceswap', Date.now() - faceswapStart)

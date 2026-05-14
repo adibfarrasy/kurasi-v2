@@ -8,7 +8,8 @@
   "files": {
     "ignoreUnknown": false,
     "includes": [
-      "**" // required, otherwise Biome doesn't work at all
+      "**", // required, otherwise Biome doesn't work at all
+      "!app/uniwind-types.d.ts"
     ]
   },
   "formatter": {

@@ -114,7 +114,6 @@ export function MembershipCardView({
                   placeholderTextColor="#9A9A9A"
                   cursorColor="#FF0D00"
                   selectionColor="#FF0D00"
-                  // biome-ignore lint/suspicious/noExplicitAny: tintColor is iOS-only and not in RN style types
                   style={
                     {
                       fontSize: 20,
@@ -124,6 +123,7 @@ export function MembershipCardView({
                       color: '#000',
                       padding: 0,
                       tintColor: '#FF0D00',
+                      // biome-ignore lint/suspicious/noExplicitAny: tintColor is iOS-only and not in RN style types
                     } as any
                   }
                 />

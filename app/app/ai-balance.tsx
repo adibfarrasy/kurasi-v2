@@ -88,6 +88,7 @@ export default function AiBalance() {
   // Mock payment: no IAP yet. Server records the grant + bumps balance.
   const purchaseMutation = useMutation(orpc.credit.purchase.mutationOptions())
 
+  // biome-ignore lint/style/noNonNullAssertion: its fine
   const selected = PACKAGES.find((p) => p.id === selectedId)!
   const isOther = selectedId === 'other'
   const parsedCustom = isOther ? parseInt(customAmount, 10) : Number.NaN
