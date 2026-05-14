@@ -18,7 +18,7 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_API_URL": "http://kurasi-development.fly.dev"
+        "EXPO_PUBLIC_API_URL": "https://kurasi-development.fly.dev"
       }
     },
     "production": {
