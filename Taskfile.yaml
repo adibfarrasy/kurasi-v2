@@ -91,6 +91,12 @@ tasks:
         >/dev/null 2>&1; do sleep 0.5; done'
       - task drizzle-migrate:local
 
+  deploy-testflight:
+    desc: Deploy to TestFlight
+    dir: app
+    cmds:
+      - bunx testflight
+
   app-build:ios:
     desc: Build iOS dev client via EAS Build
     dir: app
