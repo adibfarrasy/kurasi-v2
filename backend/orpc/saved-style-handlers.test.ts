@@ -11,10 +11,8 @@ beforeEach(async () => {
 })
 
 describe('savedStyleHandlers.list', () => {
-  test('returns only the caller’s saved rows with card + tags', async () => {
+  test('returns only the caller’s saved rows', async () => {
     const card = await utils.seedStyleCard()
-    const tag = await utils.seedStyleTag()
-    await utils.seedStyleCardTag(card.id, tag.id)
     await utils.seedSavedStyle({ userId: 'user-a', cardId: card.id })
     await utils.seedUser({ id: 'user-b', email: 'user-b@example.com' })
     await utils.seedSavedStyle({ userId: 'user-b', cardId: card.id })
@@ -24,7 +22,6 @@ describe('savedStyleHandlers.list', () => {
     })
     expect(result).toHaveLength(1)
     expect(result[0]!.card.id).toBe(card.id)
-    expect(result[0]!.card.tags).toHaveLength(1)
   })
 
   test('orders by savedAt desc', async () => {

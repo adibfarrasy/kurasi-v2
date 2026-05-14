@@ -1,19 +1,5 @@
-import { relations } from 'drizzle-orm'
-import { index, pgTable, primaryKey, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
+import { index, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core'
 import { user } from './auth-schema.gen'
-
-// Aligned to specs/style-board.allium StyleTag entity. Labels are unique so
-// curators don't duplicate categories.
-export const styleTag = pgTable('style_tag', {
-  id: uuid('id')
-    .primaryKey()
-    .$defaultFn(() => crypto.randomUUID()),
-  label: text('label').notNull().unique(),
-  category: text('category', {
-    enum: ['aesthetic', 'color', 'silhouette', 'occasion', 'season'],
-  }).notNull(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-})
 
 // Aligned to specs/style-board.allium StyleCard entity. Retirement is a soft
 // status change (status='retired', retiredAt set) so that SavedStyle rows
@@ -31,20 +17,6 @@ export const styleCard = pgTable('style_card', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   retiredAt: timestamp('retired_at'),
 })
-
-// Join: StyleCard -> StyleTag. Composite PK (cardId, tagId).
-export const styleCardTag = pgTable(
-  'style_card_tag',
-  {
-    cardId: uuid('card_id')
-      .notNull()
-      .references(() => styleCard.id, { onDelete: 'cascade' }),
-    tagId: uuid('tag_id')
-      .notNull()
-      .references(() => styleTag.id, { onDelete: 'cascade' }),
-  },
-  (t) => [primaryKey({ columns: [t.cardId, t.tagId] })],
-)
 
 // StyleInteraction — permanent record of a user's like/skip on a card.
 // AtMostOneInteractionPerUserCard invariant is enforced at the handler layer
@@ -89,16 +61,3 @@ export const savedStyle = pgTable(
   },
   (t) => [unique('saved_style_user_card_unique').on(t.userId, t.cardId)],
 )
-
-export const styleCardRelations = relations(styleCard, ({ many }) => ({
-  tags: many(styleCardTag),
-}))
-
-export const styleTagRelations = relations(styleTag, ({ many }) => ({
-  cards: many(styleCardTag),
-}))
-
-export const styleCardTagRelations = relations(styleCardTag, ({ one }) => ({
-  card: one(styleCard, { fields: [styleCardTag.cardId], references: [styleCard.id] }),
-  tag: one(styleTag, { fields: [styleCardTag.tagId], references: [styleTag.id] }),
-}))

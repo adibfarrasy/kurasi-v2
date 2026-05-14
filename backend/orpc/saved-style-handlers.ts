@@ -8,9 +8,9 @@
 // recommendations (spec lines 137-138).
 
 import { ORPCError } from '@orpc/server'
-import { and, desc, eq, inArray } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
-import { savedStyle, styleCard, styleCardTag, styleTag } from '../db/schema'
+import { savedStyle, styleCard } from '../db/schema'
 import { authed } from './authed'
 
 const listSavedStyles = authed.handler(async ({ context }) => {
@@ -26,26 +26,7 @@ const listSavedStyles = authed.handler(async ({ context }) => {
     .where(eq(savedStyle.userId, user.id))
     .orderBy(desc(savedStyle.savedAt))
 
-  if (saved.length === 0) return []
-
-  const cardIds = saved.map((s) => s.card.id)
-  const tagRows = await db
-    .select({ cardId: styleCardTag.cardId, tag: styleTag })
-    .from(styleCardTag)
-    .innerJoin(styleTag, eq(styleCardTag.tagId, styleTag.id))
-    .where(inArray(styleCardTag.cardId, cardIds))
-
-  const tagsByCard = new Map<string, Array<typeof styleTag.$inferSelect>>()
-  for (const r of tagRows) {
-    const list = tagsByCard.get(r.cardId) ?? []
-    list.push(r.tag)
-    tagsByCard.set(r.cardId, list)
-  }
-  return saved.map((s) => ({
-    savedId: s.savedId,
-    savedAt: s.savedAt,
-    card: { ...s.card, tags: tagsByCard.get(s.card.id) ?? [] },
-  }))
+  return saved
 })
 
 // RemoveFromBoard rule (spec lines 137-145). Deletes the saved row for the

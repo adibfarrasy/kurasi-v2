@@ -50,6 +50,13 @@
       "when": 1777929537899,
       "tag": "0006_clothing_item_name",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778417957736,
+      "tag": "0007_drop_style_tag",
+      "breakpoints": true
     }
   ]
 }

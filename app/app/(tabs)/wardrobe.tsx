@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native'
 import { FlairSheet } from '@/components/flair-sheet'
+import { ProfileSheet, type ProfileSheetHandle } from '@/components/profile-sheet'
 import {
   BookmarkSimpleFill,
   DotsNine,
@@ -236,29 +237,31 @@ function ItemCardLarge({
       >
         {nameHighlightable ? highlightMatches(name, query) : name}
       </Text>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 4,
-          marginTop: 6,
-        }}
-      >
-        <Text
-          style={{ letterSpacing: 0.06 }}
-          className="font-funnel font-normal text-[12px] leading-[16px] text-black opacity-50"
+      {outfitCount > 0 ? (
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 4,
+            marginTop: 6,
+          }}
         >
-          Used in
-        </Text>
-        <BookmarkSimpleFill width={14} height={14} color="#FF0D00" />
-        <Text
-          style={{ letterSpacing: 0.06 }}
-          className="font-funnel font-normal text-[12px] leading-[16px] text-[#FF0D00]"
-        >
-          {outfitCount} {outfitCount === 1 ? 'outfit' : 'outfits'}
-        </Text>
-      </View>
+          <Text
+            style={{ letterSpacing: 0.06 }}
+            className="font-funnel font-normal text-[12px] leading-[16px] text-black opacity-50"
+          >
+            Used in
+          </Text>
+          <BookmarkSimpleFill width={14} height={14} color="#FF0D00" />
+          <Text
+            style={{ letterSpacing: 0.06 }}
+            className="font-funnel font-normal text-[12px] leading-[16px] text-[#FF0D00]"
+          >
+            {outfitCount} {outfitCount === 1 ? 'outfit' : 'outfits'}
+          </Text>
+        </View>
+      ) : null}
       {subtitle ? (
         <Text
           numberOfLines={1}
@@ -365,6 +368,7 @@ export default function Wardrobe() {
   const [keyboardVisible, setKeyboardVisible] = useState(false)
   const [filter, setFilter] = useState<Filter>('all')
   const filterSheetHandleRef = useRef<FilterSheetHandle>(null)
+  const profileSheetRef = useRef<ProfileSheetHandle>(null)
   const itemsQuery = useQuery(orpc.clothingItem.list.queryOptions({ input: {} }))
   // Wardrobe only surfaces things the user actually has. Unowned rows
   // (e.g. AI items promoted by a saved outfit) live in clothingItem so
@@ -442,7 +446,7 @@ export default function Wardrobe() {
           <Pressable hitSlop={8}>
             <ShareFat width={24} height={24} color="#000" />
           </Pressable>
-          <Pressable hitSlop={8}>
+          <Pressable hitSlop={8} onPress={() => profileSheetRef.current?.present()}>
             <List width={24} height={24} color="#000" />
           </Pressable>
         </View>
@@ -579,6 +583,7 @@ export default function Wardrobe() {
       </KeyboardAvoidingView>
 
       <FilterSheet ref={filterSheetHandleRef} initialFilter={filter} onSave={setFilter} />
+      <ProfileSheet ref={profileSheetRef} />
     </View>
   )
 }

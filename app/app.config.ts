@@ -32,6 +32,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     [
+      'expo-camera',
+      {
+        cameraPermission: 'Kurasi needs camera access to capture your face for your avatar.',
+      },
+    ],
+    [
       'expo-font',
       {
         ios: {

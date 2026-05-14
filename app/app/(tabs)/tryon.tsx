@@ -13,6 +13,7 @@ import {
   AI_KEY,
 } from '@/components/add-item-sheet'
 import { HeroFloor } from '@/components/hero-floor'
+import { ProfileSheet, type ProfileSheetHandle } from '@/components/profile-sheet'
 import { SaveFitSheet, type SaveFitSheetHandle } from '@/components/save-fit-sheet'
 import { type SlotEntry, SlotStrip } from '@/components/slot-strip'
 import { BookmarkSimple, List, Sparkle } from '@/components/textured-icons'
@@ -50,6 +51,7 @@ export default function TryOn() {
   const [draft, setDraft] = useAtom(stealTheLookDraftAtom)
   const addItemSheetRef = useRef<AddItemSheetHandle>(null)
   const saveFitSheetRef = useRef<SaveFitSheetHandle>(null)
+  const profileSheetRef = useRef<ProfileSheetHandle>(null)
   // Per-slot wardrobe overrides. Keyed by category. `AI_KEY` (or absent)
   // means the AI item from the draft is shown; otherwise the user picked a
   // wardrobe item to swap in. Local state — not persisted.
@@ -332,6 +334,13 @@ export default function TryOn() {
     <ToneBackground tone={tone}>
       <View style={{ flex: 1, overflow: 'visible', paddingBottom: tabBarHeight }}>
         <View
+          // pointerEvents="box-none" lets taps fall through the empty
+          // parts of the header to whatever's below, but the children
+          // (logomark Image is non-interactive, the hamburger Pressable
+          // is) still receive their own taps. zIndex pins the header
+          // above later absolute siblings (HeroFloor, blur, regenerating
+          // overlay) so they can't steal the tap on the hamburger.
+          pointerEvents="box-none"
           style={{
             position: 'absolute',
             left: 0,
@@ -342,6 +351,7 @@ export default function TryOn() {
             justifyContent: 'space-between',
             paddingHorizontal: 20,
             height: 48,
+            zIndex: 100,
           }}
         >
           <View style={{ width: 24 }} />
@@ -358,7 +368,7 @@ export default function TryOn() {
               resizeMode="contain"
             />
           )}
-          <Pressable>
+          <Pressable onPress={() => profileSheetRef.current?.present()} hitSlop={12}>
             <List width={24} height={24} color={tone === 'neutral' ? '#000' : 'white'} />
           </Pressable>
         </View>
@@ -606,6 +616,7 @@ export default function TryOn() {
       </View>
       <AddItemSheet ref={addItemSheetRef} />
       <SaveFitSheet ref={saveFitSheetRef} />
+      <ProfileSheet ref={profileSheetRef} />
     </ToneBackground>
   )
 }
