@@ -66,6 +66,13 @@ pub fn build_router(state: AppState) -> axum::Router {
         .route("/api/style-interactions/skip", post(crate::style_interactions::skip))
         .route("/api/saved-styles", get(crate::saved_styles::list))
         .route("/api/saved-styles/{cardId}", delete(crate::saved_styles::remove))
+        .route("/api/shared-outfits", get(crate::shared_outfits::discover))
+        .route(
+            "/api/shared-outfits/by-outfit/{outfitId}",
+            get(crate::shared_outfits::find_by_outfit),
+        )
+        .route("/api/shared-outfits/publish", post(crate::shared_outfits::publish))
+        .route("/api/shared-outfits/unpublish", post(crate::shared_outfits::unpublish))
         .nest_service("/static/clothing", ServeDir::new(clothing_dir))
         .nest_service("/static/avatar-assets", ServeDir::new(avatar_dir))
         .fallback(not_found)

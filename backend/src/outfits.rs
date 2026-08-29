@@ -32,8 +32,9 @@ pub struct OutfitRow {
     pub updated_at: NaiveDateTime,
 }
 
-const OUTFIT_COLUMNS: &str = "id, user_id, name, hero_image_url, headwear_id, base_id, outer_id, \
-     bottom_id, footwear_id, notes, rating, worn_at, status, deleted_at, created_at, updated_at";
+pub(crate) const OUTFIT_COLUMNS: &str = "id, user_id, name, hero_image_url, headwear_id, base_id, \
+     outer_id, bottom_id, footwear_id, notes, rating, worn_at, status, deleted_at, created_at, \
+     updated_at";
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
