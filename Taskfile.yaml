@@ -28,58 +28,45 @@ tasks:
     cmds:
       - bun run ios:device
 
-  be-dev:
-    desc: Run backend development
-    dir: backend
-    cmds:
-      - bun run dev
-
   be-infra:
-    desc: Run backend infrastructure
+    desc: Run local Postgres + Mailpit
     dir: backend
     cmds:
       - docker compose up
 
-  # Better Auth schema -> Drizzle schema (auth-schema.ts)
-  generate-auth-schema:
-    desc: Generate Better Auth schema
+  be-dev:
+    desc: Run backend development
     dir: backend
     cmds:
-      - bunx --bun --env-file=.env.development.local @better-auth/cli generate
-        --config ./auth.ts --output ./db/auth-schema.gen.ts --yes
-      - task lint
+      - cargo run
 
-  # Drizzle schema -> SQL migrations
-  drizzle-generate:
-    desc: Generate Drizzle migrations
+  be-build:
+    desc: Build backend release binary
     dir: backend
     cmds:
-      - bun --env-file=.env.development.local drizzle-kit generate
+      - cargo build --release
 
-  # Apply SQL migrations to the local DB
-  drizzle-migrate:local:
-    desc: Run Drizzle migrations locally
+  be-lint:
+    desc: Lint backend (clippy)
     dir: backend
     cmds:
-      - bun --env-file=.env.development.local drizzle-kit migrate
+      - cargo clippy --all-targets -- -D warnings
 
-  seed:local:
-    desc: Seed the local DB
+  be-test:
+    desc: Run backend tests (needs local Postgres)
     dir: backend
+    env:
+      DATABASE_URL: "{{.DATABASE_URL | default \"postgresql://postgres:postgres@127.0.0.1:5437/postgres\"}}"
     cmds:
-      - bun --env-file=.env.development.local seed.ts
+      - cargo test
 
-  reset-onboarding:local:
-    desc: "Reset onboarding for a user (default: dev user). Pass another email with `-- other@example.com`"
+  db-migrate:local:
+    desc: Apply sqlx migrations to local DB
     dir: backend
+    env:
+      DATABASE_URL: "{{.DATABASE_URL | default \"postgresql://postgres:postgres@127.0.0.1:5437/postgres\"}}"
     cmds:
-      - bun --env-file=.env.development.local scripts/reset-onboarding.ts {{.CLI_ARGS}}
-
-  reset-credits:local:
-    desc: "Reset credit balance to 0 (or a custom amount). `-- 5` sets to 5; `-- email 5` targets a different user."
-    dir: backend
-    cmds:
-      - bun --env-file=.env.development.local scripts/reset-credits.ts {{.CLI_ARGS}}
+      - sqlx migrate run --source ./migrations
 
   reset-db:local:
     desc: Reset local DB (remove Postgres volume, recreate stack, run migrations)
@@ -87,9 +74,8 @@ tasks:
     cmds:
       - docker compose down -v
       - docker compose up -d
-      - bash -c 'until docker compose exec -T db pg_isready -U postgres
-        >/dev/null 2>&1; do sleep 0.5; done'
-      - task drizzle-migrate:local
+      - bash -c 'until docker compose exec -T db pg_isready -U postgres >/dev/null 2>&1; do sleep 0.5; done'
+      - task db-migrate:local
 
   deploy-testflight:
     desc: Deploy to TestFlight
@@ -117,23 +103,25 @@ tasks:
 
   # Lint
   lint:
-    desc: Run Biome linter
+    desc: Run Biome linter (app)
     cmds:
       - bun lint
 
   typecheck:
-    desc: Run type checker
+    desc: Run type checker (app)
     cmds:
       - bun --workspaces run typecheck
 
   test:
-    desc: Run tests
+    desc: Run tests (app)
     cmds:
       - bun test
 
   ci:
-    desc: Run all CI checks (lint, typecheck, test)
+    desc: Run all CI checks (app + backend)
     cmds:
       - task: lint
       - task: typecheck
       - task: test
+      - task: be-lint
+      - task: be-test

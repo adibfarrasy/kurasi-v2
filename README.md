@@ -6,23 +6,25 @@ See [CLAUDE.md](./CLAUDE.md) for the full product vision and scope.
 
 ## Stack
 
-Bun workspaces monorepo:
+Monorepo:
 
-- **`app/`** — Expo (React Native) mobile client. TanStack Query, oRPC client, Better Auth, Uniwind/Tailwind.
-- **`backend/`** — Bun HTTP server. Drizzle ORM on Postgres, oRPC, Better Auth, AI SDK (Gemini, Fal).
+- **`app/`** — Expo (React Native) mobile client. TanStack Query, Uniwind/Tailwind.
+- **`backend/`** — Rust backend (Axum + sqlx on Postgres). Firebase Auth.
 - **`specs/`** — Allium behavioural specifications.
 
 ## Prerequisites
 
-- [Bun](https://bun.sh)
+- [Bun](https://bun.sh) (app)
+- [Rust](https://rustup.rs) (backend)
 - [Task](https://taskfile.dev) — task runner (`brew install go-task`)
+- [sqlx-cli](https://crates.io/crates/sqlx-cli) — `cargo install sqlx-cli`
 - Postgres (the `be-infra` task spins one up via Docker Compose, or bring your own)
-- `backend/.env.development.local` with DB URL and provider keys
 
 ## Setup
 
 ```bash
 bun install
+cd backend && cargo build
 ```
 
 ## Development
@@ -30,8 +32,8 @@ bun install
 Run each in its own terminal:
 
 ```bash
-task be-infra           # local Postgres + supporting services (optional if you have your own)
-task drizzle-push:local # apply schema to the local DB
+task be-infra           # local Postgres + Mailpit (optional if you have your own)
+task db-migrate:local   # apply sqlx migrations to the local DB
 task be-dev             # backend with hot reload
 task app-dev            # Expo dev server — press i / a / w to launch
 ```
@@ -48,9 +50,11 @@ task app-build:ios           # EAS dev client (device)
 ## Checks
 
 ```bash
-task lint        # Biome
-task typecheck   # tsc across workspaces
-task test        # bun test
+task lint        # Biome (app)
+task typecheck   # tsc across workspaces (app)
+task test        # bun test (app)
+task be-lint     # cargo clippy
+task be-test     # cargo test (needs local Postgres)
 task ci          # all of the above
 ```
 
@@ -58,6 +62,17 @@ task ci          # all of the above
 
 ```bash
 task --list                  # list all tasks
-task generate-auth-schema    # regenerate Better Auth Drizzle schema
-task drizzle-push:prod       # push schema to production DB
+task be-build                # build backend release binary
+task reset-db:local          # reset local DB and re-run migrations
 ```
+
+## Docker
+
+Build and run the backend image:
+
+```bash
+docker build -t kurasi-backend ./backend
+docker run -p 8989:8989 -e DATABASE_URL=postgresql://postgres:postgres@host.docker.internal:5437/postgres kurasi-backend
+```
+
+Static asset dirs (`CLOTHING_DIR`, `AVATAR_DIR`) are runtime env/volumes; mount a repo-mirroring layout to use the defaults.
