@@ -39,13 +39,11 @@ async fn complete_onboarding_grants_signup_credits_once(pool: sqlx::PgPool) {
     let (status, _) = common::send(&app, req).await;
     assert_eq!(status, StatusCode::OK);
 
-    let balance: i32 = sqlx::query_scalar(
-        "SELECT balance FROM credit_account WHERE user_id=$1",
-    )
-    .bind("user-a")
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let balance: i32 = sqlx::query_scalar("SELECT balance FROM credit_account WHERE user_id=$1")
+        .bind("user-a")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
     assert_eq!(balance, 15);
 
     let second = common::authed_request(

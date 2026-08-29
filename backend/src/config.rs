@@ -36,7 +36,10 @@ mod tests {
     #[test]
     fn defaults_match_old_env() {
         let c = Config::from_env();
-        assert_eq!(c.database_url, "postgresql://postgres:postgres@127.0.0.1:5437/postgres");
+        assert_eq!(
+            c.database_url,
+            "postgresql://postgres:postgres@127.0.0.1:5437/postgres"
+        );
         assert_eq!(c.port, 8989);
         assert_eq!(c.environment, "production");
     }

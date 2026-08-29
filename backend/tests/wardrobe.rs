@@ -84,7 +84,12 @@ async fn delete_soft_removes_and_preserves_outfits(pool: sqlx::PgPool) {
     let (_, created) = common::send(&app, create).await;
     let id = created["id"].as_str().unwrap().to_string();
 
-    let del = common::authed_request(Method::DELETE, &format!("/api/wardrobe/items/{id}"), "user-a", None);
+    let del = common::authed_request(
+        Method::DELETE,
+        &format!("/api/wardrobe/items/{id}"),
+        "user-a",
+        None,
+    );
     let (status, body) = common::send(&app, del).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["status"], "removed");
@@ -93,7 +98,12 @@ async fn delete_soft_removes_and_preserves_outfits(pool: sqlx::PgPool) {
     let (_, body) = common::send(&app, list).await;
     assert_eq!(body.as_array().unwrap().len(), 0);
 
-    let again = common::authed_request(Method::DELETE, &format!("/api/wardrobe/items/{id}"), "user-a", None);
+    let again = common::authed_request(
+        Method::DELETE,
+        &format!("/api/wardrobe/items/{id}"),
+        "user-a",
+        None,
+    );
     let (status, _) = common::send(&app, again).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
@@ -106,7 +116,9 @@ async fn creating_five_items_completes_starter_wardrobe_step(pool: sqlx::PgPool)
             Method::POST,
             "/api/wardrobe/items",
             "user-a",
-            Some(serde_json::json!({ "imageUrl": "https://example.com/item.jpg", "category": "shirt" })),
+            Some(
+                serde_json::json!({ "imageUrl": "https://example.com/item.jpg", "category": "shirt" }),
+            ),
         );
         common::send(&app, req).await;
     }
@@ -123,12 +135,61 @@ async fn delete_other_users_item_is_not_found(pool: sqlx::PgPool) {
         Method::POST,
         "/api/wardrobe/items",
         "user-a",
-        Some(serde_json::json!({ "imageUrl": "https://example.com/item.jpg", "category": "shirt" })),
+        Some(
+            serde_json::json!({ "imageUrl": "https://example.com/item.jpg", "category": "shirt" }),
+        ),
     );
     let (_, created) = common::send(&app, create).await;
     let id = created["id"].as_str().unwrap().to_string();
 
-    let del = common::authed_request(Method::DELETE, &format!("/api/wardrobe/items/{id}"), "user-b", None);
+    let del = common::authed_request(
+        Method::DELETE,
+        &format!("/api/wardrobe/items/{id}"),
+        "user-b",
+        None,
+    );
     let (status, _) = common::send(&app, del).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+}
+
+#[sqlx::test(migrations = "./migrations")]
+async fn delete_with_delete_outfits_query(pool: sqlx::PgPool) {
+    let app = common::test_app(pool.clone());
+    let create = common::authed_request(
+        Method::POST,
+        "/api/wardrobe/items",
+        "user-a",
+        Some(serde_json::json!({
+            "imageUrl": "https://example.com/item.jpg",
+            "category": "shirt"
+        })),
+    );
+    let (_, created) = common::send(&app, create).await;
+    let id = created["id"].as_str().unwrap().to_string();
+
+    sqlx::query(
+        "INSERT INTO outfit (id, user_id, base_id, status) VALUES (gen_random_uuid(), $1, $2::uuid, 'active')",
+    )
+    .bind("user-a")
+    .bind(&id)
+    .execute(&pool)
+    .await
+    .unwrap();
+
+    let del = common::authed_request(
+        Method::DELETE,
+        &format!("/api/wardrobe/items/{id}?deleteOutfits=true"),
+        "user-a",
+        None,
+    );
+    let (status, body) = common::send(&app, del).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["status"], "removed");
+
+    let outfit_status: String = sqlx::query_scalar("SELECT status FROM outfit WHERE user_id=$1")
+        .bind("user-a")
+        .fetch_one(&pool)
+        .await
+        .unwrap();
+    assert_eq!(outfit_status, "deleted");
 }

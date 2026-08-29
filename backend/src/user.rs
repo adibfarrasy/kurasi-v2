@@ -20,6 +20,16 @@ pub async fn ensure_user(pool: &PgPool, fb: &FirebaseUser) -> Result<DbUser, sql
         .unwrap_or_else(|| fb.uid.clone());
     let email = fb.email.clone().unwrap_or_default();
 
+    let existing = sqlx::query_as::<_, DbUser>(
+        r#"SELECT id, name, email, email_verified, image, trial_started_at FROM "user" WHERE id = $1"#,
+    )
+    .bind(&fb.uid)
+    .fetch_optional(pool)
+    .await?;
+    if let Some(u) = existing {
+        return Ok(u);
+    }
+
     let mut tx = pool.begin().await?;
 
     let inserted = sqlx::query_as::<_, DbUser>(
@@ -35,34 +45,36 @@ pub async fn ensure_user(pool: &PgPool, fb: &FirebaseUser) -> Result<DbUser, sql
     .fetch_optional(&mut *tx)
     .await?;
 
-    match inserted {
-        Some(u) => {
-            sqlx::query("INSERT INTO onboarding_progress (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING")
-                .bind(&u.id)
-                .execute(&mut *tx)
-                .await?;
-            sqlx::query(
-                r#"INSERT INTO credit_account (id, user_id, balance, last_weekly_grant_at)
-                   VALUES (gen_random_uuid(), $1, 0, now() - interval '7 days')
-                   ON CONFLICT (user_id) DO NOTHING"#,
-            )
-            .bind(&u.id)
-            .execute(&mut *tx)
-            .await?;
-            tx.commit().await?;
-            tracing::info!(user_id = %u.id, "provisioned new user");
-            Ok(u)
-        }
+    let inserted = match inserted {
+        Some(u) => u,
         None => {
             tx.commit().await?;
-            sqlx::query_as::<_, DbUser>(
+            return sqlx::query_as::<_, DbUser>(
                 r#"SELECT id, name, email, email_verified, image, trial_started_at FROM "user" WHERE id = $1"#,
             )
             .bind(&fb.uid)
             .fetch_one(pool)
-            .await
+            .await;
         }
-    }
+    };
+
+    sqlx::query(
+        "INSERT INTO onboarding_progress (user_id) VALUES ($1) ON CONFLICT (user_id) DO NOTHING",
+    )
+    .bind(&inserted.id)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query(
+        r#"INSERT INTO credit_account (id, user_id, balance, last_weekly_grant_at)
+           VALUES (gen_random_uuid(), $1, 0, now() - interval '7 days')
+           ON CONFLICT (user_id) DO NOTHING"#,
+    )
+    .bind(&inserted.id)
+    .execute(&mut *tx)
+    .await?;
+    tx.commit().await?;
+    tracing::info!(user_id = %inserted.id, "provisioned new user");
+    Ok(inserted)
 }
 
 #[cfg(test)]
@@ -106,13 +118,12 @@ mod tests {
         let first = ensure_user(&pool, &fb).await.unwrap();
         let second = ensure_user(&pool, &fb).await.unwrap();
         assert_eq!(first.id, second.id);
-        let count: i64 = sqlx::query_scalar(
-            "SELECT count(*) FROM onboarding_progress WHERE user_id=$1",
-        )
-        .bind(&first.id)
-        .fetch_one(&pool)
-        .await
-        .unwrap();
+        let count: i64 =
+            sqlx::query_scalar("SELECT count(*) FROM onboarding_progress WHERE user_id=$1")
+                .bind(&first.id)
+                .fetch_one(&pool)
+                .await
+                .unwrap();
         assert_eq!(count, 1);
     }
 }

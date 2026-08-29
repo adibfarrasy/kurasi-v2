@@ -101,15 +101,29 @@ pub struct CreateItemBody {
 #[derive(Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateItemBody {
+    #[serde(default, deserialize_with = "double_option")]
+    pub original_image_url: Option<Option<String>>,
+    #[serde(default, deserialize_with = "double_option")]
+    pub name: Option<Option<String>>,
+    #[serde(default, deserialize_with = "double_option")]
+    pub brand: Option<Option<String>>,
+    #[serde(default, deserialize_with = "double_option")]
+    pub fit: Option<Option<ItemFit>>,
+    #[serde(default, deserialize_with = "double_option")]
+    pub length: Option<Option<ItemLength>>,
+    #[serde(default, deserialize_with = "double_option")]
+    pub custom_notes: Option<Option<String>>,
     pub image_url: Option<String>,
-    pub original_image_url: Option<String>,
     pub category: Option<ItemCategory>,
-    pub name: Option<String>,
-    pub brand: Option<String>,
-    pub fit: Option<ItemFit>,
-    pub length: Option<ItemLength>,
-    pub custom_notes: Option<String>,
     pub colors: Option<Vec<ColorInfo>>,
+}
+
+fn double_option<'de, T, D>(deserializer: D) -> Result<Option<Option<T>>, D::Error>
+where
+    T: serde::Deserialize<'de>,
+    D: serde::Deserializer<'de>,
+{
+    Ok(Some(Option::<T>::deserialize(deserializer)?))
 }
 
 #[derive(Deserialize)]
@@ -209,33 +223,69 @@ pub async fn update_item(
         qb.push(", image_url = ");
         qb.push_bind(v);
     }
-    if let Some(v) = body.original_image_url {
-        qb.push(", original_image_url = ");
-        qb.push_bind(v);
+    match body.original_image_url {
+        Some(Some(v)) => {
+            qb.push(", original_image_url = ");
+            qb.push_bind(v);
+        }
+        Some(None) => {
+            qb.push(", original_image_url = NULL");
+        }
+        None => {}
     }
     if let Some(v) = body.category {
         qb.push(", category = ");
         qb.push_bind(v.as_str());
     }
-    if let Some(v) = body.name {
-        qb.push(", name = ");
-        qb.push_bind(v);
+    match body.name {
+        Some(Some(v)) => {
+            qb.push(", name = ");
+            qb.push_bind(v);
+        }
+        Some(None) => {
+            qb.push(", name = NULL");
+        }
+        None => {}
     }
-    if let Some(v) = body.brand {
-        qb.push(", brand = ");
-        qb.push_bind(v);
+    match body.brand {
+        Some(Some(v)) => {
+            qb.push(", brand = ");
+            qb.push_bind(v);
+        }
+        Some(None) => {
+            qb.push(", brand = NULL");
+        }
+        None => {}
     }
-    if let Some(v) = body.fit {
-        qb.push(", fit = ");
-        qb.push_bind(v.as_str());
+    match body.fit {
+        Some(Some(v)) => {
+            qb.push(", fit = ");
+            qb.push_bind(v.as_str());
+        }
+        Some(None) => {
+            qb.push(", fit = NULL");
+        }
+        None => {}
     }
-    if let Some(v) = body.length {
-        qb.push(", length = ");
-        qb.push_bind(v.as_str());
+    match body.length {
+        Some(Some(v)) => {
+            qb.push(", length = ");
+            qb.push_bind(v.as_str());
+        }
+        Some(None) => {
+            qb.push(", length = NULL");
+        }
+        None => {}
     }
-    if let Some(v) = body.custom_notes {
-        qb.push(", custom_notes = ");
-        qb.push_bind(v);
+    match body.custom_notes {
+        Some(Some(v)) => {
+            qb.push(", custom_notes = ");
+            qb.push_bind(v);
+        }
+        Some(None) => {
+            qb.push(", custom_notes = NULL");
+        }
+        None => {}
     }
     if let Some(v) = body.colors {
         qb.push(", colors = ");

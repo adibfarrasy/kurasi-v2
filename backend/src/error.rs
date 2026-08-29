@@ -1,4 +1,4 @@
-use axum::extract::rejection::{JsonRejection, PathRejection};
+use axum::extract::rejection::{JsonRejection, PathRejection, QueryRejection};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -72,6 +72,12 @@ impl From<JsonRejection> for ApiError {
 impl From<PathRejection> for ApiError {
     fn from(e: PathRejection) -> Self {
         ApiError::validation(format!("invalid path parameter: {e}"))
+    }
+}
+
+impl From<QueryRejection> for ApiError {
+    fn from(e: QueryRejection) -> Self {
+        ApiError::validation(format!("invalid query string: {e}"))
     }
 }
 

@@ -43,20 +43,17 @@ pub fn authed_request(
         .header(AUTHORIZATION, format!("Bearer t-{uid}"));
     if let Some(json) = body {
         builder = builder.header(CONTENT_TYPE, "application/json");
-        return builder
-            .body(Body::from(json.to_string()))
-            .unwrap();
+        return builder.body(Body::from(json.to_string())).unwrap();
     }
     builder.body(Body::empty()).unwrap()
 }
 
-pub async fn send(
-    app: &axum::Router,
-    req: Request<Body>,
-) -> (StatusCode, serde_json::Value) {
+pub async fn send(app: &axum::Router, req: Request<Body>) -> (StatusCode, serde_json::Value) {
     let res = app.clone().oneshot(req).await.unwrap();
     let status = res.status();
-    let bytes = axum::body::to_bytes(res.into_body(), usize::MAX).await.unwrap();
+    let bytes = axum::body::to_bytes(res.into_body(), usize::MAX)
+        .await
+        .unwrap();
     let json = serde_json::from_slice(&bytes).unwrap_or(serde_json::Value::Null);
     (status, json)
 }

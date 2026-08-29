@@ -79,7 +79,7 @@ pub async fn complete_onboarding(
     State(state): State<AppState>,
     auth: AuthUser,
 ) -> ApiResult<Json<Value>> {
-    sqlx::query(
+    let updated = sqlx::query(
         r#"UPDATE onboarding_progress SET
              status='completed',
              biometrics_completed_at=COALESCE(biometrics_completed_at, now()),
@@ -91,14 +91,13 @@ pub async fn complete_onboarding(
     .bind(&auth.id)
     .execute(&state.pool)
     .await?;
-    credits::grant_signup_credits(&state.pool, &auth.id).await?;
+    if updated.rows_affected() > 0 {
+        credits::grant_signup_credits(&state.pool, &auth.id).await?;
+    }
     Ok(Json(json!({ "ok": true })))
 }
 
-pub async fn maybe_complete_onboarding(
-    pool: &PgPool,
-    user_id: &str,
-) -> Result<(), sqlx::Error> {
+pub async fn maybe_complete_onboarding(pool: &PgPool, user_id: &str) -> Result<(), sqlx::Error> {
     let done = sqlx::query_scalar::<_, String>(
         r#"UPDATE onboarding_progress SET status='completed', completed_at=now(), updated_at=now()
            WHERE user_id=$1 AND status='in_progress'

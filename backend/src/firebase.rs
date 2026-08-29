@@ -48,7 +48,10 @@ impl FirebaseVerifier {
         FirebaseVerifier {
             project_id,
             jwks_url,
-            client: Client::new(),
+            client: Client::builder()
+                .timeout(Duration::from_secs(10))
+                .build()
+                .expect("reqwest client"),
             cache: Arc::new(RwLock::new(None)),
         }
     }
@@ -68,6 +71,8 @@ impl FirebaseVerifier {
             .send()
             .await
             .map_err(ApiError::internal_err)?
+            .error_for_status()
+            .map_err(ApiError::internal_err)?
             .json::<JwksResponse>()
             .await
             .map_err(ApiError::internal_err)?;
@@ -79,7 +84,11 @@ impl FirebaseVerifier {
         Ok(resp.keys)
     }
 
-    fn verify_with_key(token: &str, key: &DecodingKey, project_id: &str) -> ApiResult<FirebaseUser> {
+    fn verify_with_key(
+        token: &str,
+        key: &DecodingKey,
+        project_id: &str,
+    ) -> ApiResult<FirebaseUser> {
         let mut validation = Validation::new(Algorithm::RS256);
         validation.set_issuer(&[format!("https://securetoken.google.com/{project_id}")]);
         validation.set_audience(&[project_id]);
@@ -157,7 +166,11 @@ mod tests {
         let priv_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
         let pem = priv_key.to_pkcs1_pem(rsa::pkcs1::LineEnding::LF).unwrap();
         let encoding_key = EncodingKey::from_rsa_pem(pem.as_bytes()).unwrap();
-        let pub_pem = rsa::pkcs1::EncodeRsaPublicKey::to_pkcs1_pem(&RsaPublicKey::from(&priv_key), rsa::pkcs1::LineEnding::LF).unwrap();
+        let pub_pem = rsa::pkcs1::EncodeRsaPublicKey::to_pkcs1_pem(
+            &RsaPublicKey::from(&priv_key),
+            rsa::pkcs1::LineEnding::LF,
+        )
+        .unwrap();
         let pub_key = RsaPublicKey::from_pkcs1_pem(&pub_pem).unwrap();
         let jwk = Jwk {
             kid: "test-key".to_string(),

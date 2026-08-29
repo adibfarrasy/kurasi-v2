@@ -34,7 +34,7 @@ Run each in its own terminal:
 ```bash
 task be-infra           # local Postgres + Mailpit (optional if you have your own)
 task db-migrate:local   # apply sqlx migrations to the local DB
-task be-dev             # backend with hot reload
+task be-dev             # rebuild + run
 task app-dev            # Expo dev server — press i / a / w to launch
 ```
 

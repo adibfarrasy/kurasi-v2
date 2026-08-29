@@ -35,7 +35,7 @@ tasks:
       - docker compose up
 
   be-dev:
-    desc: Run backend development
+    desc: Rebuild + run backend
     dir: backend
     cmds:
       - cargo run

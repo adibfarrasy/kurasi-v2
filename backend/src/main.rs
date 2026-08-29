@@ -19,7 +19,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     db::run_migrations(&pool).await?;
     tracing::info!("database migrations applied");
 
-    let verifier = FirebaseVerifier::new(config.firebase_project_id.clone(), config.jwks_url.clone());
+    let verifier =
+        FirebaseVerifier::new(config.firebase_project_id.clone(), config.jwks_url.clone());
     let state = AppState::new(pool, Arc::new(verifier));
     let app = build_router(state);
 
