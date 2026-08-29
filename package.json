@@ -17,7 +17,6 @@
     "lint": "biome check . --write"
   },
   "workspaces": [
-    "app",
-    "backend"
+    "app"
   ]
 }

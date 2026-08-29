@@ -9,7 +9,8 @@
     "ignoreUnknown": false,
     "includes": [
       "**", // required, otherwise Biome doesn't work at all
-      "!app/uniwind-types.d.ts"
+      "!app/uniwind-types.d.ts",
+      "!backend/**"
     ]
   },
   "formatter": {
