@@ -13,6 +13,7 @@ pub mod outfit_recommendation;
 pub mod outfits;
 pub mod saved_styles;
 pub mod shared_outfits;
+pub mod subscription;
 pub mod style_cards;
 pub mod style_interactions;
 pub mod user;
