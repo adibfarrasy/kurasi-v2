@@ -1,6 +1,7 @@
 use crate::auth::Authenticator;
 use sqlx::PgPool;
 use std::sync::Arc;
+use tower_http::services::ServeDir;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -14,9 +15,12 @@ impl AppState {
     }
 }
 
-pub fn build_router_stub(state: AppState) -> axum::Router {
+pub fn build_router(state: AppState) -> axum::Router {
     use axum::routing::{get, post};
+    let clothing_dir = std::env::var("CLOTHING_DIR").unwrap_or_else(|_| "../clothing articles".into());
+    let avatar_dir = std::env::var("AVATAR_DIR").unwrap_or_else(|_| "avatar/assets".into());
     axum::Router::new()
+        .route("/health", get(health))
         .route(
             "/api/onboarding",
             get(crate::onboarding::get_onboarding)
@@ -34,5 +38,11 @@ pub fn build_router_stub(state: AppState) -> axum::Router {
                 .patch(crate::wardrobe::update_item)
                 .delete(crate::wardrobe::delete_item),
         )
+        .nest_service("/static/clothing", ServeDir::new(clothing_dir))
+        .nest_service("/static/avatar-assets", ServeDir::new(avatar_dir))
         .with_state(state)
+}
+
+async fn health() -> axum::Json<serde_json::Value> {
+    axum::Json(serde_json::json!({ "status": "ok" }))
 }
