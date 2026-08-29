@@ -20,7 +20,7 @@ impl AppState {
 }
 
 pub fn build_router(state: AppState) -> axum::Router {
-    use axum::routing::{get, post};
+    use axum::routing::{delete, get, post};
     let clothing_dir =
         std::env::var("CLOTHING_DIR").unwrap_or_else(|_| "../clothing articles".into());
     let avatar_dir = std::env::var("AVATAR_DIR").unwrap_or_else(|_| "avatar/assets".into());
@@ -62,6 +62,10 @@ pub fn build_router(state: AppState) -> axum::Router {
         .route("/api/style-cards/feed", get(crate::style_cards::feed))
         .route("/api/style-cards/{id}", get(crate::style_cards::find))
         .route("/api/style-cards/{id}/retire", post(crate::style_cards::retire))
+        .route("/api/style-interactions/like", post(crate::style_interactions::like))
+        .route("/api/style-interactions/skip", post(crate::style_interactions::skip))
+        .route("/api/saved-styles", get(crate::saved_styles::list))
+        .route("/api/saved-styles/{cardId}", delete(crate::saved_styles::remove))
         .nest_service("/static/clothing", ServeDir::new(clothing_dir))
         .nest_service("/static/avatar-assets", ServeDir::new(avatar_dir))
         .fallback(not_found)
