@@ -61,8 +61,6 @@ pub async fn like(
     .fetch_optional(&mut *tx)
     .await?;
 
-    let prior_liked = matches!(prior.as_ref(), Some(i) if i.kind == "liked");
-
     let interaction = match prior {
         Some(i) if i.kind == "skipped" => {
             return Err(ApiError::bad_request("Card was already skipped and cannot be liked"));
@@ -78,24 +76,23 @@ pub async fn like(
         .ok_or_else(ApiError::internal)?,
     };
 
-    let saved = if prior_liked {
-        sqlx::query_as::<_, SavedRow>(
+    let saved = match sqlx::query_as::<_, SavedRow>(
+        "INSERT INTO saved_style (id, user_id, card_id) VALUES (gen_random_uuid(), $1, $2) ON CONFLICT (user_id, card_id) DO NOTHING RETURNING id AS saved_id, saved_at",
+    )
+    .bind(&auth.id)
+    .bind(body.card_id)
+    .fetch_optional(&mut *tx)
+    .await?
+    {
+        Some(s) => s,
+        None => sqlx::query_as::<_, SavedRow>(
             "SELECT id AS saved_id, saved_at FROM saved_style WHERE user_id=$1 AND card_id=$2",
         )
         .bind(&auth.id)
         .bind(body.card_id)
         .fetch_optional(&mut *tx)
         .await?
-        .ok_or_else(ApiError::internal)?
-    } else {
-        sqlx::query_as::<_, SavedRow>(
-            "INSERT INTO saved_style (id, user_id, card_id) VALUES (gen_random_uuid(), $1, $2) ON CONFLICT (user_id, card_id) DO NOTHING RETURNING id AS saved_id, saved_at",
-        )
-        .bind(&auth.id)
-        .bind(body.card_id)
-        .fetch_optional(&mut *tx)
-        .await?
-        .ok_or_else(ApiError::internal)?
+        .ok_or_else(ApiError::internal)?,
     };
 
     tx.commit().await?;

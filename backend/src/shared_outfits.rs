@@ -6,7 +6,6 @@ use axum::extract::{Path, Query, State};
 use axum::Json;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
 use uuid::Uuid;
 
 #[derive(sqlx::FromRow, Serialize)]
@@ -135,57 +134,41 @@ pub async fn publish(
         _ => {}
     }
 
-    let existing: Option<(String,)> =
-        sqlx::query_as("SELECT status FROM shared_outfit WHERE outfit_id=$1 AND user_id=$2")
-            .bind(body.outfit_id)
-            .bind(&auth.id)
-            .fetch_optional(&state.pool)
-            .await?;
-
-    if existing.is_some() {
-        let row = sqlx::query_as::<_, SharedOutfitRow>(&format!(
-            r#"UPDATE shared_outfit SET status='published', face_anonymisation=$3, show_username=$4, shared_at=now(), unpublished_at=NULL, updated_at=now()
-               WHERE outfit_id=$1 AND user_id=$2
-               RETURNING {COLUMNS}"#
-        ))
-        .bind(body.outfit_id)
-        .bind(&auth.id)
-        .bind(&body.face_anonymisation)
-        .bind(body.show_username)
-        .fetch_one(&state.pool)
-        .await?;
-        Ok(Json(row))
-    } else {
-        let row = sqlx::query_as::<_, SharedOutfitRow>(&format!(
-            r#"INSERT INTO shared_outfit (id, user_id, outfit_id, face_anonymisation, show_username, status)
-               VALUES (gen_random_uuid(), $1, $2, $3, $4, 'published')
-               RETURNING {COLUMNS}"#
-        ))
-        .bind(&auth.id)
-        .bind(body.outfit_id)
-        .bind(&body.face_anonymisation)
-        .bind(body.show_username)
-        .fetch_one(&state.pool)
-        .await?;
-        Ok(Json(row))
-    }
+    let row = sqlx::query_as::<_, SharedOutfitRow>(&format!(
+        r#"INSERT INTO shared_outfit (id, user_id, outfit_id, face_anonymisation, show_username, status)
+           VALUES (gen_random_uuid(), $1, $2, $3, $4, 'published')
+           ON CONFLICT (outfit_id) DO UPDATE SET
+             status='published',
+             face_anonymisation=EXCLUDED.face_anonymisation,
+             show_username=EXCLUDED.show_username,
+             shared_at=now(),
+             unpublished_at=NULL,
+             updated_at=now()
+           RETURNING {COLUMNS}"#
+    ))
+    .bind(&auth.id)
+    .bind(body.outfit_id)
+    .bind(&body.face_anonymisation)
+    .bind(body.show_username)
+    .fetch_one(&state.pool)
+    .await?;
+    Ok(Json(row))
 }
 
 pub async fn unpublish(
     State(state): State<AppState>,
     auth: AuthUser,
     Json(body): Json<UnpublishBody>,
-) -> ApiResult<Json<Value>> {
-    let res = sqlx::query(
+) -> ApiResult<Json<SharedOutfitRow>> {
+    let row = sqlx::query_as::<_, SharedOutfitRow>(&format!(
         r#"UPDATE shared_outfit SET status='unpublished', unpublished_at=now(), updated_at=now()
-           WHERE outfit_id=$1 AND user_id=$2 AND status='published'"#,
-    )
+           WHERE outfit_id=$1 AND user_id=$2 AND status='published'
+           RETURNING {COLUMNS}"#
+    ))
     .bind(body.outfit_id)
     .bind(&auth.id)
-    .execute(&state.pool)
-    .await?;
-    if res.rows_affected() == 0 {
-        return Err(ApiError::not_found("No active SharedOutfit to unpublish"));
-    }
-    Ok(Json(json!(true)))
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| ApiError::not_found("No active SharedOutfit to unpublish"))?;
+    Ok(Json(row))
 }

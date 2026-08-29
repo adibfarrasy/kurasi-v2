@@ -46,6 +46,7 @@ pub async fn feed(
             sqlx::query_as::<_, StyleCardRow>(&format!(
                 "SELECT {COLUMNS} FROM style_card
                  WHERE id NOT IN (SELECT card_id FROM style_interaction WHERE user_id=$1)
+                   AND status='active'
                    AND created_at < $2::timestamp
                  ORDER BY created_at DESC LIMIT $3"
             ))
@@ -59,6 +60,7 @@ pub async fn feed(
             sqlx::query_as::<_, StyleCardRow>(&format!(
                 "SELECT {COLUMNS} FROM style_card
                  WHERE id NOT IN (SELECT card_id FROM style_interaction WHERE user_id=$1)
+                   AND status='active'
                  ORDER BY created_at DESC LIMIT $2"
             ))
             .bind(&_auth.id)

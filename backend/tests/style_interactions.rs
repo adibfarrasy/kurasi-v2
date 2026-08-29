@@ -67,6 +67,50 @@ async fn like_twice_is_idempotent(pool: sqlx::PgPool) {
 }
 
 #[sqlx::test(migrations = "./migrations")]
+async fn like_after_removing_save_reinserts(pool: sqlx::PgPool) {
+    let app = common::test_app(pool.clone());
+    let card_id = seed_card(&pool).await;
+    let like = common::authed_request(
+        Method::POST,
+        "/api/style-interactions/like",
+        "user-a",
+        Some(serde_json::json!({ "cardId": &card_id })),
+    );
+    let (status, _) = common::send(&app, like).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let remove = common::authed_request(
+        Method::DELETE,
+        &format!("/api/saved-styles/{card_id}"),
+        "user-a",
+        None,
+    );
+    let (status, _) = common::send(&app, remove).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let like_again = common::authed_request(
+        Method::POST,
+        "/api/style-interactions/like",
+        "user-a",
+        Some(serde_json::json!({ "cardId": &card_id })),
+    );
+    let (status, body) = common::send(&app, like_again).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["interaction"]["kind"], "liked");
+    assert!(body["saved"]["savedId"].is_string());
+
+    let saved: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM saved_style WHERE user_id=$1 AND card_id=$2::uuid",
+    )
+    .bind("user-a")
+    .bind(card_id)
+    .fetch_one(&pool)
+    .await
+    .unwrap();
+    assert_eq!(saved, 1);
+}
+
+#[sqlx::test(migrations = "./migrations")]
 async fn like_then_skip_is_rejected(pool: sqlx::PgPool) {
     let app = common::test_app(pool.clone());
     let card_id = seed_card(&pool).await;

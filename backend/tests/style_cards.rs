@@ -68,6 +68,25 @@ async fn retire_is_soft(pool: sqlx::PgPool) {
 }
 
 #[sqlx::test(migrations = "./migrations")]
+async fn feed_excludes_retired(pool: sqlx::PgPool) {
+    let app = common::test_app(pool.clone());
+    let id = seed_card(&pool, "https://example.com/1.jpg", "src1").await;
+    let retire = common::authed_request(
+        Method::POST,
+        &format!("/api/style-cards/{id}/retire"),
+        "user-a",
+        None,
+    );
+    let (status, _) = common::send(&app, retire).await;
+    assert_eq!(status, StatusCode::OK);
+
+    let feed = common::authed_request(Method::GET, "/api/style-cards/feed", "user-a", None);
+    let (status, body) = common::send(&app, feed).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["items"].as_array().unwrap().len(), 0);
+}
+
+#[sqlx::test(migrations = "./migrations")]
 async fn feed_paginates_by_cursor(pool: sqlx::PgPool) {
     let app = common::test_app(pool.clone());
     for i in 0..3 {

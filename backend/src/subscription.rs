@@ -98,25 +98,20 @@ pub async fn start(
     auth: AuthUser,
     Json(body): Json<StartBody>,
 ) -> ApiResult<Json<Value>> {
-    let exists: Option<Uuid> = sqlx::query_scalar("SELECT id FROM subscription WHERE user_id=$1")
-        .bind(&auth.id)
-        .fetch_optional(&state.pool)
-        .await?;
-    if exists.is_some() {
-        return Err(ApiError::conflict("Subscription already exists for user"));
-    }
     let n = now();
     let sub = sqlx::query_as::<_, SubscriptionRow>(&format!(
         r#"INSERT INTO subscription (id, user_id, interval, status, started_at, current_period_end, provider_ref)
            VALUES (gen_random_uuid(), $1, 'monthly', 'active', $2, $3, $4)
+           ON CONFLICT (user_id) DO NOTHING
            RETURNING {COLUMNS}"#
     ))
     .bind(&auth.id)
     .bind(n)
     .bind(n + Duration::days(BILLING_PERIOD_DAYS))
     .bind(&body.provider_ref)
-    .fetch_one(&state.pool)
-    .await?;
+    .fetch_optional(&state.pool)
+    .await?
+    .ok_or_else(|| ApiError::conflict("Subscription already exists for user"))?;
     let trial_started_at: NaiveDateTime =
         sqlx::query_scalar("SELECT trial_started_at FROM \"user\" WHERE id=$1")
             .bind(&auth.id)
@@ -230,5 +225,5 @@ async fn fetch_for_update(state: &AppState, auth: &AuthUser) -> ApiResult<Subscr
     .bind(&auth.id)
     .fetch_optional(&state.pool)
     .await?
-    .ok_or_else(|| ApiError::not_found("No subscription"))
+    .ok_or_else(|| ApiError::not_found("No subscription to cancel"))
 }
