@@ -9,6 +9,7 @@ pub mod db;
 pub mod error;
 pub mod firebase;
 pub mod fit_adjustment;
+pub mod me;
 pub mod migrations;
 pub mod models;
 pub mod onboarding;
@@ -16,9 +17,8 @@ pub mod outfit_recommendation;
 pub mod outfits;
 pub mod saved_styles;
 pub mod shared_outfits;
-pub mod subscription;
 pub mod style_cards;
 pub mod style_interactions;
+pub mod subscription;
 pub mod user;
 pub mod wardrobe;
-

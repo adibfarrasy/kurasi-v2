@@ -24,7 +24,8 @@ pub struct FitAdjustmentRow {
     pub updated_at: NaiveDateTime,
 }
 
-const COLUMNS: &str = "id, user_id, item_id, length, width, sleeve, rise, custom_notes, created_at, updated_at";
+const COLUMNS: &str =
+    "id, user_id, item_id, length, width, sleeve, rise, custom_notes, created_at, updated_at";
 
 const LENGTHS: [&str; 3] = ["shorter", "true_to_size", "longer"];
 const WIDTHS: [&str; 3] = ["tighter", "true_to_size", "looser"];
@@ -73,16 +74,22 @@ pub async fn upsert(
     {
         return Err(ApiError::validation("invalid fit adjustment value"));
     }
-    if body.custom_notes.as_deref().map(|s| s.len() > 2000).unwrap_or(false) {
-        return Err(ApiError::validation("customNotes must be at most 2000 characters"));
+    if body
+        .custom_notes
+        .as_deref()
+        .map(|s| s.len() > 2000)
+        .unwrap_or(false)
+    {
+        return Err(ApiError::validation(
+            "customNotes must be at most 2000 characters",
+        ));
     }
-    let item: Option<(String,)> = sqlx::query_as(
-        "SELECT status FROM clothing_item WHERE id=$1 AND user_id=$2",
-    )
-    .bind(item_id)
-    .bind(&auth.id)
-    .fetch_optional(&state.pool)
-    .await?;
+    let item: Option<(String,)> =
+        sqlx::query_as("SELECT status FROM clothing_item WHERE id=$1 AND user_id=$2")
+            .bind(item_id)
+            .bind(&auth.id)
+            .fetch_optional(&state.pool)
+            .await?;
     match item {
         None => return Err(ApiError::not_found("Item not found")),
         Some((status,)) if status == "removed" => {

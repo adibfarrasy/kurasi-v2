@@ -84,12 +84,11 @@ pub async fn find(
     _auth: AuthUser,
     Path(id): Path<Uuid>,
 ) -> ApiResult<Json<Option<StyleCardRow>>> {
-    let row = sqlx::query_as::<_, StyleCardRow>(&format!(
-        "SELECT {COLUMNS} FROM style_card WHERE id=$1"
-    ))
-    .bind(id)
-    .fetch_optional(&state.pool)
-    .await?;
+    let row =
+        sqlx::query_as::<_, StyleCardRow>(&format!("SELECT {COLUMNS} FROM style_card WHERE id=$1"))
+            .bind(id)
+            .fetch_optional(&state.pool)
+            .await?;
     Ok(Json(row))
 }
 
@@ -99,7 +98,9 @@ pub async fn create_card(
     Json(body): Json<CreateCardBody>,
 ) -> ApiResult<Json<StyleCardRow>> {
     if body.image_url.is_empty() || body.source_attribution.is_empty() {
-        return Err(ApiError::validation("imageUrl and sourceAttribution are required"));
+        return Err(ApiError::validation(
+            "imageUrl and sourceAttribution are required",
+        ));
     }
     let row = sqlx::query_as::<_, StyleCardRow>(&format!(
         "INSERT INTO style_card (id, image_url, source_attribution) VALUES (gen_random_uuid(), $1, $2) RETURNING {COLUMNS}"

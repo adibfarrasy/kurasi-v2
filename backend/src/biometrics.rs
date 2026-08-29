@@ -21,7 +21,8 @@ pub struct BiometricsRow {
     pub updated_at: NaiveDateTime,
 }
 
-const COLUMNS: &str = "user_id, height_cm, weight_kg, face_photo_url, default_avatar_url, created_at, updated_at";
+const COLUMNS: &str =
+    "user_id, height_cm, weight_kg, face_photo_url, default_avatar_url, created_at, updated_at";
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -85,16 +86,12 @@ pub async fn set(
     Ok(Json(row))
 }
 
-pub async fn remove_photo(
-    State(state): State<AppState>,
-    auth: AuthUser,
-) -> ApiResult<Json<Value>> {
-    let current: Option<Option<String>> = sqlx::query_scalar(
-        "SELECT face_photo_url FROM user_biometrics WHERE user_id=$1",
-    )
-    .bind(&auth.id)
-    .fetch_optional(&state.pool)
-    .await?;
+pub async fn remove_photo(State(state): State<AppState>, auth: AuthUser) -> ApiResult<Json<Value>> {
+    let current: Option<Option<String>> =
+        sqlx::query_scalar("SELECT face_photo_url FROM user_biometrics WHERE user_id=$1")
+            .bind(&auth.id)
+            .fetch_optional(&state.pool)
+            .await?;
     match current {
         None => Err(ApiError::not_found("Biometrics not set")),
         Some(None) => Err(ApiError::bad_request("Face photo is already not set")),

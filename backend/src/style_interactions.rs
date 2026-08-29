@@ -33,10 +33,12 @@ pub struct CardBody {
 }
 
 async fn card_status(pool: &sqlx::PgPool, card_id: Uuid) -> Result<Option<String>, ApiError> {
-    Ok(sqlx::query_scalar("SELECT status FROM style_card WHERE id=$1")
-        .bind(card_id)
-        .fetch_optional(pool)
-        .await?)
+    Ok(
+        sqlx::query_scalar("SELECT status FROM style_card WHERE id=$1")
+            .bind(card_id)
+            .fetch_optional(pool)
+            .await?,
+    )
 }
 
 pub async fn like(

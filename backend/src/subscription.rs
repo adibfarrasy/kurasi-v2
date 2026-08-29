@@ -56,22 +56,29 @@ pub fn compute_access(
     now: NaiveDateTime,
 ) -> (bool, bool, bool) {
     let current = sub.map(|s| is_current(s, now)).unwrap_or(false);
-    let has_active_or_current = matches!(sub.map(|s| s.status.as_str()), Some("active") | Some("grace")) || current;
-    let in_trial = now < trial_started_at + Duration::days(TRIAL_DURATION_DAYS) && !has_active_or_current;
+    let has_active_or_current = matches!(
+        sub.map(|s| s.status.as_str()),
+        Some("active") | Some("grace")
+    ) || current;
+    let in_trial =
+        now < trial_started_at + Duration::days(TRIAL_DURATION_DAYS) && !has_active_or_current;
     (in_trial, current, in_trial || current)
 }
 
 pub async fn get(State(state): State<AppState>, auth: AuthUser) -> ApiResult<Json<Value>> {
-    let sub = sqlx::query_as::<_, SubscriptionRow>(&format!("SELECT {COLUMNS} FROM subscription WHERE user_id=$1"))
-        .bind(&auth.id)
-        .fetch_optional(&state.pool)
-        .await?;
+    let sub = sqlx::query_as::<_, SubscriptionRow>(&format!(
+        "SELECT {COLUMNS} FROM subscription WHERE user_id=$1"
+    ))
+    .bind(&auth.id)
+    .fetch_optional(&state.pool)
+    .await?;
     let trial_started_at: NaiveDateTime =
         sqlx::query_scalar("SELECT trial_started_at FROM \"user\" WHERE id=$1")
             .bind(&auth.id)
             .fetch_one(&state.pool)
             .await?;
-    let (is_in_trial, is_current, has_access) = compute_access(trial_started_at, sub.as_ref(), now());
+    let (is_in_trial, is_current, has_access) =
+        compute_access(trial_started_at, sub.as_ref(), now());
     Ok(Json(json!({
         "subscription": sub,
         "isInTrial": is_in_trial,
@@ -116,7 +123,9 @@ pub async fn start(
             .fetch_one(&state.pool)
             .await?;
     let (is_in_trial, is_current, has_access) = compute_access(trial_started_at, Some(&sub), now());
-    Ok(Json(json!({ "subscription": sub, "isInTrial": is_in_trial, "isCurrent": is_current, "hasAccess": has_access })))
+    Ok(Json(
+        json!({ "subscription": sub, "isInTrial": is_in_trial, "isCurrent": is_current, "hasAccess": has_access }),
+    ))
 }
 
 pub async fn cancel(State(state): State<AppState>, auth: AuthUser) -> ApiResult<Json<Value>> {
@@ -150,7 +159,11 @@ pub async fn renew_success(
         )));
     }
     let n = now();
-    let base = if sub.current_period_end > n { sub.current_period_end } else { n };
+    let base = if sub.current_period_end > n {
+        sub.current_period_end
+    } else {
+        n
+    };
     let updated = sqlx::query_as::<_, SubscriptionRow>(&format!(
         r#"UPDATE subscription SET status='active', current_period_end=$2, grace_started_at=NULL, grace_ends_at=NULL, updated_at=now()
            WHERE id=$1
@@ -165,8 +178,11 @@ pub async fn renew_success(
             .bind(&auth.id)
             .fetch_one(&state.pool)
             .await?;
-    let (is_in_trial, is_current, has_access) = compute_access(trial_started_at, Some(&updated), now());
-    Ok(Json(json!({ "subscription": updated, "isInTrial": is_in_trial, "isCurrent": is_current, "hasAccess": has_access })))
+    let (is_in_trial, is_current, has_access) =
+        compute_access(trial_started_at, Some(&updated), now());
+    Ok(Json(
+        json!({ "subscription": updated, "isInTrial": is_in_trial, "isCurrent": is_current, "hasAccess": has_access }),
+    ))
 }
 
 pub async fn renew_failure(

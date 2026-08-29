@@ -52,7 +52,9 @@ pub async fn request(
     Json(body): Json<RequestBody>,
 ) -> ApiResult<Json<RecommendationRow>> {
     if !matches!(body.kind.as_str(), "gap_filling" | "outfit_generation") {
-        return Err(ApiError::validation("kind must be gap_filling or outfit_generation"));
+        return Err(ApiError::validation(
+            "kind must be gap_filling or outfit_generation",
+        ));
     }
     match body.kind.as_str() {
         "gap_filling" => {
@@ -63,20 +65,17 @@ pub async fn request(
             }
         }
         _ => {
-            let seed_id = body
-                .based_on_outfit_id
-                .ok_or_else(|| {
-                    ApiError::bad_request(
-                        "gap_filling must omit basedOnOutfitId; outfit_generation requires it",
-                    )
-                })?;
-            let seed: Option<(String,)> = sqlx::query_as(
-                "SELECT status FROM outfit WHERE id=$1 AND user_id=$2",
-            )
-            .bind(seed_id)
-            .bind(&auth.id)
-            .fetch_optional(&state.pool)
-            .await?;
+            let seed_id = body.based_on_outfit_id.ok_or_else(|| {
+                ApiError::bad_request(
+                    "gap_filling must omit basedOnOutfitId; outfit_generation requires it",
+                )
+            })?;
+            let seed: Option<(String,)> =
+                sqlx::query_as("SELECT status FROM outfit WHERE id=$1 AND user_id=$2")
+                    .bind(seed_id)
+                    .bind(&auth.id)
+                    .fetch_optional(&state.pool)
+                    .await?;
             match seed {
                 Some((status,)) if status == "active" => {}
                 None => return Err(ApiError::not_found("Seed outfit not found")),
@@ -92,7 +91,9 @@ pub async fn request(
     .fetch_one(&state.pool)
     .await?;
     if active_count < MIN_WARDROBE_ITEMS {
-        return Err(ApiError::bad_request("Need at least 5 active wardrobe items"));
+        return Err(ApiError::bad_request(
+            "Need at least 5 active wardrobe items",
+        ));
     }
 
     let row = sqlx::query_as::<_, RecommendationRow>(&format!(

@@ -21,7 +21,9 @@ async fn user_brand_appears_in_list(pool: sqlx::PgPool) {
         Method::POST,
         "/api/wardrobe/items",
         "user-a",
-        Some(serde_json::json!({ "imageUrl": "https://example.com/s.jpg", "category": "shirt", "brand": "custom-co" })),
+        Some(
+            serde_json::json!({ "imageUrl": "https://example.com/s.jpg", "category": "shirt", "brand": "custom-co" }),
+        ),
     );
     common::send(&app, create).await;
     let req = common::authed_request(Method::GET, "/api/brands", "user-a", None);

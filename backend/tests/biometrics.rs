@@ -23,11 +23,13 @@ async fn set_then_get_then_remove_photo(pool: sqlx::PgPool) {
     let (status, _) = common::send(&app, remove).await;
     assert_eq!(status, StatusCode::BAD_REQUEST); // facePhotoUrl already null
 
-    sqlx::query("UPDATE user_biometrics SET face_photo_url='https://example.com/f.png' WHERE user_id=$1")
-        .bind("user-a")
-        .execute(&pool)
-        .await
-        .unwrap();
+    sqlx::query(
+        "UPDATE user_biometrics SET face_photo_url='https://example.com/f.png' WHERE user_id=$1",
+    )
+    .bind("user-a")
+    .execute(&pool)
+    .await
+    .unwrap();
     let remove2 = common::authed_request(Method::DELETE, "/api/biometrics/photo", "user-a", None);
     let (status, body) = common::send(&app, remove2).await;
     assert_eq!(status, StatusCode::OK);
@@ -43,7 +45,9 @@ async fn set_completes_biometrics_onboarding_step(pool: sqlx::PgPool) {
             Method::POST,
             "/api/wardrobe/items",
             "user-a",
-            Some(serde_json::json!({ "imageUrl": "https://example.com/i.jpg", "category": "shirt" })),
+            Some(
+                serde_json::json!({ "imageUrl": "https://example.com/i.jpg", "category": "shirt" }),
+            ),
         );
         common::send(&app, req).await;
     }

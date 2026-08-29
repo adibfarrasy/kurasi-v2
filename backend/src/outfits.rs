@@ -79,18 +79,13 @@ pub async fn find_outfit(
     Ok(Json(row))
 }
 
-async fn ensure_slot_item_available(
-    pool: &sqlx::PgPool,
-    user_id: &str,
-    id: Uuid,
-) -> ApiResult<()> {
-    let row: Option<(String,)> = sqlx::query_as(
-        "SELECT status FROM clothing_item WHERE id=$1 AND user_id=$2",
-    )
-    .bind(id)
-    .bind(user_id)
-    .fetch_optional(pool)
-    .await?;
+async fn ensure_slot_item_available(pool: &sqlx::PgPool, user_id: &str, id: Uuid) -> ApiResult<()> {
+    let row: Option<(String,)> =
+        sqlx::query_as("SELECT status FROM clothing_item WHERE id=$1 AND user_id=$2")
+            .bind(id)
+            .bind(user_id)
+            .fetch_optional(pool)
+            .await?;
     match row {
         Some((status,)) if status != "removed" => Ok(()),
         _ => Err(ApiError::bad_request("slot item not available")),
@@ -102,9 +97,17 @@ pub async fn create_outfit(
     auth: AuthUser,
     Json(body): Json<CreateOutfitBody>,
 ) -> ApiResult<Json<OutfitRow>> {
-    let slot_ids = [body.headwear_id, body.base_id, body.outer_id, body.bottom_id, body.footwear_id];
+    let slot_ids = [
+        body.headwear_id,
+        body.base_id,
+        body.outer_id,
+        body.bottom_id,
+        body.footwear_id,
+    ];
     if slot_ids.iter().all(|s| s.is_none()) {
-        return Err(ApiError::bad_request("outfit must include at least one piece"));
+        return Err(ApiError::bad_request(
+            "outfit must include at least one piece",
+        ));
     }
     for id in slot_ids.iter().flatten() {
         ensure_slot_item_available(&state.pool, &auth.id, *id).await?;
@@ -173,7 +176,9 @@ pub async fn save_from_tryon(
     Json(body): Json<FromTryOnBody>,
 ) -> ApiResult<Json<OutfitRow>> {
     if body.slots.is_empty() {
-        return Err(ApiError::bad_request("slots must include at least one piece"));
+        return Err(ApiError::bad_request(
+            "slots must include at least one piece",
+        ));
     }
     let mut tx = state.pool.begin().await?;
     let mut headwear: Option<Uuid> = None;
@@ -318,7 +323,9 @@ pub async fn rate_outfit(
     Json(body): Json<RateOutfitBody>,
 ) -> ApiResult<Json<OutfitRow>> {
     if !matches!(body.rating.as_str(), "loved" | "ok" | "didnt_work") {
-        return Err(ApiError::validation("rating must be one of loved, ok, didnt_work"));
+        return Err(ApiError::validation(
+            "rating must be one of loved, ok, didnt_work",
+        ));
     }
     let row = sqlx::query_as::<_, OutfitRow>(&format!(
         r#"UPDATE outfit SET rating=$3, worn_at=COALESCE($4, worn_at), updated_at=now()

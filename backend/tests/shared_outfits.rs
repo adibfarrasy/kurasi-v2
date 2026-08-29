@@ -27,7 +27,9 @@ async fn publish_then_discover(pool: sqlx::PgPool) {
         Method::POST,
         "/api/shared-outfits/publish",
         "user-a",
-        Some(serde_json::json!({ "outfitId": outfit_id, "faceAnonymisation": "none", "showUsername": true })),
+        Some(
+            serde_json::json!({ "outfitId": outfit_id, "faceAnonymisation": "none", "showUsername": true }),
+        ),
     );
     let (status, body) = common::send(&app, publish).await;
     assert_eq!(status, StatusCode::OK);
@@ -70,7 +72,9 @@ async fn unpublish_and_find_by_outfit(pool: sqlx::PgPool) {
         Method::POST,
         "/api/shared-outfits/publish",
         "user-a",
-        Some(serde_json::json!({ "outfitId": outfit_id, "faceAnonymisation": "none", "showUsername": false })),
+        Some(
+            serde_json::json!({ "outfitId": outfit_id, "faceAnonymisation": "none", "showUsername": false }),
+        ),
     );
     common::send(&app, publish).await;
 
@@ -109,7 +113,9 @@ async fn publish_rejects_missing_outfit(pool: sqlx::PgPool) {
         Method::POST,
         "/api/shared-outfits/publish",
         "user-a",
-        Some(serde_json::json!({ "outfitId": "00000000-0000-0000-0000-000000000000", "faceAnonymisation": "none", "showUsername": false })),
+        Some(
+            serde_json::json!({ "outfitId": "00000000-0000-0000-0000-000000000000", "faceAnonymisation": "none", "showUsername": false }),
+        ),
     );
     let (status, body) = common::send(&app, publish).await;
     assert_eq!(status, StatusCode::NOT_FOUND);

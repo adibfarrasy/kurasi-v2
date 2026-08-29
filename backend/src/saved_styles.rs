@@ -41,11 +41,29 @@ pub async fn list(
     .await?;
     let out = rows
         .into_iter()
-        .map(|(saved_id, saved_at, id, image_url, source_attribution, status, created_at, retired_at)| SavedStyleOut {
-            saved_id,
-            saved_at,
-            card: CardOut { id, image_url, source_attribution, status, created_at, retired_at },
-        })
+        .map(
+            |(
+                saved_id,
+                saved_at,
+                id,
+                image_url,
+                source_attribution,
+                status,
+                created_at,
+                retired_at,
+            )| SavedStyleOut {
+                saved_id,
+                saved_at,
+                card: CardOut {
+                    id,
+                    image_url,
+                    source_attribution,
+                    status,
+                    created_at,
+                    retired_at,
+                },
+            },
+        )
         .collect();
     Ok(Json(out))
 }

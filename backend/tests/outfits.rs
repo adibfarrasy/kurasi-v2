@@ -98,7 +98,12 @@ async fn rate_and_delete(pool: sqlx::PgPool) {
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["rating"], "loved");
 
-    let del = common::authed_request(Method::DELETE, &format!("/api/outfits/{outfit_id}"), "user-a", None);
+    let del = common::authed_request(
+        Method::DELETE,
+        &format!("/api/outfits/{outfit_id}"),
+        "user-a",
+        None,
+    );
     let (status, body) = common::send(&app, del).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body, serde_json::json!(true));
@@ -136,12 +141,11 @@ async fn save_from_tryon_with_ai_item(pool: sqlx::PgPool) {
     assert_eq!(body["heroImageUrl"], "https://example.com/hero.png");
     assert!(body["baseId"].is_string());
 
-    let items: i64 = sqlx::query_scalar(
-        "SELECT count(*) FROM clothing_item WHERE user_id=$1 AND owned=false",
-    )
-    .bind("user-a")
-    .fetch_one(&pool)
-    .await
-    .unwrap();
+    let items: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM clothing_item WHERE user_id=$1 AND owned=false")
+            .bind("user-a")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
     assert_eq!(items, 1);
 }

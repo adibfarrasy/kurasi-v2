@@ -85,7 +85,10 @@ async fn like_then_skip_is_rejected(pool: sqlx::PgPool) {
     );
     let (status, body) = common::send(&app, skip).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert_eq!(body["message"], "Card was already liked and cannot be skipped");
+    assert_eq!(
+        body["message"],
+        "Card was already liked and cannot be skipped"
+    );
 }
 
 #[sqlx::test(migrations = "./migrations")]
@@ -126,7 +129,12 @@ async fn saved_list_and_remove(pool: sqlx::PgPool) {
     assert_eq!(body.as_array().unwrap().len(), 1);
     assert_eq!(body[0]["card"]["id"], card_id);
 
-    let remove = common::authed_request(Method::DELETE, &format!("/api/saved-styles/{card_id}"), "user-a", None);
+    let remove = common::authed_request(
+        Method::DELETE,
+        &format!("/api/saved-styles/{card_id}"),
+        "user-a",
+        None,
+    );
     let (status, body) = common::send(&app, remove).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body, serde_json::json!(true));

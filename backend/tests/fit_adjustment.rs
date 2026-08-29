@@ -30,22 +30,39 @@ async fn upsert_then_get_then_remove(pool: sqlx::PgPool) {
         Method::PUT,
         &format!("/api/fit-adjustments/{item_id}"),
         "user-a",
-        Some(serde_json::json!({ "length": "true_to_size", "width": "tighter", "customNotes": "fits well" })),
+        Some(
+            serde_json::json!({ "length": "true_to_size", "width": "tighter", "customNotes": "fits well" }),
+        ),
     );
     let (status, body) = common::send(&app, upsert).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["length"], "true_to_size");
 
-    let get = common::authed_request(Method::GET, &format!("/api/fit-adjustments/{item_id}"), "user-a", None);
+    let get = common::authed_request(
+        Method::GET,
+        &format!("/api/fit-adjustments/{item_id}"),
+        "user-a",
+        None,
+    );
     let (status, body) = common::send(&app, get).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["width"], "tighter");
 
-    let del = common::authed_request(Method::DELETE, &format!("/api/fit-adjustments/{item_id}"), "user-a", None);
+    let del = common::authed_request(
+        Method::DELETE,
+        &format!("/api/fit-adjustments/{item_id}"),
+        "user-a",
+        None,
+    );
     let (status, _) = common::send(&app, del).await;
     assert_eq!(status, StatusCode::OK);
 
-    let get2 = common::authed_request(Method::GET, &format!("/api/fit-adjustments/{item_id}"), "user-a", None);
+    let get2 = common::authed_request(
+        Method::GET,
+        &format!("/api/fit-adjustments/{item_id}"),
+        "user-a",
+        None,
+    );
     let (_, body) = common::send(&app, get2).await;
     assert!(body.is_null());
 }

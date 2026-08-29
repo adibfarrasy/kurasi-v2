@@ -34,7 +34,9 @@ async fn request_outfit_generation_requires_active_seed(pool: sqlx::PgPool) {
         Method::POST,
         "/api/outfit-recommendations",
         "user-a",
-        Some(serde_json::json!({ "kind": "outfit_generation", "basedOnOutfitId": "00000000-0000-0000-0000-000000000000" })),
+        Some(
+            serde_json::json!({ "kind": "outfit_generation", "basedOnOutfitId": "00000000-0000-0000-0000-000000000000" }),
+        ),
     );
     let (status, body) = common::send(&app, req).await;
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -49,7 +51,9 @@ async fn request_insists_kind_has_correct_based_on(pool: sqlx::PgPool) {
         Method::POST,
         "/api/outfit-recommendations",
         "user-a",
-        Some(serde_json::json!({ "kind": "gap_filling", "basedOnOutfitId": "00000000-0000-0000-0000-000000000000" })),
+        Some(
+            serde_json::json!({ "kind": "gap_filling", "basedOnOutfitId": "00000000-0000-0000-0000-000000000000" }),
+        ),
     );
     let (status, _) = common::send(&app, req).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -63,7 +67,9 @@ async fn request_with_enough_items_inserts_pending_row(pool: sqlx::PgPool) {
             Method::POST,
             "/api/wardrobe/items",
             "user-a",
-            Some(serde_json::json!({ "imageUrl": "https://example.com/i.jpg", "category": "shirt" })),
+            Some(
+                serde_json::json!({ "imageUrl": "https://example.com/i.jpg", "category": "shirt" }),
+            ),
         );
         common::send(&app, req).await;
     }

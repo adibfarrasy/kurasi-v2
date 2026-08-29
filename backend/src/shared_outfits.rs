@@ -86,7 +86,11 @@ pub async fn discover(
         } else {
             None
         };
-        out.push(DiscoverOut { row: r, outfit, publisher_username });
+        out.push(DiscoverOut {
+            row: r,
+            outfit,
+            publisher_username,
+        });
     }
     Ok(Json(out))
 }
@@ -111,29 +115,32 @@ pub async fn publish(
     auth: AuthUser,
     Json(body): Json<PublishBody>,
 ) -> ApiResult<Json<SharedOutfitRow>> {
-    if !matches!(body.face_anonymisation.as_str(), "none" | "blur_face" | "block_eyes") {
-        return Err(ApiError::validation("faceAnonymisation must be none, blur_face, or block_eyes"));
+    if !matches!(
+        body.face_anonymisation.as_str(),
+        "none" | "blur_face" | "block_eyes"
+    ) {
+        return Err(ApiError::validation(
+            "faceAnonymisation must be none, blur_face, or block_eyes",
+        ));
     }
-    let outfit_status: Option<String> = sqlx::query_scalar(
-        "SELECT status FROM outfit WHERE id=$1 AND user_id=$2",
-    )
-    .bind(body.outfit_id)
-    .bind(&auth.id)
-    .fetch_optional(&state.pool)
-    .await?;
+    let outfit_status: Option<String> =
+        sqlx::query_scalar("SELECT status FROM outfit WHERE id=$1 AND user_id=$2")
+            .bind(body.outfit_id)
+            .bind(&auth.id)
+            .fetch_optional(&state.pool)
+            .await?;
     match outfit_status {
         None => return Err(ApiError::not_found("Outfit not found")),
         Some(s) if s != "active" => return Err(ApiError::bad_request("Outfit is not active")),
         _ => {}
     }
 
-    let existing: Option<(String,)> = sqlx::query_as(
-        "SELECT status FROM shared_outfit WHERE outfit_id=$1 AND user_id=$2",
-    )
-    .bind(body.outfit_id)
-    .bind(&auth.id)
-    .fetch_optional(&state.pool)
-    .await?;
+    let existing: Option<(String,)> =
+        sqlx::query_as("SELECT status FROM shared_outfit WHERE outfit_id=$1 AND user_id=$2")
+            .bind(body.outfit_id)
+            .bind(&auth.id)
+            .fetch_optional(&state.pool)
+            .await?;
 
     if existing.is_some() {
         let row = sqlx::query_as::<_, SharedOutfitRow>(&format!(
