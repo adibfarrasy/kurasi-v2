@@ -5,3 +5,4 @@ pub mod error;
 pub mod firebase;
 pub mod migrations;
 pub mod models;
+pub mod user;
