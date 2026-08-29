@@ -1,8 +1,12 @@
+pub mod app;
 pub mod auth;
+pub mod auth_extractor;
 pub mod config;
+pub mod credits;
 pub mod db;
 pub mod error;
 pub mod firebase;
 pub mod migrations;
 pub mod models;
+pub mod onboarding;
 pub mod user;
