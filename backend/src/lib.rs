@@ -1,1 +1,1 @@
-// Kurasi backend library crate. Binary lives in src/main.rs (added in Task 11).
+pub mod config;
