@@ -54,6 +54,10 @@ pub fn build_router(state: AppState) -> axum::Router {
                 .delete(crate::outfits::delete_outfit),
         )
         .route("/api/outfits/{id}/rate", post(crate::outfits::rate_outfit))
+        .route(
+            "/api/outfit-recommendations",
+            get(crate::outfit_recommendation::list).post(crate::outfit_recommendation::request),
+        )
         .nest_service("/static/clothing", ServeDir::new(clothing_dir))
         .nest_service("/static/avatar-assets", ServeDir::new(avatar_dir))
         .fallback(not_found)
