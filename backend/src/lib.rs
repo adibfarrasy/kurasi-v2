@@ -8,6 +8,7 @@ pub mod credits;
 pub mod db;
 pub mod error;
 pub mod firebase;
+pub mod fit_adjustment;
 pub mod migrations;
 pub mod models;
 pub mod onboarding;
