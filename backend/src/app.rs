@@ -32,6 +32,9 @@ pub fn build_router(state: AppState) -> axum::Router {
         )
         .route("/api/credits", get(crate::credits::get_credits))
         .route("/api/credits/purchase", post(crate::credits::purchase))
+        .route("/api/brands", get(crate::brands::list))
+        .route("/api/biometrics", get(crate::biometrics::get).post(crate::biometrics::set))
+        .route("/api/biometrics/photo", delete(crate::biometrics::remove_photo))
         .route(
             "/api/wardrobe/items",
             get(crate::wardrobe::list_items).post(crate::wardrobe::create_item),

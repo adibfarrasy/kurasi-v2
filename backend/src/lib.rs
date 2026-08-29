@@ -1,6 +1,8 @@
 pub mod app;
 pub mod auth;
 pub mod auth_extractor;
+pub mod biometrics;
+pub mod brands;
 pub mod config;
 pub mod credits;
 pub mod db;
@@ -18,3 +20,4 @@ pub mod style_cards;
 pub mod style_interactions;
 pub mod user;
 pub mod wardrobe;
+
