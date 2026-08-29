@@ -42,6 +42,18 @@ pub fn build_router(state: AppState) -> axum::Router {
                 .patch(crate::wardrobe::update_item)
                 .delete(crate::wardrobe::delete_item),
         )
+        .route("/api/outfits", get(crate::outfits::list_outfits).post(crate::outfits::create_outfit))
+        .route(
+            "/api/outfits/from-tryon",
+            post(crate::outfits::save_from_tryon),
+        )
+        .route(
+            "/api/outfits/{id}",
+            get(crate::outfits::find_outfit)
+                .patch(crate::outfits::update_outfit)
+                .delete(crate::outfits::delete_outfit),
+        )
+        .route("/api/outfits/{id}/rate", post(crate::outfits::rate_outfit))
         .nest_service("/static/clothing", ServeDir::new(clothing_dir))
         .nest_service("/static/avatar-assets", ServeDir::new(avatar_dir))
         .fallback(not_found)

@@ -42,6 +42,33 @@ impl ApiError {
         }
     }
 
+    pub fn bad_request(message: impl Into<String>) -> Self {
+        ApiError {
+            code: "BAD_REQUEST",
+            status: StatusCode::BAD_REQUEST,
+            message: message.into(),
+            data: None,
+        }
+    }
+
+    pub fn conflict(message: impl Into<String>) -> Self {
+        ApiError {
+            code: "CONFLICT",
+            status: StatusCode::CONFLICT,
+            message: message.into(),
+            data: None,
+        }
+    }
+
+    pub fn precondition_failed(message: impl Into<String>) -> Self {
+        ApiError {
+            code: "PRECONDITION_FAILED",
+            status: StatusCode::PRECONDITION_FAILED,
+            message: message.into(),
+            data: None,
+        }
+    }
+
     pub fn internal() -> Self {
         ApiError {
             code: "INTERNAL",
@@ -123,5 +150,29 @@ mod tests {
         assert_eq!(res.status(), StatusCode::UNPROCESSABLE_ENTITY);
         let body = body_json(res).await;
         assert_eq!(body["code"], "VALIDATION");
+    }
+
+    #[tokio::test]
+    async fn bad_request_has_400() {
+        let res = ApiError::bad_request("bad").into_response();
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        let body = body_json(res).await;
+        assert_eq!(body["code"], "BAD_REQUEST");
+    }
+
+    #[tokio::test]
+    async fn conflict_has_409() {
+        let res = ApiError::conflict("dup").into_response();
+        assert_eq!(res.status(), StatusCode::CONFLICT);
+        let body = body_json(res).await;
+        assert_eq!(body["code"], "CONFLICT");
+    }
+
+    #[tokio::test]
+    async fn precondition_failed_has_412() {
+        let res = ApiError::precondition_failed("no avatar").into_response();
+        assert_eq!(res.status(), StatusCode::PRECONDITION_FAILED);
+        let body = body_json(res).await;
+        assert_eq!(body["code"], "PRECONDITION_FAILED");
     }
 }

@@ -9,5 +9,6 @@ pub mod firebase;
 pub mod migrations;
 pub mod models;
 pub mod onboarding;
+pub mod outfits;
 pub mod user;
 pub mod wardrobe;
