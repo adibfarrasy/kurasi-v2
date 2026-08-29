@@ -10,3 +10,4 @@ pub mod migrations;
 pub mod models;
 pub mod onboarding;
 pub mod user;
+pub mod wardrobe;

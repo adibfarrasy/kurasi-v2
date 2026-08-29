@@ -15,16 +15,24 @@ impl AppState {
 }
 
 pub fn build_router_stub(state: AppState) -> axum::Router {
+    use axum::routing::{get, post};
     axum::Router::new()
         .route(
             "/api/onboarding",
-            axum::routing::get(crate::onboarding::get_onboarding)
+            get(crate::onboarding::get_onboarding)
                 .post(crate::onboarding::complete_onboarding),
         )
-        .route("/api/credits", axum::routing::get(crate::credits::get_credits))
+        .route("/api/credits", get(crate::credits::get_credits))
+        .route("/api/credits/purchase", post(crate::credits::purchase))
         .route(
-            "/api/credits/purchase",
-            axum::routing::post(crate::credits::purchase),
+            "/api/wardrobe/items",
+            get(crate::wardrobe::list_items).post(crate::wardrobe::create_item),
+        )
+        .route(
+            "/api/wardrobe/items/{id}",
+            get(crate::wardrobe::get_item)
+                .patch(crate::wardrobe::update_item)
+                .delete(crate::wardrobe::delete_item),
         )
         .with_state(state)
 }
