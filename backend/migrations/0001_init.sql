@@ -1,6 +1,5 @@
--- Ported from the Drizzle migration set (see git history backend/drizzle/).
--- Better Auth's account/session/verification tables are dropped: auth is
--- Firebase now. User table retains trial_started_at.
+-- Core schema. Auth is Firebase: no session/account tables here.
+-- User table retains trial_started_at.
 
 CREATE TABLE "user" (
     "id" text PRIMARY KEY NOT NULL,
