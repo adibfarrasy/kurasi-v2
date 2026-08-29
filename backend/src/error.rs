@@ -89,8 +89,6 @@ impl IntoResponse for ApiError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::body::Body;
-    use axum::http::Request;
 
     async fn body_json(res: axum::response::Response) -> Value {
         let bytes = axum::body::to_bytes(res.into_body(), 1024).await.unwrap();
