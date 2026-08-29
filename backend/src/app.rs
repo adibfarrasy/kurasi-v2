@@ -58,6 +58,10 @@ pub fn build_router(state: AppState) -> axum::Router {
             "/api/outfit-recommendations",
             get(crate::outfit_recommendation::list).post(crate::outfit_recommendation::request),
         )
+        .route("/api/style-cards", post(crate::style_cards::create_card))
+        .route("/api/style-cards/feed", get(crate::style_cards::feed))
+        .route("/api/style-cards/{id}", get(crate::style_cards::find))
+        .route("/api/style-cards/{id}/retire", post(crate::style_cards::retire))
         .nest_service("/static/clothing", ServeDir::new(clothing_dir))
         .nest_service("/static/avatar-assets", ServeDir::new(avatar_dir))
         .fallback(not_found)

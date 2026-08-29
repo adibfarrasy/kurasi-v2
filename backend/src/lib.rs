@@ -11,5 +11,6 @@ pub mod models;
 pub mod onboarding;
 pub mod outfit_recommendation;
 pub mod outfits;
+pub mod style_cards;
 pub mod user;
 pub mod wardrobe;
