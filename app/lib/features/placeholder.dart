@@ -1,11 +1,5 @@
 import 'package:flutter/material.dart';
 
-class CaptureFaceScreen extends StatelessWidget {
-  const CaptureFaceScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Capture Face')));
-}
-
 class MembershipCardScreen extends StatelessWidget {
   const MembershipCardScreen({super.key});
   @override

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/auth/auth_state.dart';
 import '../features/auth/login_screen.dart';
+import '../features/onboarding/capture_face_screen.dart';
 import '../features/onboarding/onboarding_one_screen.dart';
 import '../features/onboarding/onboarding_three_screen.dart';
 import '../features/onboarding/onboarding_two_screen.dart';
