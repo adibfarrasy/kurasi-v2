@@ -14,7 +14,10 @@ Future<void> main() async {
     overrides: [
       authServiceProvider.overrideWithValue(AuthService(
         auth: FirebaseAuth.instance,
-        googleSignIn: GoogleSignIn(),
+        googleSignIn: GoogleSignIn(
+          serverClientId:
+              '1022627012101-1o95h30br6qgdho0ial4dcjc7tidu17b.apps.googleusercontent.com',
+        ),
       )),
     ],
     child: const KurasiApp(),
