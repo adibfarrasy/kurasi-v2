@@ -50,13 +50,13 @@ async fn purchase_rejects_non_positive_amount(pool: sqlx::PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn two_users_share_email(pool: sqlx::PgPool) {
-    let fb1 = kurasi_backend::auth::FirebaseUser {
+    let fb1 = kurasi_backend::auth::ClaimsUser {
         uid: "firebase-1".to_string(),
         email: Some("shared@test.com".to_string()),
         name: Some("One".to_string()),
         picture: None,
     };
-    let fb2 = kurasi_backend::auth::FirebaseUser {
+    let fb2 = kurasi_backend::auth::ClaimsUser {
         uid: "firebase-2".to_string(),
         email: Some("shared@test.com".to_string()),
         name: Some("Two".to_string()),

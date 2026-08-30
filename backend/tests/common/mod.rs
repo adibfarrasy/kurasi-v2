@@ -2,7 +2,7 @@ use axum::body::Body;
 use axum::http::header::{AUTHORIZATION, CONTENT_TYPE};
 use axum::http::{Method, Request, StatusCode};
 use kurasi_backend::app::{build_router, AppState};
-use kurasi_backend::auth::{Authenticator, FirebaseUser};
+use kurasi_backend::auth::{Authenticator, ClaimsUser};
 use kurasi_backend::error::ApiError;
 use kurasi_backend::fal::FalClient;
 use sqlx::PgPool;
@@ -13,13 +13,13 @@ pub struct TestAuthenticator;
 
 #[async_trait::async_trait]
 impl Authenticator for TestAuthenticator {
-    async fn verify(&self, token: &str) -> Result<FirebaseUser, ApiError> {
+    async fn verify(&self, token: &str) -> Result<ClaimsUser, ApiError> {
         let uid = token
             .strip_prefix("t-")
             .filter(|s| !s.is_empty())
             .ok_or_else(ApiError::unauthorized)?
             .to_string();
-        Ok(FirebaseUser {
+        Ok(ClaimsUser {
             uid: uid.clone(),
             email: Some(format!("{uid}@test.com")),
             name: Some(uid.clone()),

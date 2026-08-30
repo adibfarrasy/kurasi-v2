@@ -1,7 +1,7 @@
 use kurasi_backend::app::{build_router, AppState};
 use kurasi_backend::config::Config;
 use kurasi_backend::db;
-use kurasi_backend::firebase::FirebaseVerifier;
+use kurasi_backend::kratos::KratosVerifier;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing_subscriber::EnvFilter;
@@ -19,8 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     db::run_migrations(&pool).await?;
     tracing::info!("database migrations applied");
 
-    let verifier =
-        FirebaseVerifier::new(config.firebase_project_id.clone(), config.jwks_url.clone());
+    let verifier = KratosVerifier::new(config.kratos_jwks_url.clone(), config.kratos_issuer.clone());
     let state = AppState::new(
         pool,
         Arc::new(verifier),

@@ -1,14 +1,14 @@
 use std::env::var;
 
-pub const DEFAULT_JWKS_URL: &str =
-    "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com";
+pub const DEFAULT_KRATOS_JWKS_URL: &str = "http://localhost:4433/jwks.json";
+pub const DEFAULT_KRATOS_ISSUER: &str = "https://auth.example.com";
 
 #[derive(Debug, Clone)]
 pub struct Config {
     pub database_url: String,
     pub port: u16,
-    pub firebase_project_id: String,
-    pub jwks_url: String,
+    pub kratos_jwks_url: String,
+    pub kratos_issuer: String,
     pub environment: String,
     pub fal_key: String,
     pub output_dir: String,
@@ -24,8 +24,8 @@ impl Config {
                 .ok()
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(8989),
-            firebase_project_id: var("FIREBASE_PROJECT_ID").unwrap_or_default(),
-            jwks_url: var("FIREBASE_JWKS_URL").unwrap_or_else(|_| DEFAULT_JWKS_URL.to_string()),
+            kratos_jwks_url: var("KRATOS_JWKS_URL").unwrap_or_else(|_| DEFAULT_KRATOS_JWKS_URL.to_string()),
+            kratos_issuer: var("KRATOS_ISSUER").unwrap_or_else(|_| DEFAULT_KRATOS_ISSUER.to_string()),
             environment: var("ENVIRONMENT").unwrap_or_else(|_| "production".to_string()),
             fal_key: var("FAL_KEY").unwrap_or_default(),
             output_dir: var("OUTPUT_DIR").unwrap_or_else(|_| "outputs".to_string()),

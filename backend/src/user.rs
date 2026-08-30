@@ -1,4 +1,4 @@
-use crate::auth::FirebaseUser;
+use crate::auth::ClaimsUser;
 use chrono::NaiveDateTime;
 use sqlx::PgPool;
 
@@ -12,7 +12,7 @@ pub struct DbUser {
     pub trial_started_at: NaiveDateTime,
 }
 
-pub async fn ensure_user(pool: &PgPool, fb: &FirebaseUser) -> Result<DbUser, sqlx::Error> {
+pub async fn ensure_user(pool: &PgPool, fb: &ClaimsUser) -> Result<DbUser, sqlx::Error> {
     let name = fb
         .name
         .clone()
@@ -80,11 +80,10 @@ pub async fn ensure_user(pool: &PgPool, fb: &FirebaseUser) -> Result<DbUser, sql
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::FirebaseUser;
 
     #[sqlx::test(migrations = "./migrations")]
     async fn provisions_new_user_with_hooks(pool: PgPool) {
-        let fb = FirebaseUser {
+        let fb = ClaimsUser {
             uid: "firebase-1".to_string(),
             email: Some("a@test.com".to_string()),
             name: Some("Test User".to_string()),
@@ -109,7 +108,7 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn does_not_reprovision_existing_user(pool: PgPool) {
-        let fb = FirebaseUser {
+        let fb = ClaimsUser {
             uid: "firebase-1".to_string(),
             email: Some("a@test.com".to_string()),
             name: Some("Test User".to_string()),
