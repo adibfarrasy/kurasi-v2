@@ -10,6 +10,7 @@ import '../features/onboarding/onboarding_one_screen.dart';
 import '../features/onboarding/onboarding_three_screen.dart';
 import '../features/onboarding/onboarding_two_screen.dart';
 import '../features/placeholder.dart';
+import '../features/shell/tab_shell.dart';
 
 final onboardingCompleteProvider = NotifierProvider<OnboardingFlag, bool>(OnboardingFlag.new);
 
@@ -56,13 +57,34 @@ GoRouter buildRouter(Ref ref) {
       GoRoute(path: '/onboarding/membership-card', builder: (_, __) => const MembershipCardScreen()),
       GoRoute(path: '/onboarding/ai-credits', builder: (_, __) => const AiCreditsScreen()),
       StatefulShellRoute.indexedStack(
-        builder: (_, __, shell) => shell,
+        builder: (_, __, shell) => TabShell(child: shell),
         branches: [
           StatefulShellBranch(routes: [GoRoute(path: '/myfit', builder: (_, __) => const MyFitScreen())]),
           StatefulShellBranch(routes: [GoRoute(path: '/tryon', builder: (_, __) => const TryOnScreen())]),
           StatefulShellBranch(routes: [GoRoute(path: '/wardrobe', builder: (_, __) => const WardrobeScreen())]),
         ],
       ),
+      GoRoute(
+        path: '/steal-the-look',
+        builder: (_, __) => const StealTheLookScreen(),
+        routes: [
+          GoRoute(path: 'analyzing', builder: (_, __) => const StealTheLookAnalyzingScreen()),
+          GoRoute(path: 'failed', builder: (_, __) => const StealTheLookFailedScreen()),
+        ],
+      ),
+      GoRoute(path: '/upload-wardrobe-guide', builder: (_, __) => const UploadWardrobeGuideScreen()),
+      GoRoute(path: '/upload-wardrobe', builder: (_, __) => const UploadWardrobeScreen()),
+      GoRoute(path: '/upload-wardrobe-review', builder: (_, __) => const UploadWardrobeReviewScreen()),
+      GoRoute(path: '/subscription', builder: (_, __) => const SubscriptionScreen()),
+      GoRoute(path: '/ai-balance', builder: (_, __) => const AiBalanceScreen()),
+      GoRoute(
+        path: '/outfit/:id',
+        builder: (_, state) => OutfitScreen(id: state.pathParameters['id']!),
+        routes: [
+          GoRoute(path: 'edit', builder: (_, state) => OutfitEditScreen(id: state.pathParameters['id']!)),
+        ],
+      ),
+      GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
     ],
   );
 }

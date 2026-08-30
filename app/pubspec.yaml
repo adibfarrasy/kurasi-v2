@@ -41,6 +41,8 @@ flutter:
       fonts:
         - asset: assets/fonts/KirangHaerang-Regular.ttf
   assets:
+    - assets/bookmark-simple.png
+    - assets/dresser.png
     - assets/logomark.png
     - assets/logomark@2x.png
     - assets/logomark@3x.png
@@ -50,9 +52,12 @@ flutter:
     - assets/onboarding-credits-center.png
     - assets/onboarding-credits-tl-coat-man.png
     - assets/onboarding-credits-tr-loafers.png
+    - assets/plus-button.png
     - assets/smiley-face.png
+    - assets/sparkle.png
     - assets/splash.png
     - assets/splash@2x.png
     - assets/splash@3x.png
     - assets/test-face.png
     - assets/top-flair.png
+    - assets/underline.png
