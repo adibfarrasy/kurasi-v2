@@ -1,11 +1,5 @@
 import 'package:flutter/material.dart';
 
-class TryOnScreen extends StatelessWidget {
-  const TryOnScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Try On')));
-}
-
 class _PlaceholderScreen extends StatelessWidget {
   const _PlaceholderScreen(this.title);
   final String title;
