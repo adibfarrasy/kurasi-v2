@@ -1,7 +1,14 @@
-# Local Postgres + Mailpit
+# Local Postgres + Mailpit + Kratos
 #
 # Usage:
 #   docker compose up
+#
+# Notes:
+#   - Kratos uses its own dedicated `kratos-db` Postgres so it never touches the
+#     app's `db` volume. The app `db` stays on host port 5437.
+#   - Kratos does NOT interpolate `${...}` inside kratos.yml. Values are injected
+#     through Kratos's native env-var overrides (underscore -> config key path),
+#     e.g. SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS_0_CLIENT_ID.
 
 name: kurasi
 
@@ -18,6 +25,37 @@ services:
     volumes:
       - kurasi_postgres_data:/var/lib/postgresql
 
+  kratos-db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: kratos
+    volumes:
+      - kurasi_kratos_data:/var/lib/postgresql
+
+  kratos:
+    image: oryd/kratos:v1.3
+    restart: unless-stopped
+    depends_on:
+      - kratos-db
+    environment:
+      DSN: postgres://postgres:postgres@kratos-db:5432/kratos?sslmode=disable
+      SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS_0_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS_0_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      SECRETS_COOKIE_0: ${KRATOS_COOKIE_SECRET}
+      SECRETS_CIPHER_0: ${KRATOS_CIPHER_SECRET}
+    ports:
+      - "4433:4433"
+      - "4434:4434"
+    volumes:
+      - ./kratos:/etc/config/kratos
+    entrypoint:
+      - sh
+      - -c
+      - kratos migrate sql -e -y --config /etc/config/kratos/kratos.yml && exec kratos serve --config /etc/config/kratos/kratos.yml
+
   mailpit:
     image: axllent/mailpit:latest
     restart: unless-stopped
@@ -27,3 +65,4 @@ services:
 
 volumes:
   kurasi_postgres_data:
+  kurasi_kratos_data:
