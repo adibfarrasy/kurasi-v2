@@ -127,6 +127,14 @@ pub fn build_router(state: AppState) -> axum::Router {
             get(crate::add_clothes::progress),
         )
         .route(
+            "/api/outfits/{id}/regenerate-fit",
+            post(crate::regenerate_fit::start),
+        )
+        .route(
+            "/api/outfits/regenerate-fit/{sessionId}",
+            get(crate::regenerate_fit::progress),
+        )
+        .route(
             "/api/subscription",
             get(crate::subscription::get).post(crate::subscription::start),
         )
