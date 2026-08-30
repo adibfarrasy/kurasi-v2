@@ -7,18 +7,6 @@ class _PlaceholderScreen extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(body: Center(child: Text(title)));
 }
 
-class SubscriptionScreen extends StatelessWidget {
-  const SubscriptionScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const _PlaceholderScreen('Subscription');
-}
-
-class AiBalanceScreen extends StatelessWidget {
-  const AiBalanceScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const _PlaceholderScreen('AI Balance');
-}
-
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
   @override
