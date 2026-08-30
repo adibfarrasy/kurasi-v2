@@ -18,6 +18,8 @@ class _FakeApi implements ApiClient {
   @override
   Future<dynamic> post(String path, {Object? body}) async => responses[_calls++];
   @override
+  Future<dynamic> put(String path, {Object? body}) async => throw UnimplementedError();
+  @override
   Future<dynamic> patch(String path, {Object? body}) async => throw UnimplementedError();
   @override
   Future<dynamic> delete(String path, {Object? body}) async => throw UnimplementedError();

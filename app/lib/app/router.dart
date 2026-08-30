@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/auth/auth_state.dart';
 import '../features/auth/login_screen.dart';
 import '../features/onboarding/ai_credits_screen.dart';
@@ -13,9 +14,22 @@ import '../features/placeholder.dart';
 final onboardingCompleteProvider = NotifierProvider<OnboardingFlag, bool>(OnboardingFlag.new);
 
 class OnboardingFlag extends Notifier<bool> {
+  static const _prefsKey = 'onboarding_complete';
+
   @override
-  bool build() => false; // hydrated from shared_preferences in a later task; default false
-  void set(bool value) => state = value;
+  bool build() {
+    SharedPreferences.getInstance()
+        .then((prefs) => state = prefs.getBool(_prefsKey) ?? false)
+        .catchError((_) => false);
+    return false;
+  }
+
+  void set(bool value) {
+    state = value;
+    SharedPreferences.getInstance()
+        .then((prefs) => prefs.setBool(_prefsKey, value))
+        .catchError((_) => false);
+  }
 }
 
 GoRouter buildRouter(Ref ref) {

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 
-/// Onboarding screen 1 — static marketing. Port of RN `onboarding-1.tsx`:
-/// `#999` video placeholder with logomark overlay, Bebas headline with
-/// Kirang accent letters, and a Continue button → `/onboarding-2`.
+/// Onboarding screen 1 — static marketing: `#999` video placeholder with
+/// logomark overlay, Bebas headline with Kirang accent letters, and a
+/// Continue button → `/onboarding-2`.
 class OnboardingOneScreen extends StatelessWidget {
   const OnboardingOneScreen({super.key});
 

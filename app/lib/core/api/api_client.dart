@@ -15,6 +15,10 @@ class ApiClient {
     return _guard(() => dio.post(path, data: body));
   }
 
+  Future<dynamic> put(String path, {Object? body}) async {
+    return _guard(() => dio.put(path, data: body));
+  }
+
   Future<dynamic> patch(String path, {Object? body}) async {
     return _guard(() => dio.patch(path, data: body));
   }

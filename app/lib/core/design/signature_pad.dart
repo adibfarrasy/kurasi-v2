@@ -47,9 +47,8 @@ class SignaturePainter extends CustomPainter {
 }
 
 /// Freehand signature capture. Pointer gestures accumulate SVG path data —
-/// one string per stroke (`M x y` on down, `L x y` on move) matching the RN
-/// `signaturePathsAtom` shape — and report them via [onChanged]. Erase clears
-/// the pad and reports an empty list.
+/// one string per stroke (`M x y` on down, `L x y` on move) — and report
+/// them via [onChanged]. Erase clears the pad and reports an empty list.
 class SignaturePad extends StatefulWidget {
   const SignaturePad({
     super.key,

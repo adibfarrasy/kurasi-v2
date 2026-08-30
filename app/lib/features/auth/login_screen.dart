@@ -4,9 +4,9 @@ import '../../core/auth/auth_state.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 
-/// Pixel-faithful port of the RN login screen: splash backdrop, stacked
-/// "CURATE, STYLE, INSPIRE." headline (BebasNeue with KirangHaerang accent
-/// letters), and Apple + Google sign-in buttons in the lower third.
+/// Sign-in screen: splash backdrop, stacked "CURATE, STYLE, INSPIRE."
+/// headline (BebasNeue with KirangHaerang accent letters), and Apple + Google
+/// sign-in buttons in the lower third.
 class LoginScreen extends ConsumerWidget {
   const LoginScreen({super.key});
 

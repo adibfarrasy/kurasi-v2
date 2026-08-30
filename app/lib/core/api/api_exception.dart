@@ -3,7 +3,6 @@ class ApiException implements Exception {
   final String code;
   final String message;
   final dynamic data;
-  bool get isUnauthorized => code == 'UNAUTHORIZED';
   bool get isValidation => code == 'VALIDATION';
   @override
   String toString() => 'ApiException($code): $message';

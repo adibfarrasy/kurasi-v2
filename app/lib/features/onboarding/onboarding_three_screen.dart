@@ -11,11 +11,11 @@ const List<String> _genders = ['Male', 'Female'];
 final List<int> _heights = List.generate(220 - 140 + 1, (i) => 140 + i);
 final List<int> _weights = List.generate(150 - 40 + 1, (i) => 40 + i);
 
-/// Onboarding screen 3 — pick gender / height / weight and add a face photo.
-/// Port of RN `onboarding-3.tsx`: mannequin hero with "Add Face" pill,
-/// three [WheelPicker]s bound to the profile state providers, and a Continue
-/// button that persists biometrics (best-effort) then navigates to
-/// capture-face (no face yet) or membership-card.
+/// Onboarding screen 3 — pick gender / height / weight and add a face photo:
+/// mannequin hero with "Add Face" pill, three [WheelPicker]s bound to the
+/// profile state providers, and a Continue button that persists biometrics
+/// (best-effort) then navigates to capture-face (no face yet) or
+/// membership-card.
 class OnboardingThreeScreen extends ConsumerWidget {
   const OnboardingThreeScreen({super.key});
 

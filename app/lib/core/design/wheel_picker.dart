@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
-/// Height of a single wheel row, matching the RN `WHEEL_ITEM_HEIGHT` (38).
+/// Height of a single wheel row (38px).
 const double wheelItemHeight = 38;
 
-/// Number of rows visible in the wheel at once, matching RN `WHEEL_VISIBLE_COUNT` (5).
+/// Number of rows visible in the wheel at once.
 const int wheelVisibleCount = 5;
 
-/// Vertical scroll-snap wheel picker (single column), a port of the RN
-/// `WheelPicker`. Items are laid out on a `ListWheelScrollView` with
-/// [wheelItemHeight] rows; [wheelVisibleCount] rows are visible when the
-/// wheel is sized to `wheelItemHeight * wheelVisibleCount`.
+/// Vertical scroll-snap wheel picker (single column). Items are laid out on
+/// a `ListWheelScrollView` with [wheelItemHeight] rows; [wheelVisibleCount]
+/// rows are visible when the wheel is sized to
+/// `wheelItemHeight * wheelVisibleCount`.
 ///
 /// The highlight band for the selected row is the caller's responsibility —
 /// draw a sibling widget positioned at
@@ -46,7 +46,9 @@ class _WheelPickerState<T> extends State<WheelPicker<T>> {
   @override
   void initState() {
     super.initState();
-    final idx = widget.items.indexOf(widget.initialValue as T);
+    assert(widget.items.isNotEmpty, 'WheelPicker requires at least one item');
+    final initial = widget.initialValue ?? widget.items.first;
+    final idx = widget.items.indexOf(initial);
     _initialIndex = idx < 0 ? 0 : idx.clamp(0, widget.items.length - 1);
     _controller = FixedExtentScrollController(initialItem: _initialIndex);
   }

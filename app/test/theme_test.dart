@@ -14,7 +14,7 @@ void main() {
     final s = AppTypography.display(48);
     expect(s.fontFamily, 'BebasNeue');
   });
-  test('kirang accent larger than base', () {
+  test('kirang accent uses KirangHaerang family at display size', () {
     final base = AppTypography.display(48);
     final kir = AppTypography.accentKirang(48);
     expect(kir.fontFamily, 'KirangHaerang');

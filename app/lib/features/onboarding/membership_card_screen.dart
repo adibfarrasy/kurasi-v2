@@ -14,7 +14,7 @@ import 'signature_state.dart';
 /// Onboarding terminal step 1 — membership card. Auto-starts the avatar job
 /// when the captured face changes (effect on [facePhotoProvider]), renders
 /// the generated avatar while it runs, then opens a 2-step sheet:
-/// name → signature → Done. Port of RN `membership-card.tsx`.
+/// name → signature → Done.
 class MembershipCardScreen extends ConsumerStatefulWidget {
   const MembershipCardScreen({super.key});
 

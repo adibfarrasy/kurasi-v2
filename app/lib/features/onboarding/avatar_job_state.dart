@@ -39,9 +39,9 @@ class AvatarJobState {
 
 /// Drives the avatar-normalize job: reads the face photo bytes, POSTs them to
 /// `normalizeAvatar`, then polls `normalizeAvatarProgress` until `done`/`error`.
-/// Port of RN `avatarJobState`; backend persists `default_avatar_url`.
 class AvatarJobNotifier extends AsyncNotifier<AvatarJobState> {
   static const _pollInterval = Duration(milliseconds: 800);
+  static const _maxAttempts = 60;
 
   @override
   Future<AvatarJobState> build() async => const AvatarJobState();
@@ -55,14 +55,14 @@ class AvatarJobNotifier extends AsyncNotifier<AvatarJobState> {
     state = const AsyncValue.loading();
     try {
       final bytes = await _readFile(uri);
-      final sessionId = await _start(bytes);
+      final sessionId = await _start(uri, bytes);
       if (sessionId == null) {
-        state = AsyncValue.error(ApiException('INVALID_RESPONSE', 'No session id in response', null), StackTrace.current);
+        _setError(ApiException('INVALID_RESPONSE', 'No session id in response', null));
         return;
       }
       await _poll(sessionId);
     } catch (err, stack) {
-      state = AsyncValue.error(err, stack);
+      _setState(AsyncValue.error(err, stack));
     }
   }
 
@@ -79,13 +79,17 @@ class AvatarJobNotifier extends AsyncNotifier<AvatarJobState> {
     return File(rawUri);
   }
 
-  Future<String?> _start(Uint8List bytes) async {
+  String _mimeFor(String uri) {
+    return uri.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
+  }
+
+  Future<String?> _start(String uri, Uint8List bytes) async {
     final api = ref.read(apiClientProvider);
     final started = await api.post(
       ApiEndpoints.normalizeAvatar,
       body: {
         'imageBase64': base64Encode(bytes),
-        'mimeType': 'image/jpeg',
+        'mimeType': _mimeFor(uri),
         'gender': ref.read(genderProvider),
         'heightCm': ref.read(heightProvider),
         'weightKg': ref.read(weightProvider),
@@ -99,28 +103,49 @@ class AvatarJobNotifier extends AsyncNotifier<AvatarJobState> {
 
   Future<void> _poll(String sessionId) async {
     final api = ref.read(apiClientProvider);
-    while (true) {
+    for (var attempt = 0; attempt < _maxAttempts; attempt++) {
       final res = await api.get(ApiEndpoints.normalizeAvatarProgress(sessionId));
       if (res is Map) {
         final phase = res['phase'] as String?;
         if (phase == 'done') {
-          state = AsyncValue.data(AvatarJobState(
+          _setState(AsyncValue.data(AvatarJobState(
             sessionId: sessionId,
             phase: 'done',
             resultUrl: res['avatarUrl'] as String?,
-          ));
+          )));
           return;
         }
         if (phase == 'error') {
-          state = AsyncValue.data(AvatarJobState(
+          _setState(AsyncValue.data(AvatarJobState(
             sessionId: sessionId,
             phase: 'error',
             error: (res['error'] as String?) ?? 'Avatar generation failed',
-          ));
+          )));
           return;
         }
       }
       await Future<void>.delayed(_pollInterval);
+    }
+    _setError('Timed out', sessionId: sessionId);
+  }
+
+  void _setState(AsyncValue<AvatarJobState> value) {
+    try {
+      state = value;
+    } on StateError {
+      // Notifier disposed while the job was in flight; ignore.
+    }
+  }
+
+  void _setError(Object error, {String? sessionId}) {
+    if (error is ApiException) {
+      _setState(AsyncValue.error(error, StackTrace.current));
+    } else {
+      _setState(AsyncValue.data(AvatarJobState(
+        sessionId: sessionId,
+        phase: 'error',
+        error: error as String,
+      )));
     }
   }
 }

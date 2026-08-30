@@ -10,7 +10,7 @@ import '../../core/theme/app_colors.dart';
 /// Onboarding terminal step 2 — AI credits. Collage placeholder + a Bebas
 /// "15 FREE AI CREDITS" medallion; Continue POSTs `/api/onboarding`
 /// (complete), sets [onboardingCompleteProvider] and drops the user into
-/// `/myfit`. Port of RN `ai-credits.tsx`.
+/// `/myfit`.
 class AiCreditsScreen extends ConsumerStatefulWidget {
   const AiCreditsScreen({super.key});
 

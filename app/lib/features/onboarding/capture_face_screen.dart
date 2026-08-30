@@ -9,9 +9,9 @@ import 'package:go_router/go_router.dart';
 import 'avatar_job_state.dart';
 import 'profile_state.dart';
 
-/// Front-facing face capture for the avatar. Port of RN `capture-face.tsx`:
-/// camera preview framed by corner brackets + a silhouette guide, a white
-/// shutter that stores the captured photo in [facePhotoProvider] and pops.
+/// Front-facing face capture for the avatar: camera preview framed by corner
+/// brackets + a silhouette guide, a white shutter that stores the captured
+/// photo in [facePhotoProvider] and pops.
 ///
 /// Failure-tolerant: on any camera error (simulator / no camera) it falls
 /// back to the bundled `test-face.png` so onboarding still completes.

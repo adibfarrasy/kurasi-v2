@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 
-/// Onboarding screen 2 — static marketing. Port of RN `onboarding-2.tsx`:
-/// `#999` "Strava-like UI" placeholder with logomark overlay, Bebas headline
-/// with Kirang accent letters, and a Continue button → `/onboarding-3`.
+/// Onboarding screen 2 — static marketing: `#999` "Strava-like UI"
+/// placeholder with logomark overlay, Bebas headline with Kirang accent
+/// letters, and a Continue button → `/onboarding-3`.
 class OnboardingTwoScreen extends StatelessWidget {
   const OnboardingTwoScreen({super.key});
 
