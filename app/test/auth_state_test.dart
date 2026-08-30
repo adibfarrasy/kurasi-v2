@@ -14,18 +14,24 @@ class _FakeAuthService implements AuthService {
   Stream<AuthUser?> authChanges() async* {
     yield _user;
   }
+
   @override
   Future<String?> currentIdToken() async => null;
   @override
-  String? extractSessionToken(String redirectUrl) => null;
+  Future<String?> refreshTokenIfNeeded() async => null;
+  @override
+  String? extractCode(String redirectUrl) => null;
   @override
   AuthUser? userFromJwt(String jwt) => null;
+  @override
+  bool isJwtExpired(String jwt, {DateTime? now}) => false;
 }
 
 void main() {
   test('signOut clears state', () async {
     final container = ProviderContainer(overrides: [
-      authServiceProvider.overrideWithValue(_FakeAuthService(AuthUser(id: 'u1', email: 'a@b.c'))),
+      authServiceProvider.overrideWithValue(
+          _FakeAuthService(AuthUser(id: 'u1', email: 'a@b.c'))),
     ]);
     addTearDown(container.dispose);
     final notifier = container.read(authStateProvider.notifier);

@@ -19,8 +19,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     db::run_migrations(&pool).await?;
     tracing::info!("database migrations applied");
 
-    let verifier =
-        KratosVerifier::new(config.kratos_jwks_url.clone(), config.kratos_issuer.clone());
+    let verifier = KratosVerifier::new(
+        config.kratos_jwks_url.clone(),
+        config.kratos_issuer.clone(),
+        config.environment.clone(),
+    );
     let state = AppState::new(
         pool,
         Arc::new(verifier),

@@ -17,21 +17,27 @@ void main() {
     storage: const FlutterSecureStorage(),
   );
 
-  group('extractSessionToken', () {
-    test('extracts the token from a callback fragment', () {
-      expect(service.extractSessionToken('kurasi://callback#session_token=abc123'), 'abc123');
-      expect(service.extractSessionToken('kurasi://callback#access_token=xyz&scope=openid'), 'xyz');
+  group('extractCode', () {
+    test('extracts the exchange code from a callback query string', () {
+      expect(service.extractCode('kurasi://callback?code=abc123'), 'abc123');
     });
 
-    test('extracts the token from a query string', () {
-      expect(service.extractSessionToken('kurasi://callback?kratos_session_token=abc123'), 'abc123');
-      expect(service.extractSessionToken('kurasi://callback?session_token=def456'), 'def456');
+    test('extracts the exchange code from a callback fragment', () {
+      expect(service.extractCode('kurasi://callback#code=abc123'), 'abc123');
     });
 
-    test('returns null when no token is present', () {
-      expect(service.extractSessionToken('kurasi://callback'), isNull);
-      expect(service.extractSessionToken('kurasi://callback?error=denied'), isNull);
-      expect(service.extractSessionToken('kurasi://callback#session='), isNull);
+    test('extracts the legacy session token params as fallback', () {
+      expect(
+          service.extractCode('kurasi://callback?kratos_session_token=abc123'),
+          'abc123');
+      expect(service.extractCode('kurasi://callback#session_token=def456'),
+          'def456');
+    });
+
+    test('returns null when no code is present', () {
+      expect(service.extractCode('kurasi://callback'), isNull);
+      expect(service.extractCode('kurasi://callback?error=denied'), isNull);
+      expect(service.extractCode('kurasi://callback#code='), isNull);
     });
   });
 
@@ -58,6 +64,31 @@ void main() {
       expect(service.userFromJwt('a.b.c'), isNull);
       expect(service.userFromJwt(List.filled(100, 'x').join()), isNull);
       expect(service.userFromJwt(_jwt('not json')), isNull);
+    });
+  });
+
+  group('isJwtExpired', () {
+    final now = DateTime.fromMillisecondsSinceEpoch(1700000000000);
+
+    test('expired when exp is before now', () {
+      expect(
+          service.isJwtExpired(
+              _jwt('{"exp": ${now.millisecondsSinceEpoch ~/ 1000 - 1}}'),
+              now: now),
+          isTrue);
+    });
+
+    test('not expired while exp is in the future', () {
+      expect(
+          service.isJwtExpired(
+              _jwt('{"exp": ${now.millisecondsSinceEpoch ~/ 1000 + 600}}'),
+              now: now),
+          isFalse);
+    });
+
+    test('expired when the jwt is undecodable or lacks exp', () {
+      expect(service.isJwtExpired('not-a-jwt', now: now), isTrue);
+      expect(service.isJwtExpired(_jwt('{"sub":"id-123"}'), now: now), isTrue);
     });
   });
 }

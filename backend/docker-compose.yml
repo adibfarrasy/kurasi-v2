@@ -6,9 +6,14 @@
 # Notes:
 #   - Kratos uses its own dedicated `kratos-db` Postgres so it never touches the
 #     app's `db` volume. The app `db` stays on host port 5437.
-#   - Kratos does NOT interpolate `${...}` inside kratos.yml. Values are injected
-#     through Kratos's native env-var overrides (underscore -> config key path),
-#     e.g. SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS_0_CLIENT_ID.
+#   - Kratos does NOT interpolate `${...}` inside kratos.yml, so the OIDC
+#     provider block there keeps `${...}` placeholders. The compose `kratos`
+#     service overrides the whole provider list through a single
+#     SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS JSON env var (Kratos parses env
+#     values as JSON when they are valid JSON), which docker compose interpolates.
+#   - `kratos-jwks` serves the PUBLIC half of the dev signing JWK set so the
+#     backend can resolve KRATOS_JWKS_URL (self-hosted Kratos does not expose
+#     signing keys over HTTP).
 
 name: kurasi
 
@@ -42,8 +47,11 @@ services:
       - kratos-db
     environment:
       DSN: postgres://postgres:postgres@kratos-db:5432/kratos?sslmode=disable
-      SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS_0_CLIENT_ID: ${GOOGLE_CLIENT_ID}
-      SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS_0_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS: >
+        [{"id":"google","provider":"google",
+          "client_id":"${GOOGLE_CLIENT_ID}","client_secret":"${GOOGLE_CLIENT_SECRET}",
+          "mapper_url":"file:///etc/config/kratos/oidc.google.jsonnet",
+          "scope":["openid","email","profile"]}]
       SECRETS_COOKIE_0: ${KRATOS_COOKIE_SECRET}
       SECRETS_CIPHER_0: ${KRATOS_CIPHER_SECRET}
     ports:
@@ -55,6 +63,20 @@ services:
       - sh
       - -c
       - kratos migrate sql -e -y --config /etc/config/kratos/kratos.yml && exec kratos serve --config /etc/config/kratos/kratos.yml
+
+  kratos-jwks:
+    image: nginx:alpine
+    restart: unless-stopped
+    depends_on:
+      - kratos
+    volumes:
+      - ./kratos/jwk.public.json:/etc/nginx/jwks.json:ro
+    entrypoint:
+      - sh
+      - -c
+      - "cp /etc/nginx/jwks.json /usr/share/nginx/html/jwks.json && exec nginx -g 'daemon off;'"
+    ports:
+      - "4435:80"
 
   mailpit:
     image: axllent/mailpit:latest

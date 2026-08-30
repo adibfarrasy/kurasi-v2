@@ -10,10 +10,14 @@ use tokio::sync::RwLock;
 
 const JWKS_TTL: Duration = Duration::from_secs(3600);
 
+/// kid of the DEV-ONLY signing key committed in `backend/kratos/jwk.json`.
+const DEV_KID: &str = "kurasi-dev";
+
 #[derive(Clone)]
 pub struct KratosVerifier {
     pub jwks_url: String,
     pub issuer: String,
+    pub environment: String,
     client: Client,
     cache: Arc<RwLock<Option<JwksCache>>>,
 }
@@ -51,10 +55,11 @@ struct KratosClaims {
 }
 
 impl KratosVerifier {
-    pub fn new(jwks_url: String, issuer: String) -> Self {
+    pub fn new(jwks_url: String, issuer: String, environment: String) -> Self {
         KratosVerifier {
             jwks_url,
             issuer,
+            environment,
             client: Client::builder()
                 .timeout(Duration::from_secs(10))
                 .build()
@@ -111,6 +116,11 @@ impl Authenticator for KratosVerifier {
                     .ok_or(ApiError::unauthorized())?
             }
         };
+        if jwk.kid == DEV_KID && self.environment == "production" {
+            // The committed `kurasi-dev` key is dev-only; production must serve
+            // its own key. Never verify tokens signed by the dev key in prod.
+            return Err(ApiError::unauthorized());
+        }
         let key = DecodingKey::from_rsa_components(&jwk.n, &jwk.e)
             .map_err(|_| ApiError::unauthorized())?;
         let mut validation = Validation::new(Algorithm::RS256);
@@ -151,7 +161,7 @@ mod tests {
         base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(data)
     }
 
-    fn test_verifier() -> (KratosVerifier, EncodingKey, String) {
+    fn test_verifier_with_env(env: &str) -> (KratosVerifier, EncodingKey, String) {
         let mut rng = rand::thread_rng();
         let priv_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
         let pem = priv_key.to_pkcs1_pem(rsa::pkcs1::LineEnding::LF).unwrap();
@@ -172,6 +182,7 @@ mod tests {
         let v = KratosVerifier {
             jwks_url: String::new(),
             issuer: "https://auth.example.com".into(),
+            environment: env.into(),
             client: reqwest::Client::new(),
             cache: Arc::new(RwLock::new(Some(JwksCache {
                 keys: vec![jwk],
@@ -179,6 +190,42 @@ mod tests {
             }))),
         };
         (v, enc, "k1".into())
+    }
+
+    fn test_verifier() -> (KratosVerifier, EncodingKey, String) {
+        test_verifier_with_env("dev")
+    }
+
+    fn test_verifier_with_dev_key(env: &str) -> (KratosVerifier, EncodingKey, String) {
+        // JWK signed with the committed `kurasi-dev` kid.
+        let mut rng = rand::thread_rng();
+        let priv_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+        let pem = priv_key.to_pkcs1_pem(rsa::pkcs1::LineEnding::LF).unwrap();
+        let enc = EncodingKey::from_rsa_pem(pem.as_bytes()).unwrap();
+        let pub_pem = rsa::pkcs8::EncodePublicKey::to_public_key_pem(
+            &RsaPublicKey::from(&priv_key),
+            rsa::pkcs8::LineEnding::LF,
+        )
+        .unwrap();
+        let pub_key = RsaPublicKey::from_public_key_pem(&pub_pem).unwrap();
+        let jwk = Jwk {
+            kid: DEV_KID.into(),
+            kty: "RSA".into(),
+            alg: "RS256".into(),
+            n: b64u(&pub_key.n().to_bytes_be()),
+            e: b64u(&pub_key.e().to_bytes_be()),
+        };
+        let v = KratosVerifier {
+            jwks_url: String::new(),
+            issuer: "https://auth.example.com".into(),
+            environment: env.into(),
+            client: reqwest::Client::new(),
+            cache: Arc::new(RwLock::new(Some(JwksCache {
+                keys: vec![jwk],
+                fetched_at: Instant::now(),
+            }))),
+        };
+        (v, enc, DEV_KID.into())
     }
 
     fn sign(claims: serde_json::Value, key: &EncodingKey, kid: &str) -> String {
@@ -241,5 +288,36 @@ mod tests {
             .collect::<String>();
         parts[1] = &payload;
         assert!(v.verify(&parts.join(".")).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn rejects_hs256_signed_token() {
+        let (v, _, _) = test_verifier();
+        let enc = EncodingKey::from_secret(b"symmetrically-signed-by-an-attacker");
+        let mut h = Header::new(jsonwebtoken::Algorithm::HS256);
+        h.kid = Some("k1".into());
+        let token = jsonwebtoken::encode(&h, &valid_claims(), &enc).unwrap();
+        assert!(v.verify(&token).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn rejects_unknown_kid_when_forced_refresh_fails() {
+        // Cache holds k1, token is signed with k2 -> unknown kid triggers a
+        // forced refresh, which fails against the unreachable jwks_url.
+        let (v, key, _) = test_verifier();
+        let token = sign(valid_claims(), &key, "k2");
+        assert!(v.verify(&token).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn rejects_dev_key_in_production() {
+        let (v, key, kid) = test_verifier_with_dev_key("production");
+        assert!(v.verify(&sign(valid_claims(), &key, &kid)).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn accepts_dev_key_outside_production() {
+        let (v, key, kid) = test_verifier_with_dev_key("dev");
+        assert!(v.verify(&sign(valid_claims(), &key, &kid)).await.is_ok());
     }
 }

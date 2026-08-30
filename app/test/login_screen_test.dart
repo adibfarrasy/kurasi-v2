@@ -8,7 +8,11 @@ import 'package:kurasi/features/auth/login_screen.dart';
 class _FakeAuth implements AuthService {
   bool signedIn = false;
   @override
-  Future<AuthUser?> signInWithGoogle() async { signedIn = true; return null; }
+  Future<AuthUser?> signInWithGoogle() async {
+    signedIn = true;
+    return null;
+  }
+
   @override
   Future<void> signOut() async {}
   @override
@@ -16,9 +20,13 @@ class _FakeAuth implements AuthService {
   @override
   Future<String?> currentIdToken() async => null;
   @override
-  String? extractSessionToken(String redirectUrl) => null;
+  Future<String?> refreshTokenIfNeeded() async => null;
+  @override
+  String? extractCode(String redirectUrl) => null;
   @override
   AuthUser? userFromJwt(String jwt) => null;
+  @override
+  bool isJwtExpired(String jwt, {DateTime? now}) => false;
 }
 
 void main() {

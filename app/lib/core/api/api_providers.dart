@@ -15,8 +15,28 @@ final dioProvider = Provider<Dio>((ref) {
       }
       handler.next(options);
     },
-    onError: (error, handler) {
-      if (error.response?.statusCode == 401) {
+    onError: (error, handler) async {
+      final is401 = error.response?.statusCode == 401;
+      if (is401 && !error.requestOptions.extra.containsKey('_retried')) {
+        final fresh =
+            await ref.read(authServiceProvider).refreshTokenIfNeeded();
+        if (fresh != null) {
+          final options = error.requestOptions;
+          options.extra['_retried'] = true;
+          options.headers['Authorization'] = 'Bearer $fresh';
+          try {
+            handler.resolve(await dio.fetch(options));
+          } catch (e) {
+            handler.reject(
+              e is DioException
+                  ? e
+                  : DioException(requestOptions: options, error: e),
+            );
+          }
+          return;
+        }
+      }
+      if (is401) {
         unawaited(ref.read(authStateProvider.notifier).signOut());
       }
       handler.next(error);
@@ -25,4 +45,5 @@ final dioProvider = Provider<Dio>((ref) {
   return dio;
 });
 
-final apiClientProvider = Provider<ApiClient>((ref) => ApiClient(ref.watch(dioProvider)));
+final apiClientProvider =
+    Provider<ApiClient>((ref) => ApiClient(ref.watch(dioProvider)));

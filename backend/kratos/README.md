@@ -11,21 +11,24 @@ and session-to-JWT exchange consumed by the Rust backend.
 | `identity.schema.json` | Identity schema: `email`, `name`, `picture` traits |
 | `claims.jsonnet` | Maps a Kratos identity to JWT claims (email/name/picture) |
 | `oidc.google.jsonnet` | Maps Google OIDC claims to identity traits |
-| `jwk.json` | **DEV-ONLY** RSA JWK set (kid `kurasi-dev`) used to sign tokenizer JWTs |
+| `jwk.json` | **DEV-ONLY** RSA JWK set (kid `kurasi-dev`) used by Kratos to sign tokenizer JWTs. Contains the private key — never deploy it. |
+| `jwk.public.json` | **PUBLIC HALF ONLY** of the same JWK set (kid `kurasi-dev`, `n`/`e` only). Served by the `kratos-jwks` compose service so the backend can verify tokenizer JWTs. |
 
 ## Local dev run
 
 `task be-infra` (i.e. `docker compose up`) in `backend/` starts Postgres, Mailpit,
-and Kratos. Kratos runs its own dedicated `kratos-db` Postgres so it never touches
-the app database. Public API is on `http://localhost:4433`, admin on
-`http://localhost:4434`.
+Kratos, and `kratos-jwks`. Kratos runs its own dedicated `kratos-db` Postgres so it
+never touches the app database. Public API is on `http://localhost:4433`, admin on
+`http://localhost:4434`. `kratos-jwks` serves the public JWK set at
+`http://localhost:4435/jwks.json` (self-hosted Kratos does not expose its signing
+keys over HTTP).
 
-Secrets are injected through Kratos's native env-var overrides (Kratos does not
-interpolate `${...}` inside `kratos.yml`), so `kratos.yml` keeps `${...}`
-placeholders and the compose `environment:` block supplies real values via the
-underscore key paths (e.g. `SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS_0_CLIENT_ID`).
-The compose `DSN` env also overrides the `dsn:` in `kratos.yml`, pointing Kratos at
-its dedicated `kratos-db`.
+Kratos does not interpolate `${...}` inside `kratos.yml`, so the OIDC provider block
+there keeps `${...}` placeholders. The compose `kratos` service overrides the whole
+provider list with a single `SELFSERVICE_METHODS_OIDC_CONFIG_PROVIDERS` JSON env var
+(Kratos parses env values as JSON when valid JSON), which docker compose interpolates
+from the shell env. The compose `DSN` env also overrides the `dsn:` in `kratos.yml`,
+pointing Kratos at its dedicated `kratos-db`.
 
 ```sh
 export GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=...
@@ -37,35 +40,38 @@ docker compose up
 
 ## Sign-in flow (app)
 
-1. App opens the login flow: `GET http://localhost:4433/self-service/login/browser`.
-2. Kratos renders the OIDC button; user signs in with Google.
-3. Google redirects back to Kratos; Kratos creates a session and sets a session cookie.
-4. The app exchanges the session for a JWT:
-   `GET http://localhost:4433/sessions/whoami?tokenize_as=api` (session cookie attached).
-5. The app sends the JWT to the backend as `Authorization: Bearer <token>`.
+The app drives the Kratos **API** login flow with a session-token exchange:
 
-The tokenizer JWTs are valid for 10m (`session.whoami.tokenizer.templates.api.ttl`).
+1. `GET http://localhost:4433/self-service/login/api?return_session_token_exchange_code=true&return_to=kurasi://callback` (JSON) → flow id.
+2. `POST http://localhost:4433/self-service/login/strategies/oidc` with `{flow, provider: "google"}` → `redirect_browser_to`.
+3. Open `redirect_browser_to` in a web view; the final callback URL carries a `code`.
+4. `GET http://localhost:4433/sessions/token-exchange?init_code=<code>&return_to_code=` → `session_token`.
+5. `GET http://localhost:4433/sessions/whoami?tokenize_as=api` (session token as Bearer) → tokenizer JWT.
+6. The app sends the JWT to the backend as `Authorization: Bearer <token>`.
+
+Tokenizer JWTs are valid for 10m (`session.whoami.tokenizer.templates.api.ttl`); the
+app re-tokenizes from the held session token near expiry and on 401.
 
 ## How the backend verifies
 
-The backend verifier (`backend/src/kratos.rs`) resolves
-`KRATOS_JWKS_URL` and validates `iss` against `KRATOS_ISSUER`.
+The backend verifier (`backend/src/kratos.rs`) resolves `KRATOS_JWKS_URL` and
+validates `iss` against `KRATOS_ISSUER`. `KRATOS_ISSUER` must match the tokenizer
+issuer Kratos signs with — for the local config that is the public base URL,
+`http://localhost:4433/`.
 
-Important: self-hosted Kratos does **not** expose its tokenizer signing keys at
-`/.well-known/jwks.json` (or anywhere else over HTTP). You must serve the **public**
-half of the JWK set yourself. For local dev, the backend default
-`KRATOS_JWKS_URL=http://localhost:4433/jwks.json` expects the public keys served
-there — e.g. a tiny static file server or reverse-proxy route that returns
-`jwk.json` with only the public members (`kty`, `use`, `alg`, `kid`, `n`, `e`).
-
-`KRATOS_ISSUER` must match the tokenizer issuer Kratos signs with. For the local
-config this is the public base URL, `http://localhost:4433/`.
+For local dev, the `kratos-jwks` compose service serves `jwk.public.json` (public
+members only: `kty`, `use`, `alg`, `kid`, `n`, `e`) at
+`KRATOS_JWKS_URL=http://localhost:4435/jwks.json`.
 
 ## Production notes
 
 - **Keys**: `jwk.json` is dev-only and contains the private key. In production,
   generate a real key, keep the private JWK in Kratos's signing config, and serve
-  the public JWK set at the backend's `KRATOS_JWKS_URL`. Never commit real keys.
+  **only the public half** at the backend's `KRATOS_JWKS_URL`. Never commit real
+  keys. The backend hard-refuses tokens whose key `kid` is `kurasi-dev` when
+  `ENVIRONMENT=production`, so a dev key can never be mistaken for a prod key.
+- **Issuer**: set `KRATOS_ISSUER` to Kratos's `serve.public.base_url`.
+  `ENVIRONMENT=production` fails fast at startup if it is left at the placeholder.
 - **`allowed_return_urls`**: restrict to your real app callback(s); also set
   `default_browser_return_url` to a real `https` URL.
 - **OIDC client**: create a Google OAuth client with the Kratos callback URL

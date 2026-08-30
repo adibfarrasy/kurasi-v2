@@ -17,11 +17,15 @@ class AuthUser {
 
 /// App-facing auth facade backed by Ory Kratos.
 ///
-/// Sign-in runs the Kratos browser login flow in a web view, exchanges the
-/// returned session for a tokenized JWT, and persists that JWT so API calls can
-/// authenticate against the backend's Kratos verifier.
+/// Sign-in runs the Kratos **API** login flow: it starts a login flow, submits
+/// the Google OIDC strategy, opens the returned `redirect_browser_to` in a web
+/// view, exchanges the resulting `code` for a session token, tokenizes that
+/// into an API JWT, and persists the JWT so API calls can authenticate against
+/// the backend's Kratos verifier. The JWT lives 10m, so it is transparently
+/// re-tokenized from the held session token as it approaches expiry.
 class AuthService {
-  AuthService({required KratosClient kratos, required FlutterSecureStorage storage})
+  AuthService(
+      {required KratosClient kratos, required FlutterSecureStorage storage})
       : _kratos = kratos,
         _storage = storage,
         _controller = StreamController<AuthUser?>.broadcast();
@@ -42,30 +46,54 @@ class AuthService {
     return _controller.stream;
   }
 
-  /// Returns the persisted tokenized JWT, or null when signed out.
-  Future<String?> currentIdToken() => _storage.read(key: _jwtKey);
+  /// Returns a non-expired tokenized JWT, transparently re-tokenizing from the
+  /// held session token when the stored JWT is at/after expiry. Null when signed
+  /// out or the session token can no longer be tokenized.
+  Future<String?> currentIdToken() async {
+    final jwt = await _storage.read(key: _jwtKey);
+    if (jwt == null) return null;
+    if (isJwtExpired(jwt)) return refreshTokenIfNeeded();
+    return jwt;
+  }
 
-  /// Runs the Kratos browser login flow and persists the resulting JWT.
+  /// Re-tokenizes the held session token into a fresh JWT and stores it.
   ///
-  /// The flow redirects back to `kurasi://callback`; the redirect URL carries
-  /// the session token. When the session token is not present in the redirect
-  /// (the browser flow left it in a Kratos-hosted cookie instead), the
-  /// implementation falls back to re-running whoami with the session cookie —
-  /// not exerciseable without a live Kratos instance, so the token path is the
-  /// supported one and the cookie path throws with a descriptive error.
+  /// Returns the fresh JWT, or null when there is no held session token or
+  /// Kratos can no longer tokenize it (revoked/expired session).
+  Future<String?> refreshTokenIfNeeded() async {
+    final sessionToken = await _storage.read(key: _sessionKey);
+    if (sessionToken == null) return null;
+    try {
+      final jwt = await _kratos.tokenize(sessionToken: sessionToken);
+      await _storage.write(key: _jwtKey, value: jwt);
+      return jwt;
+    } on KratosException {
+      return null;
+    }
+  }
+
+  /// Runs the Kratos API login flow and persists the resulting JWT.
+  ///
+  /// 1. Start `self-service/login/api` (accept JSON) and read the flow id.
+  /// 2. Submit the Google OIDC strategy → Kratos answers with a
+  ///    `redirect_browser_to` to open in the web view.
+  /// 3. The web view returns the final callback URL, which carries a `code`
+  ///    (the session-token exchange code).
+  /// 4. Exchange the code for a session token, then tokenize it into a JWT.
   Future<AuthUser?> signInWithGoogle() async {
-    final redirectUrl = await FlutterWebAuth2.authenticate(
-      url: '${_kratos.baseUrl}/self-service/login/browser?return_to=kurasi://callback',
+    final flowId = await _kratos.getLoginFlow();
+    final redirectUrl = await _kratos.submitOidc(flowId: flowId);
+    final callbackUrl = await FlutterWebAuth2.authenticate(
+      url: redirectUrl,
       callbackUrlScheme: 'kurasi',
     );
-    final sessionToken = extractSessionToken(redirectUrl);
-    if (sessionToken == null) {
+    final code = extractCode(callbackUrl);
+    if (code == null) {
       throw KratosException(
-        'No session token in the OIDC redirect. If the browser flow returned '
-        'a cookie instead, re-run whoami with that cookie against a live '
-        'Kratos instance; the cookie path is not implemented in this build.',
+        'No exchange code in the OIDC callback URL ($callbackUrl).',
       );
     }
+    final sessionToken = await _kratos.tokenExchange(code: code);
     final jwt = await _kratos.tokenize(sessionToken: sessionToken);
     await _storage.write(key: _sessionKey, value: sessionToken);
     await _storage.write(key: _jwtKey, value: jwt);
@@ -75,17 +103,19 @@ class AuthService {
   }
 
   /// Revokes the Kratos session and clears persisted credentials.
+  ///
+  /// Best-effort: revocation runs against a live Kratos but storage is cleared
+  /// and the stream emits null even when Kratos is unreachable.
   Future<void> signOut() async {
     final sessionToken = await _storage.read(key: _sessionKey);
     if (sessionToken != null) {
       try {
         await _kratos.signOut(sessionToken: sessionToken);
-      } on KratosException {
+      } catch (_) {
         // Best-effort: clearing local credentials still signs the app out.
       }
     }
-    await _storage.delete(key: _sessionKey);
-    await _storage.delete(key: _jwtKey);
+    await _clearCredentials();
     _emit(null);
   }
 
@@ -97,32 +127,47 @@ class AuthService {
       _emit(null);
       return;
     }
+    if (isJwtExpired(jwt)) {
+      await _clearCredentials();
+      _emit(null);
+      return;
+    }
     final user = userFromJwt(jwt);
     if (user == null) {
-      await _storage.delete(key: _jwtKey);
-      await _storage.delete(key: _sessionKey);
+      await _clearCredentials();
       _emit(null);
       return;
     }
     _emit(user);
   }
 
+  Future<void> _clearCredentials() async {
+    await _storage.delete(key: _jwtKey);
+    await _storage.delete(key: _sessionKey);
+  }
+
   void _emit(AuthUser? user) {
     if (!_controller.isClosed) _controller.add(user);
   }
 
-  /// Extracts a session token from the OIDC redirect URL.
+  /// Extracts the session-token exchange `code` from the OIDC callback URL.
   ///
-  /// Checks the fragment first (OAuth-style `access_token`/`session`), then the
-  /// query string (Kratos-style `kratos_session_token`/`session_token`).
+  /// Checks the query string first, then the fragment, looking for `code` (the
+  /// Kratos session-token exchange code) with legacy token params as fallback.
   @visibleForTesting
-  String? extractSessionToken(String redirectUrl) {
+  String? extractCode(String redirectUrl) {
     final uri = Uri.parse(redirectUrl);
     final fragment = uri.fragment.isEmpty
         ? const <String, String>{}
         : Uri.splitQueryString(uri.fragment);
-    for (final params in [fragment, uri.queryParameters]) {
-      for (final key in ['kratos_session_token', 'session_token', 'access_token', 'session']) {
+    for (final params in [uri.queryParameters, fragment]) {
+      for (final key in [
+        'code',
+        'kratos_session_token',
+        'session_token',
+        'access_token',
+        'session'
+      ]) {
         final value = params[key];
         if (value != null && value.isNotEmpty) return value;
       }
@@ -135,19 +180,39 @@ class AuthService {
   /// `id` is the Kratos identity id (the `sub` claim).
   @visibleForTesting
   AuthUser? userFromJwt(String jwt) {
+    final payload = _decodePayload(jwt);
+    if (payload == null) return null;
+    final sub = payload['sub'] as String?;
+    if (sub == null || sub.isEmpty) return null;
+    return AuthUser(
+      id: sub,
+      email: payload['email'] as String? ?? '',
+      name: payload['name'] as String?,
+      photoUrl: payload['picture'] as String?,
+    );
+  }
+
+  /// True when the JWT payload carries an `exp` that is at/after [now].
+  ///
+  /// Undecodable JWTs count as expired.
+  @visibleForTesting
+  bool isJwtExpired(String jwt, {DateTime? now}) {
+    final payload = _decodePayload(jwt);
+    if (payload == null) return true;
+    final exp = payload['exp'];
+    if (exp is! num) return true;
+    final nowSec =
+        ((now ?? DateTime.now()).millisecondsSinceEpoch / 1000).floor();
+    return nowSec >= exp.toInt();
+  }
+
+  Map<String, dynamic>? _decodePayload(String jwt) {
     final parts = jwt.split('.');
     if (parts.length != 3) return null;
     try {
-      final payload =
-          jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1])))) as Map<String, dynamic>;
-      final sub = payload['sub'] as String?;
-      if (sub == null || sub.isEmpty) return null;
-      return AuthUser(
-        id: sub,
-        email: payload['email'] as String? ?? '',
-        name: payload['name'] as String?,
-        photoUrl: payload['picture'] as String?,
-      );
+      return jsonDecode(
+        utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+      ) as Map<String, dynamic>;
     } catch (_) {
       return null;
     }

@@ -27,9 +27,13 @@ class _FakeAuth implements AuthService {
   @override
   Future<String?> currentIdToken() async => null;
   @override
-  String? extractSessionToken(String redirectUrl) => null;
+  Future<String?> refreshTokenIfNeeded() async => null;
+  @override
+  String? extractCode(String redirectUrl) => null;
   @override
   AuthUser? userFromJwt(String jwt) => null;
+  @override
+  bool isJwtExpired(String jwt, {DateTime? now}) => false;
 }
 
 Future<void> _pumpApp(WidgetTester tester, _FakeAuth fake) async {
@@ -49,7 +53,11 @@ void main() {
     final fake = _FakeAuth(AuthUser(id: 'u1', email: 'a@b.c'));
     await _pumpApp(tester, fake);
     expect(find.byType(MyFitScreen), findsOneWidget);
-    expect(GoRouter.of(tester.element(find.byType(MyFitScreen))).state.matchedLocation, '/myfit');
+    expect(
+        GoRouter.of(tester.element(find.byType(MyFitScreen)))
+            .state
+            .matchedLocation,
+        '/myfit');
   });
 
   testWidgets('sign_in_tap_redirects', (tester) async {
@@ -61,7 +69,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(MyFitScreen), findsOneWidget);
-    expect(GoRouter.of(tester.element(find.byType(MyFitScreen))).state.matchedLocation, '/myfit');
+    expect(
+        GoRouter.of(tester.element(find.byType(MyFitScreen)))
+            .state
+            .matchedLocation,
+        '/myfit');
   });
 
   testWidgets('sign_out_redirects_to_login', (tester) async {
@@ -75,6 +87,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(LoginScreen), findsOneWidget);
-    expect(GoRouter.of(tester.element(find.byType(LoginScreen))).state.matchedLocation, '/login');
+    expect(
+        GoRouter.of(tester.element(find.byType(LoginScreen)))
+            .state
+            .matchedLocation,
+        '/login');
   });
 }
