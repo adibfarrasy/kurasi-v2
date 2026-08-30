@@ -14,6 +14,9 @@ import '../features/outfit/outfit_detail_screen.dart';
 import '../features/outfit/outfit_edit_screen.dart';
 import '../features/placeholder.dart';
 import '../features/shell/tab_shell.dart';
+import '../features/steal_the_look/analyzing_screen.dart';
+import '../features/steal_the_look/failed_screen.dart';
+import '../features/steal_the_look/guide_screen.dart';
 import '../features/tryon/tryon_screen.dart';
 import '../features/wardrobe/wardrobe_screen.dart';
 
@@ -73,8 +76,19 @@ GoRouter buildRouter(Ref ref) {
         path: '/steal-the-look',
         builder: (_, __) => const StealTheLookScreen(),
         routes: [
-          GoRoute(path: 'analyzing', builder: (_, __) => const StealTheLookAnalyzingScreen()),
-          GoRoute(path: 'failed', builder: (_, __) => const StealTheLookFailedScreen()),
+          GoRoute(
+            path: 'analyzing',
+            builder: (_, state) => StealTheLookAnalyzingScreen(
+              uri: state.uri.queryParameters['uri'],
+            ),
+          ),
+          GoRoute(
+            path: 'failed',
+            builder: (_, state) => StealTheLookFailedScreen(
+              reason: state.uri.queryParameters['reason'],
+              uri: state.uri.queryParameters['uri'],
+            ),
+          ),
         ],
       ),
       GoRoute(path: '/upload-wardrobe-guide', builder: (_, __) => const UploadWardrobeGuideScreen()),

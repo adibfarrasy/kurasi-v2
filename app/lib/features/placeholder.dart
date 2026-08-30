@@ -7,24 +7,6 @@ class _PlaceholderScreen extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(body: Center(child: Text(title)));
 }
 
-class StealTheLookScreen extends StatelessWidget {
-  const StealTheLookScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const _PlaceholderScreen('Steal the Look');
-}
-
-class StealTheLookAnalyzingScreen extends StatelessWidget {
-  const StealTheLookAnalyzingScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const _PlaceholderScreen('Analyzing');
-}
-
-class StealTheLookFailedScreen extends StatelessWidget {
-  const StealTheLookFailedScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const _PlaceholderScreen('Steal the Look Failed');
-}
-
 class UploadWardrobeGuideScreen extends StatelessWidget {
   const UploadWardrobeGuideScreen({super.key});
   @override
