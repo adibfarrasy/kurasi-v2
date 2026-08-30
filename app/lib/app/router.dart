@@ -9,6 +9,7 @@ import '../features/onboarding/membership_card_screen.dart';
 import '../features/onboarding/onboarding_one_screen.dart';
 import '../features/onboarding/onboarding_three_screen.dart';
 import '../features/onboarding/onboarding_two_screen.dart';
+import '../features/myfit/myfit_screen.dart';
 import '../features/placeholder.dart';
 import '../features/shell/tab_shell.dart';
 

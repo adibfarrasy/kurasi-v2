@@ -5,7 +5,7 @@ import 'package:kurasi/app/app.dart';
 import 'package:kurasi/core/auth/auth_service.dart';
 import 'package:kurasi/core/auth/auth_state.dart';
 import 'package:kurasi/features/auth/login_screen.dart';
-import 'package:kurasi/features/placeholder.dart';
+import 'package:kurasi/features/myfit/myfit_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class _FakeAuth implements AuthService {

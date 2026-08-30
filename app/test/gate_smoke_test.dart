@@ -8,6 +8,28 @@ import 'package:kurasi/core/auth/auth_state.dart';
 
 final testRouterProvider = Provider<GoRouter>((ref) => buildRouter(ref));
 
+class _FakeAuth implements AuthService {
+  @override
+  Future<AuthUser?> signInWithGoogle() async => null;
+  @override
+  Future<void> signOut() async {}
+  @override
+  Stream<AuthUser?> authChanges() async* {
+    yield null;
+  }
+
+  @override
+  Future<String?> currentIdToken() async => null;
+  @override
+  Future<String?> refreshTokenIfNeeded() async => null;
+  @override
+  String? extractCode(String redirectUrl) => null;
+  @override
+  AuthUser? userFromJwt(String jwt) => null;
+  @override
+  bool isJwtExpired(String jwt, {DateTime? now}) => false;
+}
+
 class StubAuthNotifier extends AuthStateNotifier {
   @override
   Future<AuthUser?> build() async => null;
@@ -19,6 +41,7 @@ void main() {
 
   setUp(() {
     container = ProviderContainer(overrides: [
+      authServiceProvider.overrideWithValue(_FakeAuth()),
       authStateProvider.overrideWith(StubAuthNotifier.new),
     ]);
     router = container.read(testRouterProvider);
@@ -27,7 +50,8 @@ void main() {
   tearDown(() => container.dispose());
 
   testWidgets('unauthenticated redirects to login', (tester) async {
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(
+        UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)));
     await tester.pumpAndSettle();
     expect(router.state.matchedLocation, '/login');
   });
@@ -36,7 +60,8 @@ void main() {
     container.read(authStateProvider.notifier);
     await tester.pump();
     container.read(authStateProvider.notifier).state = AsyncData(AuthUser(id: 'u1', email: 'a@b.co'));
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(
+        UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)));
     await tester.pumpAndSettle();
     expect(router.state.matchedLocation, '/onboarding-1');
   });
@@ -46,7 +71,8 @@ void main() {
     await tester.pump();
     container.read(authStateProvider.notifier).state = AsyncData(AuthUser(id: 'u1', email: 'a@b.co'));
     container.read(onboardingCompleteProvider.notifier).set(true);
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(
+        UncontrolledProviderScope(container: container, child: MaterialApp.router(routerConfig: router)));
     await tester.pumpAndSettle();
     expect(router.state.matchedLocation, '/myfit');
   });
