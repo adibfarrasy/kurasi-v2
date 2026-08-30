@@ -26,6 +26,10 @@ class _FakeAuth implements AuthService {
 
   @override
   Future<String?> currentIdToken() async => null;
+  @override
+  String? extractSessionToken(String redirectUrl) => null;
+  @override
+  AuthUser? userFromJwt(String jwt) => null;
 }
 
 Future<void> _pumpApp(WidgetTester tester, _FakeAuth fake) async {

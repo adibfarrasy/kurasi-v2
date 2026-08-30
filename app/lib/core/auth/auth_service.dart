@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 
@@ -57,7 +58,7 @@ class AuthService {
       url: '${_kratos.baseUrl}/self-service/login/browser?return_to=kurasi://callback',
       callbackUrlScheme: 'kurasi',
     );
-    final sessionToken = _extractSessionToken(redirectUrl);
+    final sessionToken = extractSessionToken(redirectUrl);
     if (sessionToken == null) {
       throw KratosException(
         'No session token in the OIDC redirect. If the browser flow returned '
@@ -68,7 +69,7 @@ class AuthService {
     final jwt = await _kratos.tokenize(sessionToken: sessionToken);
     await _storage.write(key: _sessionKey, value: sessionToken);
     await _storage.write(key: _jwtKey, value: jwt);
-    final user = _userFromJwt(jwt);
+    final user = userFromJwt(jwt);
     _emit(user);
     return user;
   }
@@ -96,7 +97,7 @@ class AuthService {
       _emit(null);
       return;
     }
-    final user = _userFromJwt(jwt);
+    final user = userFromJwt(jwt);
     if (user == null) {
       await _storage.delete(key: _jwtKey);
       await _storage.delete(key: _sessionKey);
@@ -114,7 +115,8 @@ class AuthService {
   ///
   /// Checks the fragment first (OAuth-style `access_token`/`session`), then the
   /// query string (Kratos-style `kratos_session_token`/`session_token`).
-  String? _extractSessionToken(String redirectUrl) {
+  @visibleForTesting
+  String? extractSessionToken(String redirectUrl) {
     final uri = Uri.parse(redirectUrl);
     final fragment = uri.fragment.isEmpty
         ? const <String, String>{}
@@ -131,7 +133,8 @@ class AuthService {
   /// Decodes the tokenized JWT payload into an [AuthUser].
   ///
   /// `id` is the Kratos identity id (the `sub` claim).
-  AuthUser? _userFromJwt(String jwt) {
+  @visibleForTesting
+  AuthUser? userFromJwt(String jwt) {
     final parts = jwt.split('.');
     if (parts.length != 3) return null;
     try {

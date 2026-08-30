@@ -20,6 +20,10 @@ class _FakeAuth implements AuthService {
 
   @override
   Future<String?> currentIdToken() async => null;
+  @override
+  String? extractSessionToken(String redirectUrl) => null;
+  @override
+  AuthUser? userFromJwt(String jwt) => null;
 }
 
 class _FakeAdapter implements HttpClientAdapter {

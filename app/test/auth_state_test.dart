@@ -16,6 +16,10 @@ class _FakeAuthService implements AuthService {
   }
   @override
   Future<String?> currentIdToken() async => null;
+  @override
+  String? extractSessionToken(String redirectUrl) => null;
+  @override
+  AuthUser? userFromJwt(String jwt) => null;
 }
 
 void main() {
