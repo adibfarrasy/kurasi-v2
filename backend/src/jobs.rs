@@ -23,7 +23,13 @@ impl<T> JobStore<T> {
 
     pub fn insert(&self, id: String, value: T) {
         let mut map = self.map.lock().expect("job store lock");
-        map.insert(id, JobEntry { value, created_at: Instant::now() });
+        map.insert(
+            id,
+            JobEntry {
+                value,
+                created_at: Instant::now(),
+            },
+        );
     }
 
     pub fn get(&self, id: &str) -> Option<T>

@@ -71,7 +71,8 @@ PRESERVE from image 1: pose (head to toe, including each foot's angle and tip-to
 
 Photorealistic, sharp focus, no text, no watermarks."##;
 
-pub const SHARED_SUFFIX: &str = r##"Photorealistic, sharp focus, even soft studio lighting, no text, no watermarks, no tags."##;
+pub const SHARED_SUFFIX: &str =
+    r##"Photorealistic, sharp focus, even soft studio lighting, no text, no watermarks, no tags."##;
 
 const HANGER_TOP_TEMPLATE: &str = r##"Place the garment from image 1 (a ${categoryLabel}) onto the EXACT wooden clothes hanger shown in image 2. The garment hangs naturally from the hanger's shoulders, fabric falling straight down with subtle natural folds. Front-facing view, garment fully visible. CRITICAL: the hanger in the result MUST be the same matte WHITE-PAINTED wooden hanger as in image 2 — same white color, same shape, same size, same hook (chrome metal), same position. Do NOT change the hanger to a darker wood, stained wood, plastic, or wire hanger. Do NOT alter the hanger's color, finish, or proportions in any way. Keep the deep teal background from image 2 unchanged — same color, no gradient, no shadow. Preserve the garment's exact color, pattern, fabric texture, print, logos, and proportions from image 1 — do not invent or alter any design detail. Do not add any human figure. ${SHARED_SUFFIX}"##;
 
@@ -164,7 +165,9 @@ mod tests {
     #[test]
     fn flat_prompt_inserts_label_and_suffix() {
         let p = build_flat_prompt("pair of shoes");
-        assert!(p.starts_with("Clean studio product shot of the footwear from image 1 (a pair of shoes)."));
+        assert!(p.starts_with(
+            "Clean studio product shot of the footwear from image 1 (a pair of shoes)."
+        ));
         assert!(p.ends_with("Plain seamless deep teal studio background, fully saturated solid color, no gradient, no shadow."));
         assert!(!p.contains("${"));
     }

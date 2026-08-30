@@ -53,7 +53,9 @@ struct NormalizeInput {
 
 pub fn normalize_avatar_store() -> Arc<JobStore<Progress>> {
     static STORE: OnceLock<Arc<JobStore<Progress>>> = OnceLock::new();
-    STORE.get_or_init(|| Arc::new(JobStore::new(SESSION_TTL))).clone()
+    STORE
+        .get_or_init(|| Arc::new(JobStore::new(SESSION_TTL)))
+        .clone()
 }
 
 /// default_man.png embedded at compile time so the binary is self-contained
@@ -74,7 +76,9 @@ async fn pose_url(fal: &FalClient) -> Result<String, String> {
             return Ok(url.clone());
         }
     }
-    let url = fal.upload(DEFAULT_MAN_BYTES, "default_man.png", "image/png").await?;
+    let url = fal
+        .upload(DEFAULT_MAN_BYTES, "default_man.png", "image/png")
+        .await?;
     let mut cache = pose_url_cache().lock().expect("pose cache lock");
     *cache = Some(url.clone());
     Ok(url)
@@ -86,7 +90,11 @@ fn url_from_result(out: &Value) -> Result<String, String> {
         .and_then(|a| a.first())
         .and_then(|i| i.get("url"))
         .and_then(|u| u.as_str())
-        .or_else(|| out.get("image").and_then(|i| i.get("url")).and_then(|u| u.as_str()))
+        .or_else(|| {
+            out.get("image")
+                .and_then(|i| i.get("url"))
+                .and_then(|u| u.as_str())
+        })
         .map(|s| s.to_string())
         .ok_or_else(|| format!("result missing url: {out}"))
 }
@@ -116,11 +124,14 @@ async fn classify_build(
 ) -> Result<(String, String), String> {
     let dims = prompts::dims_context(height_cm, weight_kg);
     let out = fal
-        .run(VISION_MODEL, json!({
-            "model": VISION_BASE_MODEL,
-            "prompt": prompts::classify_prompt(&dims),
-            "image_url": body_url,
-        }))
+        .run(
+            VISION_MODEL,
+            json!({
+                "model": VISION_BASE_MODEL,
+                "prompt": prompts::classify_prompt(&dims),
+                "image_url": body_url,
+            }),
+        )
         .await?;
     let text = out
         .get("output")
@@ -160,44 +171,55 @@ pub async fn normalize_avatar(
     // ─── Pass 1: identity (from user) + pose (from reference) + outfit ─────
     on_phase("pass1");
     let pass1 = fal
-        .run(EDIT_MODEL, json!({
-            "prompt": prompts::pass1_prompt(
-                &prompts::build_directive(&build),
-                &prompts::build_notes_clause(&notes),
-                &prompts::pass1_dims_clause(height_cm, weight_kg),
-            ),
-            "image_urls": [body_url.clone(), pose],
-            "num_images": 1,
-            "image_size": { "width": 832, "height": 1248 },
-        }))
+        .run(
+            EDIT_MODEL,
+            json!({
+                "prompt": prompts::pass1_prompt(
+                    &prompts::build_directive(&build),
+                    &prompts::build_notes_clause(&notes),
+                    &prompts::pass1_dims_clause(height_cm, weight_kg),
+                ),
+                "image_urls": [body_url.clone(), pose],
+                "num_images": 1,
+                "image_size": { "width": 832, "height": 1248 },
+            }),
+        )
         .await?;
     let pass1_url = url_from_result(&pass1).map_err(|e| format!("pass1 {e}"))?;
 
     // ─── Pass 2: identity transfer onto the normalized body ────────────────
     on_phase("pass2");
     let pass2 = fal
-        .run(EDIT_MODEL, json!({
-            "prompt": prompts::PASS2_PROMPT,
-            "image_urls": [pass1_url, body_url.clone()],
-            "num_images": 1,
-            "image_size": { "width": 832, "height": 1248 },
-        }))
+        .run(
+            EDIT_MODEL,
+            json!({
+                "prompt": prompts::PASS2_PROMPT,
+                "image_urls": [pass1_url, body_url.clone()],
+                "num_images": 1,
+                "image_size": { "width": 832, "height": 1248 },
+            }),
+        )
         .await?;
     let pass2_url = url_from_result(&pass2).map_err(|e| format!("pass2 {e}"))?;
 
     // ─── Face-swap: composite the user's actual face onto the body ─────────
     on_phase("faceswap");
     let swap = fal
-        .run(FACESWAP_MODEL, json!({
-            "base_image_url": pass2_url,
-            "swap_image_url": body_url,
-        }))
+        .run(
+            FACESWAP_MODEL,
+            json!({
+                "base_image_url": pass2_url,
+                "swap_image_url": body_url,
+            }),
+        )
         .await?;
     let base_url = url_from_result(&swap).map_err(|e| format!("faceswap {e}"))?;
 
     // ─── Background removal + edge decontamination ─────────────────────────
     on_phase("rembg");
-    let rembg = fal.run(REMBG_MODEL, json!({ "image_url": base_url })).await?;
+    let rembg = fal
+        .run(REMBG_MODEL, json!({ "image_url": base_url }))
+        .await?;
     let rembg_url = rembg_image_url(&rembg)?;
 
     on_phase("finalize");
@@ -241,8 +263,13 @@ pub async fn start(
             return Err(ApiError::validation("weightKg must be between 30 and 200"));
         }
     }
-    if !matches!(body.mime_type.as_str(), "image/jpeg" | "image/png" | "image/webp") {
-        return Err(ApiError::validation("mimeType must be image/jpeg, image/png, or image/webp"));
+    if !matches!(
+        body.mime_type.as_str(),
+        "image/jpeg" | "image/png" | "image/webp"
+    ) {
+        return Err(ApiError::validation(
+            "mimeType must be image/jpeg, image/png, or image/webp",
+        ));
     }
     let buf = base64_decode(&body.image_base64)?;
 
@@ -253,7 +280,11 @@ pub async fn start(
     store.gc();
     store.insert(
         session_id.clone(),
-        Progress { phase: "classify".into(), avatar_url: None, message: None },
+        Progress {
+            phase: "classify".into(),
+            avatar_url: None,
+            message: None,
+        },
     );
     let store2 = store.clone();
     let session = session_id.clone();
@@ -310,11 +341,13 @@ pub async fn progress(
     _auth: AuthUser,
     Path(session_id): Path<String>,
 ) -> ApiResult<Json<Value>> {
-    let p = normalize_avatar_store().get(&session_id).unwrap_or(Progress {
-        phase: "error".into(),
-        avatar_url: None,
-        message: Some("Session not found (server may have restarted)".into()),
-    });
+    let p = normalize_avatar_store()
+        .get(&session_id)
+        .unwrap_or(Progress {
+            phase: "error".into(),
+            avatar_url: None,
+            message: Some("Session not found (server may have restarted)".into()),
+        });
     Ok(Json(json!(p)))
 }
 

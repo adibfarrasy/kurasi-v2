@@ -30,11 +30,16 @@ async fn start_requires_avatar_and_validates_items(pool: sqlx::PgPool) {
         Method::POST,
         "/api/outfits/00000000-0000-0000-0000-000000000000/regenerate-fit",
         "user-a",
-        Some(serde_json::json!({ "items": [{ "category": "shirt", "imageUrl": "https://example.com/s.png" }] })),
+        Some(
+            serde_json::json!({ "items": [{ "category": "shirt", "imageUrl": "https://example.com/s.png" }] }),
+        ),
     );
     let (status, body) = common::send(&app, req).await;
     assert_eq!(status, StatusCode::PRECONDITION_FAILED);
-    assert_eq!(body["message"], "User has no defaultAvatarUrl. Run the seed.");
+    assert_eq!(
+        body["message"],
+        "User has no defaultAvatarUrl. Run the seed."
+    );
 }
 
 #[sqlx::test(migrations = "./migrations")]
@@ -45,11 +50,16 @@ async fn start_with_null_avatar_returns_412(pool: sqlx::PgPool) {
         Method::POST,
         "/api/outfits/00000000-0000-0000-0000-000000000000/regenerate-fit",
         "user-a",
-        Some(serde_json::json!({ "items": [{ "category": "shirt", "imageUrl": "https://example.com/s.png" }] })),
+        Some(
+            serde_json::json!({ "items": [{ "category": "shirt", "imageUrl": "https://example.com/s.png" }] }),
+        ),
     );
     let (status, body) = common::send(&app, req).await;
     assert_eq!(status, StatusCode::PRECONDITION_FAILED);
-    assert_eq!(body["message"], "User has no defaultAvatarUrl. Run the seed.");
+    assert_eq!(
+        body["message"],
+        "User has no defaultAvatarUrl. Run the seed."
+    );
 }
 
 #[sqlx::test(migrations = "./migrations")]
@@ -102,5 +112,8 @@ async fn progress_returns_error_for_missing_session(pool: sqlx::PgPool) {
     let (status, body) = common::send(&app, req).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["phase"], "error");
-    assert_eq!(body["message"], "Session not found (server may have restarted)");
+    assert_eq!(
+        body["message"],
+        "Session not found (server may have restarted)"
+    );
 }

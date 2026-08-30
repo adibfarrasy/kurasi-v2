@@ -226,7 +226,10 @@ mod tests {
 
     #[test]
     fn parses_notes_line() {
-        assert_eq!(parse_notes("build: lean\nnotes: narrow frame"), "narrow frame");
+        assert_eq!(
+            parse_notes("build: lean\nnotes: narrow frame"),
+            "narrow frame"
+        );
         assert_eq!(parse_notes("notes:  toned arms  "), "toned arms");
         assert_eq!(parse_notes("build: lean"), "");
     }
@@ -249,7 +252,8 @@ mod tests {
             dims_context(Some(170), None),
             "Self-reported dimensions: 170 cm tall. Use these as a tiebreaker when the image is ambiguous, but do not let them override what is clearly visible."
         );
-        assert!(dims_context(Some(170), Some(65)).starts_with("Self-reported dimensions: 170 cm tall, 65 kg."));
+        assert!(dims_context(Some(170), Some(65))
+            .starts_with("Self-reported dimensions: 170 cm tall, 65 kg."));
         assert!(dims_context(None, Some(65)).contains("65 kg."));
     }
 

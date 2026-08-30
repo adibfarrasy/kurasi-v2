@@ -62,11 +62,19 @@ pub fn parse_analysis(text: &str) -> ParsedAnalysis {
         .lines()
         .any(|l| l.trim().eq_ignore_ascii_case("unsupported"))
     {
-        return ParsedAnalysis { kind: "unsupported".into(), item: None };
+        return ParsedAnalysis {
+            kind: "unsupported".into(),
+            item: None,
+        };
     }
     let category = match field_value(text, "category") {
         Some(v) if ITEM_CATEGORIES.contains(&v) => v.to_string(),
-        _ => return ParsedAnalysis { kind: "unsupported".into(), item: None },
+        _ => {
+            return ParsedAnalysis {
+                kind: "unsupported".into(),
+                item: None,
+            }
+        }
     };
     let title = field_value(text, "title")
         .filter(|t| !t.is_empty())
@@ -140,15 +148,12 @@ mod tests {
     #[test]
     fn length_is_scoped_to_category() {
         // pants with an invalid jacket length → null
-        let parsed = parse_analysis(
-            "title: Jeans\ncategory: pants\nfit: regular\nlength: knee\n",
-        );
+        let parsed = parse_analysis("title: Jeans\ncategory: pants\nfit: regular\nlength: knee\n");
         let item = parsed.item.unwrap();
         assert_eq!(item.length, None);
         // pants with a valid pants length → kept
-        let parsed = parse_analysis(
-            "title: Jeans\ncategory: pants\nfit: regular\nlength: ankle-length\n",
-        );
+        let parsed =
+            parse_analysis("title: Jeans\ncategory: pants\nfit: regular\nlength: ankle-length\n");
         assert_eq!(parsed.item.unwrap().length.as_deref(), Some("ankle-length"));
     }
 

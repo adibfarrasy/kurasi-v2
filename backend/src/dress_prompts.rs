@@ -25,8 +25,12 @@ pub fn fit_descriptor(fit: Option<&str>) -> String {
     let desc = match fit {
         "skinny" => "a SKINNY fit (close to the body, narrow silhouette through torso/limbs)",
         "regular" => "a REGULAR fit (standard cut, neither tight nor loose)",
-        "relaxed" => "a RELAXED fit (loose drape with extra room through torso/limbs, but not oversize)",
-        "oversize" => "an OVERSIZE fit (intentionally large, dropped shoulders, voluminous silhouette)",
+        "relaxed" => {
+            "a RELAXED fit (loose drape with extra room through torso/limbs, but not oversize)"
+        }
+        "oversize" => {
+            "an OVERSIZE fit (intentionally large, dropped shoulders, voluminous silhouette)"
+        }
         _ => return String::new(),
     };
     format!(" The garment must be rendered with {desc}; do NOT idealize toward a different fit.")
@@ -34,14 +38,20 @@ pub fn fit_descriptor(fit: Option<&str>) -> String {
 
 /// Verbatim `topLengthDescriptor` from the legacy pipeline (jacket lengths).
 pub fn top_length_descriptor(length: Option<&str>) -> String {
-    let Some(length) = length else { return String::new() };
+    let Some(length) = length else {
+        return String::new();
+    };
     let desc = match length {
-        "cropped" => "CROPPED — hem above the natural waist, exposing midriff or the very upper waistband",
+        "cropped" => {
+            "CROPPED — hem above the natural waist, exposing midriff or the very upper waistband"
+        }
         "waist" => "WAIST length — hem sits exactly at the natural waist",
         "hip" => "HIP length — hem falls at the hip line, just below the natural waist",
         "thigh" => "THIGH length — hem extends down to mid-thigh, like a tunic or long sweater",
         "knee" => "KNEE length — hem reaches the knee, like a long coat",
-        "full-length" => "FULL-LENGTH — hem extends past the knee toward the ankle, like a long coat",
+        "full-length" => {
+            "FULL-LENGTH — hem extends past the knee toward the ankle, like a long coat"
+        }
         _ => return String::new(),
     };
     format!(" The hem length is {desc}; match that exact hem position regardless of how the source image is framed.")
@@ -49,7 +59,9 @@ pub fn top_length_descriptor(length: Option<&str>) -> String {
 
 /// Verbatim `pantsLengthDescriptor` from the legacy pipeline.
 pub fn pants_length_descriptor(length: Option<&str>) -> String {
-    let Some(length) = length else { return String::new() };
+    let Some(length) = length else {
+        return String::new();
+    };
     let desc = match length {
         "thigh-shorts" => "THIGH SHORTS — hem ends at mid-thigh",
         "knee-shorts" => "KNEE SHORTS — hem ends at the knee",
@@ -57,7 +69,9 @@ pub fn pants_length_descriptor(length: Option<&str>) -> String {
         "full-length" => "FULL LENGTH — hem reaches the ankle and breaks over the foot",
         _ => return String::new(),
     };
-    format!(" The hem length is {desc}; do NOT default to full-length if the metadata says otherwise.")
+    format!(
+        " The hem length is {desc}; do NOT default to full-length if the metadata says otherwise."
+    )
 }
 
 fn base_clause(i: usize, fit: Option<&str>) -> String {
@@ -175,7 +189,8 @@ mod tests {
     #[test]
     fn length_descriptors_cover_known_values() {
         assert!(top_length_descriptor(Some("cropped")).starts_with(" The hem length is CROPPED —"));
-        assert!(pants_length_descriptor(Some("full-length")).starts_with(" The hem length is FULL LENGTH —"));
+        assert!(pants_length_descriptor(Some("full-length"))
+            .starts_with(" The hem length is FULL LENGTH —"));
         assert_eq!(top_length_descriptor(Some("thigh-shorts")), "");
         assert_eq!(pants_length_descriptor(Some("knee")), "");
     }
@@ -206,7 +221,10 @@ mod tests {
     fn absent_slot_clauses_follow_legacy_order_for_single_shirt() {
         let present: HashSet<&str> = HashSet::from(["base"]);
         let absences = absent_slot_clauses(&present);
-        assert_eq!(absences, vec![NO_FOOTWEAR_CLAUSE, NO_HEADWEAR_CLAUSE, NO_OUTER_CLAUSE]);
+        assert_eq!(
+            absences,
+            vec![NO_FOOTWEAR_CLAUSE, NO_HEADWEAR_CLAUSE, NO_OUTER_CLAUSE]
+        );
         assert!(absences[0].starts_with("NO FOOTWEAR"));
         assert!(absences[1].starts_with("NO HEADWEAR"));
         assert!(absences[2].starts_with("NO OUTER LAYER"));

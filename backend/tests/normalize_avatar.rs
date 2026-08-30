@@ -16,7 +16,9 @@ async fn normalize_creates_session_and_persists_avatar_on_done(pool: sqlx::PgPoo
         Method::POST,
         "/api/avatar/normalize",
         "user-a",
-        Some(serde_json::json!({ "imageBase64": "AAAA", "mimeType": "image/jpeg", "gender": "masc" })),
+        Some(
+            serde_json::json!({ "imageBase64": "AAAA", "mimeType": "image/jpeg", "gender": "masc" }),
+        ),
     );
     let (status, body) = common::send(&app, req).await;
     assert_eq!(status, StatusCode::OK);
@@ -35,7 +37,10 @@ async fn progress_returns_error_for_missing_session(pool: sqlx::PgPool) {
     let (status, body) = common::send(&app, req).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["phase"], "error");
-    assert_eq!(body["message"], "Session not found (server may have restarted)");
+    assert_eq!(
+        body["message"],
+        "Session not found (server may have restarted)"
+    );
 }
 
 #[sqlx::test(migrations = "./migrations")]
@@ -45,7 +50,9 @@ async fn start_rejects_invalid_gender(pool: sqlx::PgPool) {
         Method::POST,
         "/api/avatar/normalize",
         "user-a",
-        Some(serde_json::json!({ "imageBase64": "AAAA", "mimeType": "image/jpeg", "gender": "other" })),
+        Some(
+            serde_json::json!({ "imageBase64": "AAAA", "mimeType": "image/jpeg", "gender": "other" }),
+        ),
     );
     let (status, body) = common::send(&app, req).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
@@ -59,7 +66,9 @@ async fn start_rejects_height_out_of_range(pool: sqlx::PgPool) {
         Method::POST,
         "/api/avatar/normalize",
         "user-a",
-        Some(serde_json::json!({ "imageBase64": "AAAA", "mimeType": "image/jpeg", "gender": "masc", "heightCm": 300 })),
+        Some(
+            serde_json::json!({ "imageBase64": "AAAA", "mimeType": "image/jpeg", "gender": "masc", "heightCm": 300 }),
+        ),
     );
     let (status, body) = common::send(&app, req).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
@@ -73,7 +82,9 @@ async fn start_rejects_weight_out_of_range(pool: sqlx::PgPool) {
         Method::POST,
         "/api/avatar/normalize",
         "user-a",
-        Some(serde_json::json!({ "imageBase64": "AAAA", "mimeType": "image/jpeg", "gender": "masc", "weightKg": 10 })),
+        Some(
+            serde_json::json!({ "imageBase64": "AAAA", "mimeType": "image/jpeg", "gender": "masc", "weightKg": 10 }),
+        ),
     );
     let (status, body) = common::send(&app, req).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
@@ -87,11 +98,16 @@ async fn start_rejects_bad_mime(pool: sqlx::PgPool) {
         Method::POST,
         "/api/avatar/normalize",
         "user-a",
-        Some(serde_json::json!({ "imageBase64": "AAAA", "mimeType": "image/gif", "gender": "masc" })),
+        Some(
+            serde_json::json!({ "imageBase64": "AAAA", "mimeType": "image/gif", "gender": "masc" }),
+        ),
     );
     let (status, body) = common::send(&app, req).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
-    assert_eq!(body["message"], "mimeType must be image/jpeg, image/png, or image/webp");
+    assert_eq!(
+        body["message"],
+        "mimeType must be image/jpeg, image/png, or image/webp"
+    );
 }
 
 #[sqlx::test(migrations = "./migrations")]
@@ -101,7 +117,9 @@ async fn start_rejects_bad_base64(pool: sqlx::PgPool) {
         Method::POST,
         "/api/avatar/normalize",
         "user-a",
-        Some(serde_json::json!({ "imageBase64": "!!!", "mimeType": "image/jpeg", "gender": "masc" })),
+        Some(
+            serde_json::json!({ "imageBase64": "!!!", "mimeType": "image/jpeg", "gender": "masc" }),
+        ),
     );
     let (status, body) = common::send(&app, req).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
@@ -117,11 +135,18 @@ async fn persist_default_avatar_writes_url(pool: sqlx::PgPool) {
     .execute(&pool)
     .await
     .unwrap();
-    sqlx::query("INSERT INTO user_biometrics (user_id, height_cm, weight_kg) VALUES ('user-a', 170, 65)")
-        .execute(&pool)
-        .await
-        .unwrap();
-    kurasi_backend::normalize_avatar::persist_default_avatar(&pool, "user-a", "https://example.com/avatar.png").await;
+    sqlx::query(
+        "INSERT INTO user_biometrics (user_id, height_cm, weight_kg) VALUES ('user-a', 170, 65)",
+    )
+    .execute(&pool)
+    .await
+    .unwrap();
+    kurasi_backend::normalize_avatar::persist_default_avatar(
+        &pool,
+        "user-a",
+        "https://example.com/avatar.png",
+    )
+    .await;
     let url: Option<String> =
         sqlx::query_scalar("SELECT default_avatar_url FROM user_biometrics WHERE user_id='user-a'")
             .fetch_one(&pool)

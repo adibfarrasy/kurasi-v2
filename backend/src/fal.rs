@@ -23,7 +23,8 @@ impl FalClient {
     }
 
     pub async fn run(&self, model: &str, input: Value) -> Result<Value, String> {
-        self.run_with_timeout(model, input, std::time::Duration::from_secs(180)).await
+        self.run_with_timeout(model, input, std::time::Duration::from_secs(180))
+            .await
     }
 
     pub async fn run_with_timeout(
@@ -44,7 +45,10 @@ impl FalClient {
         if !submit.status().is_success() {
             return Err(format!("fal submit HTTP {}", submit.status()));
         }
-        let submit_json: Value = submit.json().await.map_err(|e| format!("fal submit parse: {e}"))?;
+        let submit_json: Value = submit
+            .json()
+            .await
+            .map_err(|e| format!("fal submit parse: {e}"))?;
         let request_id = submit_json
             .get("request_id")
             .and_then(|v| v.as_str())
@@ -53,23 +57,37 @@ impl FalClient {
 
         loop {
             if start.elapsed() >= deadline {
-                return Err(format!("fal run {model} timeout after {}ms", deadline.as_millis()));
+                return Err(format!(
+                    "fal run {model} timeout after {}ms",
+                    deadline.as_millis()
+                ));
             }
             let status = self
                 .http
-                .get(format!("{}/{}/requests/{}/status", self.endpoint, model, request_id))
+                .get(format!(
+                    "{}/{}/requests/{}/status",
+                    self.endpoint, model, request_id
+                ))
                 .header("Authorization", format!("Key {}", self.key))
                 .send()
                 .await
                 .map_err(|e| format!("fal status failed: {e}"))?;
-            let status_json: Value = status.json().await.map_err(|e| format!("fal status parse: {e}"))?;
-            let state = status_json.get("status").and_then(|v| v.as_str()).unwrap_or("");
+            let status_json: Value = status
+                .json()
+                .await
+                .map_err(|e| format!("fal status parse: {e}"))?;
+            let state = status_json
+                .get("status")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             match state {
                 "COMPLETED" => {
                     let response_url = status_json
                         .get("response_url")
                         .and_then(|v| v.as_str())
-                        .ok_or_else(|| format!("fal completed without response_url: {status_json}"))?;
+                        .ok_or_else(|| {
+                            format!("fal completed without response_url: {status_json}")
+                        })?;
                     let res = self
                         .http
                         .get(response_url)
@@ -82,7 +100,10 @@ impl FalClient {
                         .map_err(|e| format!("fal result parse: {e}"));
                 }
                 "ERROR" | "FAILED" => {
-                    let detail = status_json.get("error").cloned().unwrap_or(json!("unknown"));
+                    let detail = status_json
+                        .get("error")
+                        .cloned()
+                        .unwrap_or(json!("unknown"));
                     return Err(format!("fal {model} {state}: {detail}"));
                 }
                 _ => {
@@ -97,7 +118,9 @@ impl FalClient {
             endpoint: STORAGE_BASE.to_string(),
             ..self.clone()
         };
-        uploader.upload_to_path("/upload", bytes, filename, mime).await
+        uploader
+            .upload_to_path("/upload", bytes, filename, mime)
+            .await
     }
 
     pub(crate) async fn upload_to_path(
@@ -120,7 +143,10 @@ impl FalClient {
             .send()
             .await
             .map_err(|e| format!("fal upload failed: {e}"))?;
-        let body: Value = res.json().await.map_err(|e| format!("fal upload parse: {e}"))?;
+        let body: Value = res
+            .json()
+            .await
+            .map_err(|e| format!("fal upload parse: {e}"))?;
         body.get("url")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
@@ -137,7 +163,10 @@ impl FalClient {
         if !res.status().is_success() {
             return Err(format!("fal fetch HTTP {}", res.status()));
         }
-        res.bytes().await.map(|b| b.to_vec()).map_err(|e| format!("fal fetch bytes: {e}"))
+        res.bytes()
+            .await
+            .map(|b| b.to_vec())
+            .map_err(|e| format!("fal fetch bytes: {e}"))
     }
 }
 
@@ -160,10 +189,7 @@ pub fn is_dev_mode() -> bool {
     std::env::var("ENVIRONMENT").unwrap_or_else(|_| "production".to_string()) == "dev"
 }
 
-pub async fn ensure_fal_reachable(
-    fal: &FalClient,
-    url: &str,
-) -> Result<String, String> {
+pub async fn ensure_fal_reachable(fal: &FalClient, url: &str) -> Result<String, String> {
     if !is_local_url(url) {
         return Ok(url.to_string());
     }
@@ -186,7 +212,13 @@ mod tests {
     use super::*;
     use axum::response::IntoResponse;
 
-    async fn mock_fal(handler: impl Clone + Fn(&str, axum::http::Request<axum::body::Body>) -> axum::response::Response + Send + Sync + 'static) -> (FalClient, String) {
+    async fn mock_fal(
+        handler: impl Clone
+            + Fn(&str, axum::http::Request<axum::body::Body>) -> axum::response::Response
+            + Send
+            + Sync
+            + 'static,
+    ) -> (FalClient, String) {
         use axum::routing::any;
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -194,13 +226,23 @@ mod tests {
         let base2 = base.clone();
         let app = axum::Router::new().fallback(any(move |req| async move { handler(&base2, req) }));
         tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
-        (FalClient { http: reqwest::Client::new(), key: "test-key".into(), endpoint: base.clone() }, base)
+        (
+            FalClient {
+                http: reqwest::Client::new(),
+                key: "test-key".into(),
+                endpoint: base.clone(),
+            },
+            base,
+        )
     }
 
     #[tokio::test]
     async fn run_subscribes_and_polls_to_completion() {
         use axum::Json;
-        use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        };
         let calls = Arc::new(AtomicUsize::new(0));
         let calls2 = calls.clone();
         let (client, _) = mock_fal(move |base, req| {
@@ -216,7 +258,10 @@ mod tests {
             }
         }).await;
 
-        let out = client.run("model", serde_json::json!({ "prompt": "x" })).await.unwrap();
+        let out = client
+            .run("model", serde_json::json!({ "prompt": "x" }))
+            .await
+            .unwrap();
         assert_eq!(out["images"][0]["url"], "https://example.com/out.png");
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
@@ -231,8 +276,12 @@ mod tests {
             } else {
                 Json(serde_json::json!({ "request_id": "req-2" })).into_response()
             }
-        }).await;
-        let err = client.run("model", serde_json::json!({})).await.unwrap_err();
+        })
+        .await;
+        let err = client
+            .run("model", serde_json::json!({}))
+            .await
+            .unwrap_err();
         assert!(err.contains("ERROR"), "err = {err}");
     }
 
@@ -246,9 +295,17 @@ mod tests {
             } else {
                 Json(serde_json::json!({ "request_id": "req-3" })).into_response()
             }
-        }).await;
+        })
+        .await;
         let start = std::time::Instant::now();
-        let err = client.run_with_timeout("model", serde_json::json!({}), std::time::Duration::from_millis(150)).await.unwrap_err();
+        let err = client
+            .run_with_timeout(
+                "model",
+                serde_json::json!({}),
+                std::time::Duration::from_millis(150),
+            )
+            .await
+            .unwrap_err();
         assert!(err.contains("timeout"), "err = {err}");
         assert!(start.elapsed() >= std::time::Duration::from_millis(100));
     }
@@ -259,13 +316,22 @@ mod tests {
         let (client, base) = mock_fal(|_, req| {
             let path = req.uri().path().to_string();
             if path.ends_with("/upload") {
-                axum::Json(serde_json::json!({ "url": "https://storage.example.com/1.png" })).into_response()
+                axum::Json(serde_json::json!({ "url": "https://storage.example.com/1.png" }))
+                    .into_response()
             } else {
                 (StatusCode::NOT_FOUND, "nope").into_response()
             }
-        }).await;
-        let client = FalClient { http: client.http, key: client.key, endpoint: base };
-        let res = client.upload_to_path("/upload", b"png-bytes", "1.png", "image/png").await.unwrap();
+        })
+        .await;
+        let client = FalClient {
+            http: client.http,
+            key: client.key,
+            endpoint: base,
+        };
+        let res = client
+            .upload_to_path("/upload", b"png-bytes", "1.png", "image/png")
+            .await
+            .unwrap();
         assert_eq!(res, "https://storage.example.com/1.png");
     }
 }

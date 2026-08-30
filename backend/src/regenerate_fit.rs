@@ -59,14 +59,21 @@ fn dedupe_items(items: Vec<ItemBody>) -> Vec<Garment> {
         if !seen.insert(slot) {
             continue;
         }
-        out.push(Garment { slot, image_url: it.image_url, fit: it.fit, length: it.length });
+        out.push(Garment {
+            slot,
+            image_url: it.image_url,
+            fit: it.fit,
+            length: it.length,
+        });
     }
     out
 }
 
 pub fn regenerate_fit_store() -> Arc<JobStore<Progress>> {
     static STORE: OnceLock<Arc<JobStore<Progress>>> = OnceLock::new();
-    STORE.get_or_init(|| Arc::new(JobStore::new(SESSION_TTL))).clone()
+    STORE
+        .get_or_init(|| Arc::new(JobStore::new(SESSION_TTL)))
+        .clone()
 }
 
 async fn default_avatar(pool: &sqlx::PgPool, user_id: &str) -> Result<Option<String>, ApiError> {
@@ -114,7 +121,11 @@ fn url_from_result(out: &Value) -> Result<String, String> {
         .and_then(|a| a.first())
         .and_then(|i| i.get("url"))
         .and_then(|u| u.as_str())
-        .or_else(|| out.get("image").and_then(|i| i.get("url")).and_then(|u| u.as_str()))
+        .or_else(|| {
+            out.get("image")
+                .and_then(|i| i.get("url"))
+                .and_then(|u| u.as_str())
+        })
         .map(|s| s.to_string())
         .ok_or_else(|| format!("result missing url: {out}"))
 }
@@ -175,37 +186,46 @@ pub async fn dress_avatar(
     let mut image_urls = vec![mannequin];
     image_urls.extend(reachable_garments.iter().map(|g| g.1.clone()));
     let pass1 = fal
-        .run(PASS_MODEL, json!({
-            "prompt": prompt,
-            "image_urls": image_urls,
-            "num_images": 1,
-            "image_size": { "width": 832, "height": 1248 },
-        }))
+        .run(
+            PASS_MODEL,
+            json!({
+                "prompt": prompt,
+                "image_urls": image_urls,
+                "num_images": 1,
+                "image_size": { "width": 832, "height": 1248 },
+            }),
+        )
         .await?;
     let pass1_url = url_from_result(&pass1).map_err(|e| format!("pass1 {e}"))?;
 
     // ─── Pass 2: re-anchor identity/pose on the user's avatar ─────────────
     on_phase("pass2");
     let pass2 = fal
-        .run(PASS_MODEL, json!({
-            "prompt": prompts::TRYON_PROMPT,
-            "image_urls": [reachable_avatar, pass1_url],
-            "num_images": 1,
-            "image_size": { "width": 832, "height": 1248 },
-            "output_format": "png",
-        }))
+        .run(
+            PASS_MODEL,
+            json!({
+                "prompt": prompts::TRYON_PROMPT,
+                "image_urls": [reachable_avatar, pass1_url],
+                "num_images": 1,
+                "image_size": { "width": 832, "height": 1248 },
+                "output_format": "png",
+            }),
+        )
         .await?;
     let staged_url = url_from_result(&pass2).map_err(|e| format!("pass2 {e}"))?;
 
     // ─── Background remove + decontaminate ────────────────────────────────
     on_phase("rembg");
-    let rembg = fal.run(REMBG_MODEL, json!({ "image_url": staged_url })).await?;
+    let rembg = fal
+        .run(REMBG_MODEL, json!({ "image_url": staged_url }))
+        .await?;
     let rembg_url = rembg_image_url(&rembg)?;
     let staged_bytes = fal.fetch_bytes(&staged_url).await?;
     let rembg_bytes = fal.fetch_bytes(&rembg_url).await?;
     let decontaminated = imageproc::decontaminate(&rembg_bytes, &staged_bytes)?;
     imageproc::dev_dump("tryon-final.png", &decontaminated);
-    fal.upload(&decontaminated, "tryon-final.png", "image/png").await
+    fal.upload(&decontaminated, "tryon-final.png", "image/png")
+        .await
 }
 
 pub async fn start(
@@ -217,16 +237,24 @@ pub async fn start(
     let avatar = default_avatar(&state.pool, &auth.id).await?;
     let avatar = match avatar {
         Some(a) => a,
-        None => return Err(ApiError::precondition_failed("User has no defaultAvatarUrl. Run the seed.")),
+        None => {
+            return Err(ApiError::precondition_failed(
+                "User has no defaultAvatarUrl. Run the seed.",
+            ))
+        }
     };
     if body.items.is_empty() {
-        return Err(ApiError::bad_request("dressAvatar requires at least one garment"));
+        return Err(ApiError::bad_request(
+            "dressAvatar requires at least one garment",
+        ));
     }
     if body.items.len() > 5 {
         return Err(ApiError::bad_request("dressAvatar accepts at most 5 items"));
     }
     if dedupe_items(body.items.clone()).is_empty() {
-        return Err(ApiError::bad_request("dressAvatar requires at least one garment"));
+        return Err(ApiError::bad_request(
+            "dressAvatar requires at least one garment",
+        ));
     }
     let fal = state.fal.clone();
     let store = regenerate_fit_store();
@@ -234,7 +262,11 @@ pub async fn start(
     store.gc();
     store.insert(
         session_id.clone(),
-        Progress { phase: "pass1".into(), result_url: None, message: None },
+        Progress {
+            phase: "pass1".into(),
+            result_url: None,
+            message: None,
+        },
     );
     let store2 = store.clone();
     let session = session_id.clone();

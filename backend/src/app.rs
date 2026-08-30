@@ -113,10 +113,7 @@ pub fn build_router(state: AppState) -> axum::Router {
             post(crate::shared_outfits::unpublish),
         )
         .route("/api/me", get(crate::me::me))
-        .route(
-            "/api/steal-the-look",
-            post(crate::steal_the_look::start),
-        )
+        .route("/api/steal-the-look", post(crate::steal_the_look::start))
         .route(
             "/api/steal-the-look/{sessionId}",
             get(crate::steal_the_look::progress),

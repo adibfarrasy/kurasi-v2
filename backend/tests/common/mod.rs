@@ -29,7 +29,11 @@ impl Authenticator for TestAuthenticator {
 }
 
 pub fn test_app(pool: PgPool) -> axum::Router {
-    build_router(AppState::new(pool, Arc::new(TestAuthenticator), FalClient::new(String::new())))
+    build_router(AppState::new(
+        pool,
+        Arc::new(TestAuthenticator),
+        FalClient::new(String::new()),
+    ))
 }
 
 pub fn authed_request(

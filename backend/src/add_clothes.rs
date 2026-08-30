@@ -41,7 +41,9 @@ pub struct AnalyzeOutcome {
 
 pub fn add_clothes_store() -> Arc<JobStore<Progress>> {
     static STORE: OnceLock<Arc<JobStore<Progress>>> = OnceLock::new();
-    STORE.get_or_init(|| Arc::new(JobStore::new(SESSION_TTL))).clone()
+    STORE
+        .get_or_init(|| Arc::new(JobStore::new(SESSION_TTL)))
+        .clone()
 }
 
 pub async fn start(
@@ -49,15 +51,28 @@ pub async fn start(
     _auth: AuthUser,
     Json(body): Json<StartBody>,
 ) -> ApiResult<Json<Value>> {
-    if !matches!(body.mime_type.as_str(), "image/jpeg" | "image/png" | "image/webp") {
-        return Err(ApiError::validation("mimeType must be image/jpeg, image/png, or image/webp"));
+    if !matches!(
+        body.mime_type.as_str(),
+        "image/jpeg" | "image/png" | "image/webp"
+    ) {
+        return Err(ApiError::validation(
+            "mimeType must be image/jpeg, image/png, or image/webp",
+        ));
     }
     let buf = base64_decode(&body.image_base64)?;
     let fal = state.fal.clone();
     let store = add_clothes_store();
     let session_id = new_session_id();
     store.gc();
-    store.insert(session_id.clone(), Progress { phase: "analyze".into(), result: None, items: None, message: None });
+    store.insert(
+        session_id.clone(),
+        Progress {
+            phase: "analyze".into(),
+            result: None,
+            items: None,
+            message: None,
+        },
+    );
     let store2 = store.clone();
     let session = session_id.clone();
     tokio::spawn(async move {
@@ -90,7 +105,9 @@ async fn run_pipeline(
             });
         }
         _ => {
-            let item = outcome.item.ok_or_else(|| "analyze outcome missing item".to_string())?;
+            let item = outcome
+                .item
+                .ok_or_else(|| "analyze outcome missing item".to_string())?;
             let original_image_url = outcome.original_image_url;
             let processed_image_url = outcome.processed_image_url;
             store.update(session, |p| {
@@ -118,11 +135,14 @@ pub async fn analyze_single_clothing(
 ) -> Result<AnalyzeOutcome, String> {
     let original = fal.upload(buf, "add-clothes", mime).await?;
     let out = fal
-        .run(VISION_MODEL, json!({
-            "model": "google/gemini-2.5-flash",
-            "prompt": analyze_prompts::ANALYZE_PROMPT,
-            "image_url": original,
-        }))
+        .run(
+            VISION_MODEL,
+            json!({
+                "model": "google/gemini-2.5-flash",
+                "prompt": analyze_prompts::ANALYZE_PROMPT,
+                "image_url": original,
+            }),
+        )
         .await?;
     let text = out
         .get("output")
@@ -138,7 +158,9 @@ pub async fn analyze_single_clothing(
             item: None,
         }),
         _ => {
-            let mut item = parsed.item.ok_or_else(|| "analysis parsed without item".to_string())?;
+            let mut item = parsed
+                .item
+                .ok_or_else(|| "analysis parsed without item".to_string())?;
             let processed = refine_item(fal, buf, mime, &item.category).await?;
             let processed_png = fal.fetch_bytes(&processed).await?;
             item.colors = imageproc::extract_colors(&processed_png)?;
@@ -152,7 +174,12 @@ pub async fn analyze_single_clothing(
     }
 }
 
-async fn refine_item(fal: &FalClient, buf: &[u8], mime: &str, category: &str) -> Result<String, String> {
+async fn refine_item(
+    fal: &FalClient,
+    buf: &[u8],
+    mime: &str,
+    category: &str,
+) -> Result<String, String> {
     let item_url = fal.upload(buf, "item", mime).await?;
     steal_the_look::compose_refine(fal, &item_url, category).await
 }

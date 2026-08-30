@@ -37,16 +37,41 @@ pub struct StartBody {
 }
 
 pub fn get_outfit_tone(names: &[String]) -> String {
-    const WARM: [&str; 17] = ["red", "orange", "yellow", "brown", "tan", "rust", "beige", "cream", "khaki", "gold", "pink", "coral", "maroon", "burgundy", "rose", "mustard", "sand"];
-    const COOL: [&str; 12] = ["blue", "navy", "indigo", "teal", "cyan", "purple", "violet", "green", "mint", "turquoise", "sky", "sage"];
+    const WARM: [&str; 17] = [
+        "red", "orange", "yellow", "brown", "tan", "rust", "beige", "cream", "khaki", "gold",
+        "pink", "coral", "maroon", "burgundy", "rose", "mustard", "sand",
+    ];
+    const COOL: [&str; 12] = [
+        "blue",
+        "navy",
+        "indigo",
+        "teal",
+        "cyan",
+        "purple",
+        "violet",
+        "green",
+        "mint",
+        "turquoise",
+        "sky",
+        "sage",
+    ];
     let mut w = 0;
     let mut c = 0;
     for name in names {
         let n = name.trim().to_lowercase();
-        if WARM.contains(&n.as_str()) { w += 1; }
-        else if COOL.contains(&n.as_str()) { c += 1; }
+        if WARM.contains(&n.as_str()) {
+            w += 1;
+        } else if COOL.contains(&n.as_str()) {
+            c += 1;
+        }
     }
-    if w == c { "neutral".to_string() } else if w > c { "warm".to_string() } else { "cool".to_string() }
+    if w == c {
+        "neutral".to_string()
+    } else if w > c {
+        "warm".to_string()
+    } else {
+        "cool".to_string()
+    }
 }
 
 // --- detection ---
@@ -70,32 +95,58 @@ pub struct DetectedItem {
 
 pub async fn detect_items(fal: &FalClient, image_url: &str) -> Result<DetectResult, String> {
     let out = fal
-        .run(VISION_MODEL, json!({
-            "model": "google/gemini-2.5-flash",
-            "prompt": prompts::DETECT_PROMPT,
-            "image_url": image_url,
-        }))
+        .run(
+            VISION_MODEL,
+            json!({
+                "model": "google/gemini-2.5-flash",
+                "prompt": prompts::DETECT_PROMPT,
+                "image_url": image_url,
+            }),
+        )
         .await?;
     let text = out
         .get("output")
         .and_then(|v| v.as_str())
         .ok_or_else(|| format!("vision output missing: {out}"))?
         .trim();
-    let text = text.trim_start_matches("```json").trim_start_matches("```").trim_end_matches("```").trim();
-    let parsed: Value = serde_json::from_str(text).map_err(|e| format!("vision json parse: {e}"))?;
+    let text = text
+        .trim_start_matches("```json")
+        .trim_start_matches("```")
+        .trim_end_matches("```")
+        .trim();
+    let parsed: Value =
+        serde_json::from_str(text).map_err(|e| format!("vision json parse: {e}"))?;
     if let Some(err) = parsed.get("error").and_then(|v| v.as_str()) {
-        return Ok(DetectResult { items: vec![], error: Some(err.to_string()) });
+        return Ok(DetectResult {
+            items: vec![],
+            error: Some(err.to_string()),
+        });
     }
-    let arr = parsed.as_array().ok_or_else(|| format!("vision not an array: {parsed}"))?;
+    let arr = parsed
+        .as_array()
+        .ok_or_else(|| format!("vision not an array: {parsed}"))?;
     let mut items = Vec::new();
     for it in arr {
         let category = it.get("category").and_then(|v| v.as_str()).unwrap_or("");
-        if !matches!(category, "headwear" | "shirt" | "jacket" | "pants" | "footwear") {
+        if !matches!(
+            category,
+            "headwear" | "shirt" | "jacket" | "pants" | "footwear"
+        ) {
             continue;
         }
-        let title = it.get("title").and_then(|v| v.as_str()).unwrap_or("Wardrobe item").to_string();
-        let fit = it.get("fit").and_then(|v| v.as_str()).map(|s| s.to_string());
-        let length = it.get("length").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let title = it
+            .get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or("Wardrobe item")
+            .to_string();
+        let fit = it
+            .get("fit")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let length = it
+            .get("length")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
         let colors: Vec<ColorInfo> = it
             .get("colors")
             .and_then(|v| v.as_array())
@@ -113,10 +164,20 @@ pub async fn detect_items(fal: &FalClient, image_url: &str) -> Result<DetectResu
         if bbox.len() != 4 || bbox[2] <= 0.0 || bbox[3] <= 0.0 {
             continue;
         }
-        items.push(DetectedItem { category: category.to_string(), title, fit, length, colors, bbox });
+        items.push(DetectedItem {
+            category: category.to_string(),
+            title,
+            fit,
+            length,
+            colors,
+            bbox,
+        });
     }
     if items.is_empty() {
-        return Ok(DetectResult { items: vec![], error: Some("unknown".to_string()) });
+        return Ok(DetectResult {
+            items: vec![],
+            error: Some("unknown".to_string()),
+        });
     }
     Ok(DetectResult { items, error: None })
 }
@@ -125,7 +186,9 @@ pub async fn detect_items(fal: &FalClient, image_url: &str) -> Result<DetectResu
 
 pub fn steal_the_look_store() -> Arc<JobStore<StlProgress>> {
     static STORE: OnceLock<Arc<JobStore<StlProgress>>> = OnceLock::new();
-    STORE.get_or_init(|| Arc::new(JobStore::new(SESSION_TTL))).clone()
+    STORE
+        .get_or_init(|| Arc::new(JobStore::new(SESSION_TTL)))
+        .clone()
 }
 
 async fn default_avatar(pool: &sqlx::PgPool, user_id: &str) -> Result<Option<String>, ApiError> {
@@ -146,23 +209,44 @@ pub async fn start(
     let avatar = default_avatar(&state.pool, &auth.id).await?;
     let avatar = match avatar {
         Some(a) => a,
-        None => return Err(ApiError::precondition_failed("User has no defaultAvatarUrl. Run the seed.")),
+        None => {
+            return Err(ApiError::precondition_failed(
+                "User has no defaultAvatarUrl. Run the seed.",
+            ))
+        }
     };
     let buf = base64_decode(&body.image_base64)?;
-    if !matches!(body.mime_type.as_str(), "image/jpeg" | "image/png" | "image/webp") {
-        return Err(ApiError::validation("mimeType must be image/jpeg, image/png, or image/webp"));
+    if !matches!(
+        body.mime_type.as_str(),
+        "image/jpeg" | "image/png" | "image/webp"
+    ) {
+        return Err(ApiError::validation(
+            "mimeType must be image/jpeg, image/png, or image/webp",
+        ));
     }
     let fal = state.fal.clone();
     let pool = state.pool.clone();
     let store = steal_the_look_store();
     let session_id = new_session_id();
     store.gc();
-    store.insert(session_id.clone(), StlProgress { phase: "detect".into(), result: None, hero_image_url: None, items: None, tone: None, message: None });
+    store.insert(
+        session_id.clone(),
+        StlProgress {
+            phase: "detect".into(),
+            result: None,
+            hero_image_url: None,
+            items: None,
+            tone: None,
+            message: None,
+        },
+    );
     let store2 = store.clone();
     let avatar2 = avatar.clone();
     let session = session_id.clone();
     tokio::spawn(async move {
-        if let Err(e) = run_pipeline(fal, store2, &session, buf, body.mime_type, avatar2, pool).await {
+        if let Err(e) =
+            run_pipeline(fal, store2, &session, buf, body.mime_type, avatar2, pool).await
+        {
             tracing::error!(error = %e, session = %session, "steal-the-look pipeline failed");
             store.update(&session, |p| {
                 p.phase = "error".into();
@@ -188,7 +272,11 @@ async fn run_pipeline(
     let detect = detect_items(&fal, &inspiration).await?;
     if let Some(err) = detect.error {
         let tone = get_outfit_tone(&[]);
-        let result = if err == "multiple_people" { "multiple_people" } else { "unknown" };
+        let result = if err == "multiple_people" {
+            "multiple_people"
+        } else {
+            "unknown"
+        };
         store.update(session, |p| {
             p.phase = "done".into();
             p.result = Some(result.into());
@@ -247,7 +335,9 @@ async fn upload_template(fal: &FalClient, mode: &str) -> Result<String, String> 
         }
     }
     let bytes = prompts::template_bytes(mode)?;
-    let url = fal.upload(&bytes, &format!("{mode}.png"), "image/png").await?;
+    let url = fal
+        .upload(&bytes, &format!("{mode}.png"), "image/png")
+        .await?;
     let mut cache = template_url_cache().lock().expect("template cache lock");
     cache.insert(mode.to_string(), url.clone());
     Ok(url)
@@ -274,7 +364,11 @@ fn url_from_result(out: &Value) -> Result<String, String> {
         .and_then(|a| a.first())
         .and_then(|i| i.get("url"))
         .and_then(|u| u.as_str())
-        .or_else(|| out.get("image").and_then(|i| i.get("url")).and_then(|u| u.as_str()))
+        .or_else(|| {
+            out.get("image")
+                .and_then(|i| i.get("url"))
+                .and_then(|u| u.as_str())
+        })
         .map(|s| s.to_string())
         .ok_or_else(|| format!("staged result missing url: {out}"))
 }
@@ -283,7 +377,11 @@ fn url_from_result(out: &Value) -> Result<String, String> {
 /// refinement. Takes an already-uploaded item image URL and a category;
 /// returns the fal URL of the final canvas-anchored PNG. Used by both
 /// steal-the-look (bbox crop → refine) and add-clothes (raw upload → refine).
-pub async fn compose_refine(fal: &FalClient, item_url: &str, category: &str) -> Result<String, String> {
+pub async fn compose_refine(
+    fal: &FalClient,
+    item_url: &str,
+    category: &str,
+) -> Result<String, String> {
     let mode = prompts::category_to_mode(category);
     let label = prompts::category_label(category);
     let prompt = if mode == "flat" {
@@ -300,27 +398,41 @@ pub async fn compose_refine(fal: &FalClient, item_url: &str, category: &str) -> 
         image_urls.push(t);
     }
     let staged = fal
-        .run(EDIT_MODEL, json!({
-            "prompt": prompt,
-            "image_urls": image_urls,
-            "num_images": 1,
-            "image_size": { "width": 832, "height": 1248 },
-            "output_format": "png",
-        }))
+        .run(
+            EDIT_MODEL,
+            json!({
+                "prompt": prompt,
+                "image_urls": image_urls,
+                "num_images": 1,
+                "image_size": { "width": 832, "height": 1248 },
+                "output_format": "png",
+            }),
+        )
         .await?;
     let staged_url = url_from_result(&staged)?;
     let staged_bytes = fal.fetch_bytes(&staged_url).await?;
     imageproc::dev_dump(&format!("refine-staged-{category}.png"), &staged_bytes);
-    let rembg = fal.run("fal-ai/bria/background/remove", json!({ "image_url": staged_url })).await?;
+    let rembg = fal
+        .run(
+            "fal-ai/bria/background/remove",
+            json!({ "image_url": staged_url }),
+        )
+        .await?;
     let rembg_url = rembg_image_url(&rembg)?;
     let rembg_bytes = fal.fetch_bytes(&rembg_url).await?;
     let decon = imageproc::decontaminate(&rembg_bytes, &staged_bytes)?;
     let placed = imageproc::place_on_uniform_canvas(&decon, category)?;
     imageproc::dev_dump(&format!("refine-final-{category}.png"), &placed);
-    fal.upload(&placed, &format!("refined-{category}.png"), "image/png").await
+    fal.upload(&placed, &format!("refined-{category}.png"), "image/png")
+        .await
 }
 
-async fn refine_item(fal: &FalClient, inspiration: &str, item: &DetectedItem, _idx: usize) -> Result<String, String> {
+async fn refine_item(
+    fal: &FalClient,
+    inspiration: &str,
+    item: &DetectedItem,
+    _idx: usize,
+) -> Result<String, String> {
     // bbox crop by downloading source, cropping, then hanger-template compose
     let (img_w, img_h) = imageproc::fetch_dimensions(fal, inspiration).await?;
     let pad = match item.category.as_str() {
@@ -349,17 +461,27 @@ fn normalize_bbox(b: &[f64], w: u32, h: u32) -> (u32, u32, u32, u32) {
 
 async fn try_on(fal: &FalClient, avatar: &str, inspiration: &str) -> Result<String, String> {
     let avatar = ensure_fal_reachable(fal, avatar).await?;
-    let out = fal.run(EDIT_MODEL, json!({
-        "prompt": prompts::TRYON_PROMPT,
-        "image_urls": [avatar, inspiration],
-        "num_images": 1,
-        "image_size": { "width": 832, "height": 1248 },
-        "output_format": "png",
-    })).await?;
+    let out = fal
+        .run(
+            EDIT_MODEL,
+            json!({
+                "prompt": prompts::TRYON_PROMPT,
+                "image_urls": [avatar, inspiration],
+                "num_images": 1,
+                "image_size": { "width": 832, "height": 1248 },
+                "output_format": "png",
+            }),
+        )
+        .await?;
     let staged = url_from_result(&out)?;
     let staged_bytes = fal.fetch_bytes(&staged).await?;
     imageproc::dev_dump("tryon-staged.png", &staged_bytes);
-    let rembg = fal.run("fal-ai/bria/background/remove", json!({ "image_url": staged })).await?;
+    let rembg = fal
+        .run(
+            "fal-ai/bria/background/remove",
+            json!({ "image_url": staged }),
+        )
+        .await?;
     let rembg_url = rembg_image_url(&rembg)?;
     let rembg_bytes = fal.fetch_bytes(&rembg_url).await?;
     let decon = imageproc::decontaminate(&rembg_bytes, &staged_bytes)?;
@@ -372,14 +494,16 @@ pub async fn progress(
     _auth: AuthUser,
     Path(session_id): Path<String>,
 ) -> ApiResult<Json<Value>> {
-    let p = steal_the_look_store().get(&session_id).unwrap_or(StlProgress {
-        phase: "error".into(),
-        result: None,
-        hero_image_url: None,
-        items: None,
-        tone: None,
-        message: Some("Session not found (server may have restarted)".into()),
-    });
+    let p = steal_the_look_store()
+        .get(&session_id)
+        .unwrap_or(StlProgress {
+            phase: "error".into(),
+            result: None,
+            hero_image_url: None,
+            items: None,
+            tone: None,
+            message: Some("Session not found (server may have restarted)".into()),
+        });
     Ok(Json(json!(p)))
 }
 
