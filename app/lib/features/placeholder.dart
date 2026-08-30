@@ -1,17 +1,5 @@
 import 'package:flutter/material.dart';
 
-class MembershipCardScreen extends StatelessWidget {
-  const MembershipCardScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Membership Card')));
-}
-
-class AiCreditsScreen extends StatelessWidget {
-  const AiCreditsScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('AI Credits')));
-}
-
 class MyFitScreen extends StatelessWidget {
   const MyFitScreen({super.key});
   @override
