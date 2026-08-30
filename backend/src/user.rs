@@ -83,14 +83,14 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn provisions_new_user_with_hooks(pool: PgPool) {
-        let fb = ClaimsUser {
-            uid: "firebase-1".to_string(),
+        let cu = ClaimsUser {
+            uid: "user-1".to_string(),
             email: Some("a@test.com".to_string()),
             name: Some("Test User".to_string()),
             picture: None,
         };
-        let u = ensure_user(&pool, &fb).await.unwrap();
-        assert_eq!(u.id, "firebase-1");
+        let u = ensure_user(&pool, &cu).await.unwrap();
+        assert_eq!(u.id, "user-1");
         assert_eq!(u.email, "a@test.com");
         assert!(u.email_verified);
 
@@ -108,14 +108,14 @@ mod tests {
 
     #[sqlx::test(migrations = "./migrations")]
     async fn does_not_reprovision_existing_user(pool: PgPool) {
-        let fb = ClaimsUser {
-            uid: "firebase-1".to_string(),
+        let cu = ClaimsUser {
+            uid: "user-1".to_string(),
             email: Some("a@test.com".to_string()),
             name: Some("Test User".to_string()),
             picture: None,
         };
-        let first = ensure_user(&pool, &fb).await.unwrap();
-        let second = ensure_user(&pool, &fb).await.unwrap();
+        let first = ensure_user(&pool, &cu).await.unwrap();
+        let second = ensure_user(&pool, &cu).await.unwrap();
         assert_eq!(first.id, second.id);
         let count: i64 =
             sqlx::query_scalar("SELECT count(*) FROM onboarding_progress WHERE user_id=$1")

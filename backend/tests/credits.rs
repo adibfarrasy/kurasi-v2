@@ -50,30 +50,30 @@ async fn purchase_rejects_non_positive_amount(pool: sqlx::PgPool) {
 
 #[sqlx::test(migrations = "./migrations")]
 async fn two_users_share_email(pool: sqlx::PgPool) {
-    let fb1 = kurasi_backend::auth::ClaimsUser {
-        uid: "firebase-1".to_string(),
+    let cu1 = kurasi_backend::auth::ClaimsUser {
+        uid: "user-1".to_string(),
         email: Some("shared@test.com".to_string()),
         name: Some("One".to_string()),
         picture: None,
     };
-    let fb2 = kurasi_backend::auth::ClaimsUser {
-        uid: "firebase-2".to_string(),
+    let cu2 = kurasi_backend::auth::ClaimsUser {
+        uid: "user-2".to_string(),
         email: Some("shared@test.com".to_string()),
         name: Some("Two".to_string()),
         picture: None,
     };
-    let u1 = kurasi_backend::user::ensure_user(&pool, &fb1)
+    let u1 = kurasi_backend::user::ensure_user(&pool, &cu1)
         .await
         .unwrap();
-    let u2 = kurasi_backend::user::ensure_user(&pool, &fb2)
+    let u2 = kurasi_backend::user::ensure_user(&pool, &cu2)
         .await
         .unwrap();
-    assert_eq!(u1.id, "firebase-1");
-    assert_eq!(u2.id, "firebase-2");
+    assert_eq!(u1.id, "user-1");
+    assert_eq!(u2.id, "user-2");
     assert_eq!(u1.email, "shared@test.com");
     assert_eq!(u2.email, "shared@test.com");
 
-    for uid in ["firebase-1", "firebase-2"] {
+    for uid in ["user-1", "user-2"] {
         let (onboard_count, credit_count): (i64, i64) = sqlx::query_as(
             "SELECT (SELECT count(*) FROM onboarding_progress WHERE user_id=$1), \
                     (SELECT count(*) FROM credit_account WHERE user_id=$1)",

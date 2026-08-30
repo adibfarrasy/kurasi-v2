@@ -1,4 +1,4 @@
--- Core schema. Auth is Firebase: no session/account tables here.
+-- Core schema. Auth is handled by an external identity provider; no session/account tables here.
 -- User table retains trial_started_at.
 
 CREATE TABLE "user" (

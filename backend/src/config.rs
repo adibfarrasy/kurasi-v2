@@ -24,8 +24,10 @@ impl Config {
                 .ok()
                 .and_then(|p| p.parse().ok())
                 .unwrap_or(8989),
-            kratos_jwks_url: var("KRATOS_JWKS_URL").unwrap_or_else(|_| DEFAULT_KRATOS_JWKS_URL.to_string()),
-            kratos_issuer: var("KRATOS_ISSUER").unwrap_or_else(|_| DEFAULT_KRATOS_ISSUER.to_string()),
+            kratos_jwks_url: var("KRATOS_JWKS_URL")
+                .unwrap_or_else(|_| DEFAULT_KRATOS_JWKS_URL.to_string()),
+            kratos_issuer: var("KRATOS_ISSUER")
+                .unwrap_or_else(|_| DEFAULT_KRATOS_ISSUER.to_string()),
             environment: var("ENVIRONMENT").unwrap_or_else(|_| "production".to_string()),
             fal_key: var("FAL_KEY").unwrap_or_default(),
             output_dir: var("OUTPUT_DIR").unwrap_or_else(|_| "outputs".to_string()),

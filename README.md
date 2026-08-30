@@ -8,8 +8,8 @@ See [CLAUDE.md](./CLAUDE.md) for the full product vision and scope.
 
 Monorepo:
 
-- **`app/`** — Flutter mobile client. Firebase Auth.
-- **`backend/`** — Rust backend (Axum + sqlx on Postgres). Firebase Auth.
+- **`app/`** — Flutter mobile client. Kratos (OIDC) auth.
+- **`backend/`** — Rust backend (Axum + sqlx on Postgres). Kratos (OIDC) auth.
 - **`specs/`** — Allium behavioural specifications.
 
 ## Prerequisites

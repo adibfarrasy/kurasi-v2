@@ -111,11 +111,13 @@ impl Authenticator for KratosVerifier {
                     .ok_or(ApiError::unauthorized())?
             }
         };
-        let key = DecodingKey::from_rsa_components(&jwk.n, &jwk.e).map_err(|_| ApiError::unauthorized())?;
+        let key = DecodingKey::from_rsa_components(&jwk.n, &jwk.e)
+            .map_err(|_| ApiError::unauthorized())?;
         let mut validation = Validation::new(Algorithm::RS256);
         validation.set_issuer(std::slice::from_ref(&self.issuer));
         validation.validate_exp = true;
-        let data = decode::<KratosClaims>(token, &key, &validation).map_err(|_| ApiError::unauthorized())?;
+        let data = decode::<KratosClaims>(token, &key, &validation)
+            .map_err(|_| ApiError::unauthorized())?;
         if data.claims.sub.trim().is_empty() {
             return Err(ApiError::unauthorized());
         }
