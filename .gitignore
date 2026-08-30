@@ -58,5 +58,5 @@ app-example
 
 # Local-only directories
 .claude/
-design/
+/design/
 backend/outputs/
