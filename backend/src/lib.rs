@@ -1,3 +1,5 @@
+pub mod add_clothes;
+pub mod analyze_prompts;
 pub mod app;
 pub mod auth;
 pub mod auth_extractor;

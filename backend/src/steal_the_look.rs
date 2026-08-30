@@ -268,6 +268,58 @@ fn rembg_image_url(out: &Value) -> Result<String, String> {
         .ok_or_else(|| format!("background-remove missing url: {out}"))
 }
 
+fn url_from_result(out: &Value) -> Result<String, String> {
+    out.get("images")
+        .and_then(|a| a.as_array())
+        .and_then(|a| a.first())
+        .and_then(|i| i.get("url"))
+        .and_then(|u| u.as_str())
+        .or_else(|| out.get("image").and_then(|i| i.get("url")).and_then(|u| u.as_str()))
+        .map(|s| s.to_string())
+        .ok_or_else(|| format!("staged result missing url: {out}"))
+}
+
+/// Shared hanger/flat compose + rembg + decontaminate + place-on-canvas
+/// refinement. Takes an already-uploaded item image URL and a category;
+/// returns the fal URL of the final canvas-anchored PNG. Used by both
+/// steal-the-look (bbox crop → refine) and add-clothes (raw upload → refine).
+pub async fn compose_refine(fal: &FalClient, item_url: &str, category: &str) -> Result<String, String> {
+    let mode = prompts::category_to_mode(category);
+    let label = prompts::category_label(category);
+    let prompt = if mode == "flat" {
+        prompts::build_flat_prompt(label)
+    } else {
+        prompts::build_hanger_prompt(mode, label)
+    };
+    let template = match prompts::template_url(mode) {
+        Ok(_) => Some(upload_template(fal, mode).await?),
+        Err(_) => None,
+    };
+    let mut image_urls = vec![item_url.to_string()];
+    if let Some(t) = template {
+        image_urls.push(t);
+    }
+    let staged = fal
+        .run(EDIT_MODEL, json!({
+            "prompt": prompt,
+            "image_urls": image_urls,
+            "num_images": 1,
+            "image_size": { "width": 832, "height": 1248 },
+            "output_format": "png",
+        }))
+        .await?;
+    let staged_url = url_from_result(&staged)?;
+    let staged_bytes = fal.fetch_bytes(&staged_url).await?;
+    imageproc::dev_dump(&format!("refine-staged-{category}.png"), &staged_bytes);
+    let rembg = fal.run("fal-ai/bria/background/remove", json!({ "image_url": staged_url })).await?;
+    let rembg_url = rembg_image_url(&rembg)?;
+    let rembg_bytes = fal.fetch_bytes(&rembg_url).await?;
+    let decon = imageproc::decontaminate(&rembg_bytes, &staged_bytes)?;
+    let placed = imageproc::place_on_uniform_canvas(&decon, category)?;
+    imageproc::dev_dump(&format!("refine-final-{category}.png"), &placed);
+    fal.upload(&placed, &format!("refined-{category}.png"), "image/png").await
+}
+
 async fn refine_item(fal: &FalClient, inspiration: &str, item: &DetectedItem, _idx: usize) -> Result<String, String> {
     // bbox crop by downloading source, cropping, then hanger-template compose
     let (img_w, img_h) = imageproc::fetch_dimensions(fal, inspiration).await?;
@@ -284,43 +336,7 @@ async fn refine_item(fal: &FalClient, inspiration: &str, item: &DetectedItem, _i
     let w = (bw + 2 * pad_x).min(img_w - x);
     let h = (bh + 2 * pad_y).min(img_h - y);
     let crop = imageproc::crop_png(fal, inspiration, x, y, w, h).await?;
-    let mode = prompts::category_to_mode(&item.category);
-    let label = prompts::category_label(&item.category);
-    let prompt = if mode == "flat" {
-        prompts::build_flat_prompt(label)
-    } else {
-        prompts::build_hanger_prompt(mode, label)
-    };
-    let template = match prompts::template_url(mode) {
-        Ok(_) => Some(upload_template(fal, mode).await?),
-        Err(_) => None,
-    };
-    let mut image_urls = vec![crop];
-    if let Some(t) = template {
-        image_urls.push(t);
-    }
-    let staged = fal
-        .run(EDIT_MODEL, json!({
-            "prompt": prompt,
-            "image_urls": image_urls,
-            "num_images": 1,
-            "image_size": { "width": 832, "height": 1248 },
-            "output_format": "png",
-        }))
-        .await?;
-    let staged_url = staged.get("images").and_then(|a| a.as_array()).and_then(|a| a.first()).and_then(|i| i.get("url")).and_then(|u| u.as_str())
-        .or_else(|| staged.get("image").and_then(|i| i.get("url")).and_then(|u| u.as_str()))
-        .ok_or_else(|| format!("staged result missing url: {staged}"))?
-        .to_string();
-    let staged_bytes = fal.fetch_bytes(&staged_url).await?;
-    imageproc::dev_dump(&format!("refine-staged-{}.png", item.category), &staged_bytes);
-    let rembg = fal.run("fal-ai/bria/background/remove", json!({ "image_url": staged_url })).await?;
-    let rembg_url = rembg_image_url(&rembg)?;
-    let rembg_bytes = fal.fetch_bytes(&rembg_url).await?;
-    let decon = imageproc::decontaminate(&rembg_bytes, &staged_bytes)?;
-    let placed = imageproc::place_on_uniform_canvas(&decon, &item.category)?;
-    imageproc::dev_dump(&format!("refine-final-{}.png", item.category), &placed);
-    fal.upload(&placed, &format!("refined-{}.png", item.category), "image/png").await
+    compose_refine(fal, &crop, &item.category).await
 }
 
 fn normalize_bbox(b: &[f64], w: u32, h: u32) -> (u32, u32, u32, u32) {
@@ -340,10 +356,7 @@ async fn try_on(fal: &FalClient, avatar: &str, inspiration: &str) -> Result<Stri
         "image_size": { "width": 832, "height": 1248 },
         "output_format": "png",
     })).await?;
-    let staged = out.get("images").and_then(|a| a.as_array()).and_then(|a| a.first()).and_then(|i| i.get("url")).and_then(|u| u.as_str())
-        .or_else(|| out.get("image").and_then(|i| i.get("url")).and_then(|u| u.as_str()))
-        .ok_or_else(|| format!("tryon missing url: {out}"))?
-        .to_string();
+    let staged = url_from_result(&out)?;
     let staged_bytes = fal.fetch_bytes(&staged).await?;
     imageproc::dev_dump("tryon-staged.png", &staged_bytes);
     let rembg = fal.run("fal-ai/bria/background/remove", json!({ "image_url": staged })).await?;

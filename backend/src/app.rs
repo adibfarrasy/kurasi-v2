@@ -121,6 +121,11 @@ pub fn build_router(state: AppState) -> axum::Router {
             "/api/steal-the-look/{sessionId}",
             get(crate::steal_the_look::progress),
         )
+        .route("/api/wardrobe/upload", post(crate::add_clothes::start))
+        .route(
+            "/api/wardrobe/upload/{sessionId}",
+            get(crate::add_clothes::progress),
+        )
         .route(
             "/api/subscription",
             get(crate::subscription::get).post(crate::subscription::start),
