@@ -1,23 +1,5 @@
 import 'package:flutter/material.dart';
 
-class OnboardingOneScreen extends StatelessWidget {
-  const OnboardingOneScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Onboarding 1')));
-}
-
-class OnboardingTwoScreen extends StatelessWidget {
-  const OnboardingTwoScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Onboarding 2')));
-}
-
-class OnboardingThreeScreen extends StatelessWidget {
-  const OnboardingThreeScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Onboarding 3')));
-}
-
 class CaptureFaceScreen extends StatelessWidget {
   const CaptureFaceScreen({super.key});
   @override
