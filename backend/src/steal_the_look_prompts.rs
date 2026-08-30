@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 /// Verbatim detect prompt from the legacy steal-the-look pipeline (rendered
 /// value of the old DETECT_PROMPT template literal).
 pub const DETECT_PROMPT: &str = r##"You are a fashion analyst. Look at the photo and detect every clothing item visible on the single person in the frame that fits one of these EXACT categories. DISCARD anything else (bags, scarves, jewelry, watches, glasses, sunglasses, ties, belts, dresses, skirts, shorts, etc.) — do NOT include them in the output.
@@ -127,27 +125,24 @@ pub fn category_label(category: &str) -> &'static str {
     }
 }
 
-fn assets_dir() -> PathBuf {
-    let dir = std::env::var("AVATAR_ASSETS_DIR").unwrap_or_else(|_| "avatar/assets".to_string());
-    PathBuf::from(dir)
+/// True when `mode` has an embedded template asset.
+pub fn template_url(mode: &str) -> Result<(), String> {
+    match mode {
+        "hanger-top" | "hanger-bottom" | "headwear-base" => Ok(()),
+        _ => Err(format!("no template asset for mode {mode}")),
+    }
 }
 
-/// Local filesystem path of the template asset for a refine mode, relative to
-/// the backend directory (overridable via AVATAR_ASSETS_DIR). The pipeline
-/// reads these bytes and uploads them to fal storage before use.
-pub fn template_url(mode: &str) -> Result<String, String> {
-    let file = match mode {
-        "hanger-top" => "hanger-top.png",
-        "hanger-bottom" => "hanger-bottom.png",
-        "headwear-base" => "headwear-base.png",
-        _ => return Err(format!("no template asset for mode {mode}")),
-    };
-    Ok(assets_dir().join(file).to_string_lossy().into_owned())
-}
-
+/// Bytes of the embedded template asset for a refine mode. The PNGs are baked
+/// into the binary at compile time so the server is self-contained and
+/// CWD-independent.
 pub fn template_bytes(mode: &str) -> Result<Vec<u8>, String> {
-    let path = template_url(mode)?;
-    std::fs::read(&path).map_err(|e| format!("failed to read template {path}: {e}"))
+    match mode {
+        "hanger-top" => Ok(include_bytes!("../avatar/assets/hanger-top.png").to_vec()),
+        "hanger-bottom" => Ok(include_bytes!("../avatar/assets/hanger-bottom.png").to_vec()),
+        "headwear-base" => Ok(include_bytes!("../avatar/assets/headwear-base.png").to_vec()),
+        _ => Err(format!("no template asset for mode {mode}")),
+    }
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@ use crate::error::{ApiError, ApiResult};
 use crate::fal::{ensure_fal_reachable, FalClient};
 use crate::imageproc;
 use crate::jobs::{new_session_id, JobStore};
-use crate::models::ColorInfo;
+use crate::models::{ColorInfo, ItemFit, ItemLength};
 use crate::steal_the_look_prompts as prompts;
 use axum::extract::{Path, State};
 use axum::Json;
@@ -93,6 +93,53 @@ pub struct DetectedItem {
     pub bbox: Vec<f64>,
 }
 
+/// Coerces model-reported fit/length to the legacy client contract. Fit is
+/// honored only for shirt/jacket/pants and must be one of the ItemFit values;
+/// length only for jacket (hem positions) or pants (short/ankle positions).
+/// Anything else is nulled.
+fn coerce_fit_len(
+    category: &str,
+    fit: Option<&str>,
+    length: Option<&str>,
+) -> (Option<String>, Option<String>) {
+    let fit = match category {
+        "shirt" | "jacket" | "pants" => fit
+            .and_then(|f| serde_json::from_str::<ItemFit>(&format!("\"{f}\"")).ok())
+            .map(|f| f.as_str().to_string()),
+        _ => None,
+    };
+    let length = match category {
+        "jacket" => length
+            .and_then(|l| serde_json::from_str::<ItemLength>(&format!("\"{l}\"")).ok())
+            .filter(|l| {
+                matches!(
+                    l,
+                    ItemLength::Cropped
+                        | ItemLength::Waist
+                        | ItemLength::Hip
+                        | ItemLength::Thigh
+                        | ItemLength::Knee
+                        | ItemLength::FullLength
+                )
+            })
+            .map(|l| l.as_str().to_string()),
+        "pants" => length
+            .and_then(|l| serde_json::from_str::<ItemLength>(&format!("\"{l}\"")).ok())
+            .filter(|l| {
+                matches!(
+                    l,
+                    ItemLength::ThighShorts
+                        | ItemLength::KneeShorts
+                        | ItemLength::AnkleLength
+                        | ItemLength::FullLength
+                )
+            })
+            .map(|l| l.as_str().to_string()),
+        _ => None,
+    };
+    (fit, length)
+}
+
 pub async fn detect_items(fal: &FalClient, image_url: &str) -> Result<DetectResult, String> {
     let out = fal
         .run(
@@ -139,14 +186,11 @@ pub async fn detect_items(fal: &FalClient, image_url: &str) -> Result<DetectResu
             .and_then(|v| v.as_str())
             .unwrap_or("Wardrobe item")
             .to_string();
-        let fit = it
-            .get("fit")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        let length = it
-            .get("length")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
+        let (fit, length) = coerce_fit_len(
+            category,
+            it.get("fit").and_then(|v| v.as_str()),
+            it.get("length").and_then(|v| v.as_str()),
+        );
         let colors: Vec<ColorInfo> = it
             .get("colors")
             .and_then(|v| v.as_array())
@@ -215,6 +259,9 @@ pub async fn start(
             ))
         }
     };
+    if body.image_base64.len() > 20 * 1024 * 1024 {
+        return Err(ApiError::validation("imageBase64 is too large"));
+    }
     let buf = base64_decode(&body.image_base64)?;
     if !matches!(
         body.mime_type.as_str(),
@@ -225,7 +272,6 @@ pub async fn start(
         ));
     }
     let fal = state.fal.clone();
-    let pool = state.pool.clone();
     let store = steal_the_look_store();
     let session_id = new_session_id();
     store.gc();
@@ -244,13 +290,11 @@ pub async fn start(
     let avatar2 = avatar.clone();
     let session = session_id.clone();
     tokio::spawn(async move {
-        if let Err(e) =
-            run_pipeline(fal, store2, &session, buf, body.mime_type, avatar2, pool).await
-        {
+        if let Err(e) = run_pipeline(fal, store2, &session, buf, body.mime_type, avatar2).await {
             tracing::error!(error = %e, session = %session, "steal-the-look pipeline failed");
             store.update(&session, |p| {
                 p.phase = "error".into();
-                p.message = Some(e);
+                p.message = Some("Could not process this photo. Please try again.".into());
             });
         }
     });
@@ -264,7 +308,6 @@ async fn run_pipeline(
     buf: Vec<u8>,
     mime: String,
     avatar: String,
-    pool: sqlx::PgPool,
 ) -> Result<(), String> {
     // upload inspiration
     let inspiration = fal.upload(&buf, "inspiration", &mime).await?;
@@ -316,7 +359,6 @@ async fn run_pipeline(
         p.items = Some(items_out);
         p.tone = Some(tone);
     });
-    let _ = pool;
     Ok(())
 }
 
@@ -404,7 +446,7 @@ pub async fn compose_refine(
                 "prompt": prompt,
                 "image_urls": image_urls,
                 "num_images": 1,
-                "image_size": { "width": 832, "height": 1248 },
+                "image_size": { "width": 832, "height": 1024 },
                 "output_format": "png",
             }),
         )
@@ -512,4 +554,44 @@ fn base64_decode(s: &str) -> Result<Vec<u8>, ApiError> {
     base64::engine::general_purpose::STANDARD
         .decode(s)
         .map_err(|_| ApiError::validation("imageBase64 is not valid base64"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn coercion_nulls_invalid_fit() {
+        let (fit, length) = coerce_fit_len("shirt", Some("skinny"), Some("full-length"));
+        assert_eq!(fit.as_deref(), Some("skinny"));
+        assert_eq!(length, None);
+
+        let (fit, length) = coerce_fit_len("pants", Some("regular"), Some("thigh-shorts"));
+        assert_eq!(fit.as_deref(), Some("regular"));
+        assert_eq!(length.as_deref(), Some("thigh-shorts"));
+
+        let (fit, length) = coerce_fit_len("pants", Some("baggy"), Some("full-length"));
+        assert_eq!(fit, None);
+        assert_eq!(length.as_deref(), Some("full-length"));
+
+        let (fit, length) = coerce_fit_len("jacket", Some("oversize"), Some("knee"));
+        assert_eq!(fit.as_deref(), Some("oversize"));
+        assert_eq!(length.as_deref(), Some("knee"));
+
+        let (fit, length) = coerce_fit_len("headwear", Some("regular"), Some("thigh-shorts"));
+        assert_eq!(fit, None);
+        assert_eq!(length, None);
+
+        let (fit, length) = coerce_fit_len("footwear", Some("skinny"), Some("ankle-length"));
+        assert_eq!(fit, None);
+        assert_eq!(length, None);
+    }
+
+    #[test]
+    fn coercion_validates_length_by_category() {
+        let (_, length) = coerce_fit_len("jacket", None, Some("thigh-shorts"));
+        assert_eq!(length, None);
+        let (_, length) = coerce_fit_len("pants", None, Some("waist"));
+        assert_eq!(length, None);
+    }
 }

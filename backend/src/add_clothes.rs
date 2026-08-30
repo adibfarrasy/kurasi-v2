@@ -59,6 +59,9 @@ pub async fn start(
             "mimeType must be image/jpeg, image/png, or image/webp",
         ));
     }
+    if body.image_base64.len() > 20 * 1024 * 1024 {
+        return Err(ApiError::validation("imageBase64 is too large"));
+    }
     let buf = base64_decode(&body.image_base64)?;
     let fal = state.fal.clone();
     let store = add_clothes_store();
@@ -112,7 +115,7 @@ async fn run_pipeline(
             let processed_image_url = outcome.processed_image_url;
             store.update(session, |p| {
                 p.phase = "done".into();
-                p.result = Some("ok".into());
+                p.result = Some("no_error".into());
                 p.items = Some(vec![json!({
                     "title": item.title,
                     "category": item.category,

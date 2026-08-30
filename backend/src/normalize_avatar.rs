@@ -271,6 +271,9 @@ pub async fn start(
             "mimeType must be image/jpeg, image/png, or image/webp",
         ));
     }
+    if body.image_base64.len() > 20 * 1024 * 1024 {
+        return Err(ApiError::validation("imageBase64 is too large"));
+    }
     let buf = base64_decode(&body.image_base64)?;
 
     let fal = state.fal.clone();

@@ -276,7 +276,7 @@ pub async fn start(
             tracing::error!(error = %e, session = %session, "regenerate-fit pipeline failed");
             store.update(&session, |p| {
                 p.phase = "error".into();
-                p.message = Some(e);
+                p.message = Some("Could not generate your avatar. Please try again.".into());
             });
         }
     });
