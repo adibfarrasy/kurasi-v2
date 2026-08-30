@@ -9,24 +9,22 @@ env:
 
 tasks:
   app-dev:
+    desc: Run the Flutter app
     dir: app
     cmds:
-      - bun run start
+      - flutter run
 
-  ios-clean-prebuild:
+  app-analyze:
+    desc: Analyze the Flutter app
     dir: app
     cmds:
-      - npx expo prebuild -p ios --clean
+      - flutter analyze
 
-  ios-dev:
+  app-test:
+    desc: Run Flutter tests
     dir: app
     cmds:
-      - bun run ios
-
-  ios-dev-device:
-    dir: app
-    cmds:
-      - bun run ios:device
+      - flutter test
 
   be-infra:
     desc: Run local Postgres + Mailpit
@@ -77,51 +75,10 @@ tasks:
       - bash -c 'until docker compose exec -T db pg_isready -U postgres >/dev/null 2>&1; do sleep 0.5; done'
       - task db-migrate:local
 
-  deploy-testflight:
-    desc: Deploy to TestFlight
-    dir: app
-    cmds:
-      - bunx testflight
-
-  app-build:ios:
-    desc: Build iOS dev client via EAS Build
-    dir: app
-    cmds:
-      - bun run build:ios -- --non-interactive
-
-  app-build:ios-simulator:
-    desc: Build iOS simulator dev client via EAS Build
-    dir: app
-    cmds:
-      - bun run build:ios:simulator -- --non-interactive
-
-  app-build:android:
-    desc: Build Android APK locally (preview profile) → app/kurasi-preview.apk
-    dir: app
-    cmds:
-      - bun run build:android -- --non-interactive
-
-  # Lint
-  lint:
-    desc: Run Biome linter (app)
-    cmds:
-      - bun lint
-
-  typecheck:
-    desc: Run type checker (app)
-    cmds:
-      - bun --workspaces run typecheck
-
-  test:
-    desc: Run tests (app)
-    cmds:
-      - bun test
-
   ci:
     desc: Run all CI checks (app + backend)
     cmds:
-      - task: lint
-      - task: typecheck
-      - task: test
+      - task: app-analyze
+      - task: app-test
       - task: be-lint
       - task: be-test

@@ -8,13 +8,13 @@ See [CLAUDE.md](./CLAUDE.md) for the full product vision and scope.
 
 Monorepo:
 
-- **`app/`** — Expo (React Native) mobile client. TanStack Query, Uniwind/Tailwind.
+- **`app/`** — Flutter mobile client. Firebase Auth.
 - **`backend/`** — Rust backend (Axum + sqlx on Postgres). Firebase Auth.
 - **`specs/`** — Allium behavioural specifications.
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) (app)
+- [Flutter](https://docs.flutter.dev) (app)
 - [Rust](https://rustup.rs) (backend)
 - [Task](https://taskfile.dev) — task runner (`brew install go-task`)
 - [sqlx-cli](https://crates.io/crates/sqlx-cli) — `cargo install sqlx-cli`
@@ -23,7 +23,7 @@ Monorepo:
 ## Setup
 
 ```bash
-bun install
+cd app && flutter pub get
 cd backend && cargo build
 ```
 
@@ -35,24 +35,14 @@ Run each in its own terminal:
 task be-infra           # local Postgres + Mailpit (optional if you have your own)
 task db-migrate:local   # apply sqlx migrations to the local DB
 task be-dev             # rebuild + run
-task app-dev            # Expo dev server — press i / a / w to launch
-```
-
-Native builds for the Expo app:
-
-```bash
-cd app && bun run ios        # local iOS build
-cd app && bun run android    # local Android build
-task app-build:ios-simulator # EAS dev client (simulator)
-task app-build:ios           # EAS dev client (device)
+task app-dev            # run the Flutter app on a connected device/simulator
 ```
 
 ## Checks
 
 ```bash
-task lint        # Biome (app)
-task typecheck   # tsc across workspaces (app)
-task test        # bun test (app)
+task app-analyze # flutter analyze (app)
+task app-test    # flutter test (app)
 task be-lint     # cargo clippy
 task be-test     # cargo test (needs local Postgres)
 task ci          # all of the above

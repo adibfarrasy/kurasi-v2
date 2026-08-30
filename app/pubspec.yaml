@@ -42,4 +42,18 @@ flutter:
       fonts:
         - asset: assets/fonts/KirangHaerang-Regular.ttf
   assets:
-    - assets/
+    - assets/logomark.png
+    - assets/logomark@2x.png
+    - assets/logomark@3x.png
+    - assets/mannequin.png
+    - assets/onboarding-credits-bl-denim-jacket.png
+    - assets/onboarding-credits-br-models-pair.png
+    - assets/onboarding-credits-center.png
+    - assets/onboarding-credits-tl-coat-man.png
+    - assets/onboarding-credits-tr-loafers.png
+    - assets/smiley-face.png
+    - assets/splash.png
+    - assets/splash@2x.png
+    - assets/splash@3x.png
+    - assets/test-face.png
+    - assets/top-flair.png
