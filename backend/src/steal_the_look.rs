@@ -129,12 +129,13 @@ pub fn steal_the_look_store() -> Arc<JobStore<StlProgress>> {
 }
 
 async fn default_avatar(pool: &sqlx::PgPool, user_id: &str) -> Result<Option<String>, ApiError> {
-    Ok(sqlx::query_scalar(
+    Ok(sqlx::query_scalar::<_, Option<String>>(
         "SELECT default_avatar_url FROM user_biometrics WHERE user_id=$1",
     )
     .bind(user_id)
     .fetch_optional(pool)
-    .await?)
+    .await?
+    .flatten())
 }
 
 pub async fn start(
@@ -187,9 +188,10 @@ async fn run_pipeline(
     let detect = detect_items(&fal, &inspiration).await?;
     if let Some(err) = detect.error {
         let tone = get_outfit_tone(&[]);
+        let result = if err == "multiple_people" { "multiple_people" } else { "unknown" };
         store.update(session, |p| {
             p.phase = "done".into();
-            p.result = Some(err.clone());
+            p.result = Some(result.into());
             p.hero_image_url = Some(avatar.clone());
             p.items = Some(vec![]);
             p.tone = Some(tone);
