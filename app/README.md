@@ -10,30 +10,19 @@ against the Rust backend in `../backend`.
 flutter pub get
 ```
 
-### Firebase setup
+### Kratos auth
 
-Auth uses Firebase (via `firebase_auth` + `google_sign_in`), so a Firebase
-project is **required** for sign-in to work.
-
-1. Create/register a Firebase app for bundle id `com.kurasi.kurasi`.
-2. iOS: download `GoogleService-Info.plist` and place it at
-   `ios/Runner/GoogleService-Info.plist`.
-3. Android: download `google-services.json` and place it at
-   `android/app/google-services.json`, then add the Google services Gradle
-   plugin in `android/`:
-   - `android/settings.gradle.kts`:
-     `id("com.google.gms.google-services") version "<latest>" apply false`
-   - `android/app/build.gradle.kts`:
-     `id("com.google.gms.google-services")`
-4. The iOS Google sign-in uses the URL scheme
-   `com.googleusercontent.apps.1022627012101-1o95h30br6qgdho0ial4dcjc7tidu17b`
-   (already registered in `ios/Runner/Info.plist`). Ensure the iOS client id
-   matches the one in `lib/main.dart` (`serverClientId`).
+Auth uses Ory Kratos (OIDC) via `flutter_web_auth_2`. The app runs the Kratos
+browser login flow, exchanges the session for a tokenized JWT, and stores it in
+`flutter_secure_storage`. A running Kratos instance is required for sign-in;
+point the app at it with `--dart-define=KRATOS_URL` (default
+`http://localhost:4433`). The OIDC callback scheme `kurasi` is registered in
+`ios/Runner/Info.plist`.
 
 ## Running
 
 ```sh
-flutter run --dart-define=API_URL=http://localhost:8989
+flutter run --dart-define=API_URL=http://localhost:8989 --dart-define=KRATOS_URL=http://localhost:4433
 ```
 
 `API_URL` defaults to `http://localhost:8989` (the local backend).

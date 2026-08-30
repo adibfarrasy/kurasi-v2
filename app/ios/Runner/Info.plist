@@ -33,7 +33,7 @@
 			<string>com.kurasi.kurasi</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.1022627012101-1o95h30br6qgdho0ial4dcjc7tidu17b</string>
+				<string>kurasi</string>
 			</array>
 		</dict>
 	</array>
