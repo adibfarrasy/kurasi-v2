@@ -21,7 +21,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let verifier =
         FirebaseVerifier::new(config.firebase_project_id.clone(), config.jwks_url.clone());
-    let state = AppState::new(pool, Arc::new(verifier));
+    let state = AppState::new(
+        pool,
+        Arc::new(verifier),
+        kurasi_backend::fal::FalClient::new(config.fal_key.clone()),
+    );
     let app = build_router(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));

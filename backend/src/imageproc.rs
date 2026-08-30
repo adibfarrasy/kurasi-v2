@@ -14,6 +14,31 @@ pub fn image_size(bytes: &[u8]) -> Result<(u32, u32), String> {
     Ok(img.dimensions())
 }
 
+pub async fn fetch_dimensions(fal: &crate::fal::FalClient, url: &str) -> Result<(u32, u32), String> {
+    let bytes = fal.fetch_bytes(url).await?;
+    image_size(&bytes)
+}
+
+pub async fn crop_png(
+    fal: &crate::fal::FalClient,
+    url: &str,
+    x: u32,
+    y: u32,
+    w: u32,
+    h: u32,
+) -> Result<String, String> {
+    let bytes = fal.fetch_bytes(url).await?;
+    let img = image::load_from_memory(&bytes).map_err(|e| e.to_string())?.to_rgba8();
+    let (iw, ih) = img.dimensions();
+    let x = x.min(iw - 1);
+    let y = y.min(ih - 1);
+    let w = w.min(iw - x).max(1);
+    let h = h.min(ih - y).max(1);
+    let cropped = image::imageops::crop_imm(&img, x, y, w, h).to_image();
+    let png = encode(cropped)?;
+    fal.upload(&png, "crop.png", "image/png").await
+}
+
 pub fn dev_dump(name: &str, bytes: &[u8]) {
     if crate::fal::is_dev_mode() {
         let dir = std::env::var("OUTPUT_DIR").unwrap_or_else(|_| "outputs".to_string());

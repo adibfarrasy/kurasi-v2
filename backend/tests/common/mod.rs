@@ -4,6 +4,7 @@ use axum::http::{Method, Request, StatusCode};
 use kurasi_backend::app::{build_router, AppState};
 use kurasi_backend::auth::{Authenticator, FirebaseUser};
 use kurasi_backend::error::ApiError;
+use kurasi_backend::fal::FalClient;
 use sqlx::PgPool;
 use std::sync::Arc;
 use tower::ServiceExt;
@@ -28,7 +29,7 @@ impl Authenticator for TestAuthenticator {
 }
 
 pub fn test_app(pool: PgPool) -> axum::Router {
-    build_router(AppState::new(pool, Arc::new(TestAuthenticator)))
+    build_router(AppState::new(pool, Arc::new(TestAuthenticator), FalClient::new(String::new())))
 }
 
 pub fn authed_request(

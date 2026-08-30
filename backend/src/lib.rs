@@ -20,6 +20,8 @@ pub mod outfit_recommendation;
 pub mod outfits;
 pub mod saved_styles;
 pub mod shared_outfits;
+pub mod steal_the_look;
+pub mod steal_the_look_prompts;
 pub mod style_cards;
 pub mod style_interactions;
 pub mod subscription;

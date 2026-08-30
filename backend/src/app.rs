@@ -1,5 +1,6 @@
 use crate::auth::Authenticator;
 use crate::error::ApiError;
+use crate::fal::FalClient;
 use sqlx::PgPool;
 use std::sync::Arc;
 use tower_http::services::ServeDir;
@@ -8,13 +9,15 @@ use tower_http::services::ServeDir;
 pub struct AppState {
     pub pool: PgPool,
     pub authenticator: Arc<dyn Authenticator>,
+    pub fal: FalClient,
 }
 
 impl AppState {
-    pub fn new(pool: PgPool, authenticator: Arc<dyn Authenticator>) -> Self {
+    pub fn new(pool: PgPool, authenticator: Arc<dyn Authenticator>, fal: FalClient) -> Self {
         AppState {
             pool,
             authenticator,
+            fal,
         }
     }
 }
@@ -110,6 +113,14 @@ pub fn build_router(state: AppState) -> axum::Router {
             post(crate::shared_outfits::unpublish),
         )
         .route("/api/me", get(crate::me::me))
+        .route(
+            "/api/steal-the-look",
+            post(crate::steal_the_look::start),
+        )
+        .route(
+            "/api/steal-the-look/{sessionId}",
+            get(crate::steal_the_look::progress),
+        )
         .route(
             "/api/subscription",
             get(crate::subscription::get).post(crate::subscription::start),
