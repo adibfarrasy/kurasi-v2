@@ -7,24 +7,6 @@ class _PlaceholderScreen extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(body: Center(child: Text(title)));
 }
 
-class UploadWardrobeGuideScreen extends StatelessWidget {
-  const UploadWardrobeGuideScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const _PlaceholderScreen('Upload Wardrobe Guide');
-}
-
-class UploadWardrobeScreen extends StatelessWidget {
-  const UploadWardrobeScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const _PlaceholderScreen('Upload Wardrobe');
-}
-
-class UploadWardrobeReviewScreen extends StatelessWidget {
-  const UploadWardrobeReviewScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const _PlaceholderScreen('Upload Wardrobe Review');
-}
-
 class SubscriptionScreen extends StatelessWidget {
   const SubscriptionScreen({super.key});
   @override

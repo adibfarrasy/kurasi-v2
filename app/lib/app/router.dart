@@ -18,6 +18,9 @@ import '../features/steal_the_look/analyzing_screen.dart';
 import '../features/steal_the_look/failed_screen.dart';
 import '../features/steal_the_look/guide_screen.dart';
 import '../features/tryon/tryon_screen.dart';
+import '../features/wardrobe/upload_guide_screen.dart';
+import '../features/wardrobe/upload_processing_screen.dart';
+import '../features/wardrobe/upload_review_screen.dart';
 import '../features/wardrobe/wardrobe_screen.dart';
 
 final onboardingCompleteProvider = NotifierProvider<OnboardingFlag, bool>(OnboardingFlag.new);
@@ -92,8 +95,18 @@ GoRouter buildRouter(Ref ref) {
         ],
       ),
       GoRoute(path: '/upload-wardrobe-guide', builder: (_, __) => const UploadWardrobeGuideScreen()),
-      GoRoute(path: '/upload-wardrobe', builder: (_, __) => const UploadWardrobeScreen()),
-      GoRoute(path: '/upload-wardrobe-review', builder: (_, __) => const UploadWardrobeReviewScreen()),
+      GoRoute(
+        path: '/upload-wardrobe',
+        builder: (_, state) =>
+            UploadWardrobeScreen(uris: state.uri.queryParameters['uris']),
+      ),
+      GoRoute(
+        path: '/upload-wardrobe-review',
+        builder: (_, state) => UploadWardrobeReviewScreen(
+          uris: state.uri.queryParameters['uris'],
+          prefills: state.uri.queryParameters['prefills'],
+        ),
+      ),
       GoRoute(path: '/subscription', builder: (_, __) => const SubscriptionScreen()),
       GoRoute(path: '/ai-balance', builder: (_, __) => const AiBalanceScreen()),
       GoRoute(
