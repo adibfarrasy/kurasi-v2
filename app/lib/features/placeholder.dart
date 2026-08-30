@@ -55,20 +55,6 @@ class AiBalanceScreen extends StatelessWidget {
   Widget build(BuildContext context) => const _PlaceholderScreen('AI Balance');
 }
 
-class OutfitScreen extends StatelessWidget {
-  const OutfitScreen({super.key, required this.id});
-  final String id;
-  @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text('Outfit $id')));
-}
-
-class OutfitEditScreen extends StatelessWidget {
-  const OutfitEditScreen({super.key, required this.id});
-  final String id;
-  @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text('Edit Outfit $id')));
-}
-
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
   @override

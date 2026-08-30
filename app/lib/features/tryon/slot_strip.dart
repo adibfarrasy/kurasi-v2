@@ -74,20 +74,29 @@ bool slotChanged(
 
 /// The strip of 5 tilted slot cards. Empty positions render an add card;
 /// tapping any position opens the per-category AddItemSheet.
+///
+/// Pass an explicit [slots] map to render a saved outfit instead of the live
+/// try-on selection; with [readOnly] the strip stops responding to taps,
+/// empty positions render a plain card and filled cards show the item name.
 class SlotStrip extends ConsumerWidget {
-  const SlotStrip({super.key});
+  const SlotStrip({super.key, this.slots, this.readOnly = false});
+
+  final Map<String, dynamic>? slots;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final slots = ref.watch(tryOnSlotsProvider);
+    final Map<String, dynamic> slots =
+        this.slots ?? ref.watch(tryOnSlotsProvider);
     final items = ref.watch(wardrobeItemsProvider).valueOrNull ?? [];
     final itemsById = <String, Map<String, dynamic>>{
       for (final item in items)
         if (item is Map)
           (item['id'] as String? ?? ''): Map<String, dynamic>.from(item),
     };
-    final outfits = ref.watch(outfitsProvider).valueOrNull ?? [];
-    final matched = matchSavedOutfit(slots, outfits);
+    final matched = readOnly
+        ? null
+        : matchSavedOutfit(slots, ref.watch(outfitsProvider).valueOrNull ?? []);
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -95,21 +104,50 @@ class SlotStrip extends ConsumerWidget {
       child: Row(
         children: [
           for (final category in wardrobeCategories) ...[
-            _SlotPosition(
-              category: category,
-              slot: slotForCategory(slots, category),
-              imageUrl: slotForCategory(slots, category) == null
-                  ? null
-                  : slotImageUrl(slotForCategory(slots, category)!, itemsById),
-              changed: slotChanged(
-                  category, slotForCategory(slots, category), matched),
-              onTap: () => showAddItemSheet(context, category),
-            ),
+            _buildPosition(context, category, slots, itemsById, matched),
             if (category != wardrobeCategories.last) const SizedBox(width: 10),
           ],
         ],
       ),
     );
+  }
+
+  Widget _buildPosition(
+    BuildContext context,
+    String category,
+    Map<String, dynamic> slots,
+    Map<String, Map<String, dynamic>> itemsById,
+    Map<String, dynamic>? matched,
+  ) {
+    final slot = slotForCategory(slots, category);
+    return _SlotPosition(
+      category: category,
+      slot: slot,
+      imageUrl: slot == null ? null : slotImageUrl(slot, itemsById),
+      itemName: _itemNameFor(slot, itemsById),
+      changed: readOnly ? false : slotChanged(category, slot, matched),
+      onTap: readOnly ? null : () => showAddItemSheet(context, category),
+      readOnly: readOnly,
+      isAi: _isAiFor(slot, itemsById),
+    );
+  }
+
+  String? _itemNameFor(
+    Map<String, dynamic>? slot,
+    Map<String, Map<String, dynamic>> itemsById,
+  ) {
+    if (!readOnly || slot == null) return null;
+    return itemsById[slot['itemId']]?['name'] as String?;
+  }
+
+  bool _isAiFor(
+    Map<String, dynamic>? slot,
+    Map<String, Map<String, dynamic>> itemsById,
+  ) {
+    if (readOnly) {
+      return slot != null && itemsById[slot['itemId']]?['owned'] == false;
+    }
+    return slot?['kind'] == 'ai';
   }
 }
 
@@ -135,18 +173,23 @@ class _SlotPosition extends StatelessWidget {
     required this.imageUrl,
     required this.changed,
     required this.onTap,
+    this.itemName,
+    this.readOnly = false,
+    this.isAi = false,
   });
 
   final String category;
   final Map<String, dynamic>? slot;
   final String? imageUrl;
   final bool changed;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final String? itemName;
+  final bool readOnly;
+  final bool isAi;
 
   @override
   Widget build(BuildContext context) {
     final label = wardrobeCategoryLabels[category] ?? category;
-    final isAi = slot?['kind'] == 'ai';
     return GestureDetector(
       key: ValueKey('slot_$category'),
       onTap: onTap,
@@ -160,11 +203,14 @@ class _SlotPosition extends StatelessWidget {
             children: [
               Positioned.fill(
                 child: slot == null
-                    ? _AddSlotCard(
-                        key: ValueKey('add_slot_$category'), label: label)
+                    ? (readOnly
+                        ? _EmptySlotCard(label: label)
+                        : _AddSlotCard(
+                            key: ValueKey('add_slot_$category'), label: label))
                     : _SlotCard(
                         key: ValueKey('slot_card_$category'),
                         imageUrl: imageUrl,
+                        label: itemName,
                       ),
               ),
               if (changed && slot != null)
@@ -174,7 +220,7 @@ class _SlotPosition extends StatelessWidget {
                   child: _ChangedDot(
                       key: ValueKey('changed_dot_$category')),
                 ),
-              if (isAi)
+              if (isAi && slot != null)
                 Positioned(
                   top: -6,
                   left: -6,
@@ -189,9 +235,10 @@ class _SlotPosition extends StatelessWidget {
 }
 
 class _SlotCard extends StatelessWidget {
-  const _SlotCard({super.key, required this.imageUrl});
+  const _SlotCard({super.key, required this.imageUrl, this.label});
 
   final String? imageUrl;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -205,21 +252,73 @@ class _SlotCard extends StatelessWidget {
           BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 2)),
         ],
       ),
-      child: imageUrl == null
-          ? const ColoredBox(color: AppColors.chip)
-          : ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                imageUrl!,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, progress) =>
-                    progress == null
-                        ? child
-                        : const ColoredBox(color: AppColors.chip),
-                errorBuilder: (context, error, stackTrace) =>
-                    const ColoredBox(color: AppColors.chip),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: imageUrl == null
+                ? const ColoredBox(color: AppColors.chip)
+                : Image.network(
+                    imageUrl!,
+                    fit: BoxFit.cover,
+                    loadingBuilder: (context, child, progress) =>
+                        progress == null
+                            ? child
+                            : const ColoredBox(color: AppColors.chip),
+                    errorBuilder: (context, error, stackTrace) =>
+                        const ColoredBox(color: AppColors.chip),
+                  ),
+          ),
+          if (label != null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                decoration: const BoxDecoration(
+                  color: Color(0xB3000000),
+                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(8)),
+                ),
+                child: Text(
+                  label!,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.slotLabel
+                      .copyWith(color: Colors.white, letterSpacing: 0),
+                ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Read-only placeholder for an outfit slot the user hasn't filled.
+class _EmptySlotCard extends StatelessWidget {
+  const _EmptySlotCard({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.hairline),
+      ),
+      child: Center(
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: AppTypography.slotLabel.copyWith(color: AppColors.textMuted),
+        ),
+      ),
     );
   }
 }
