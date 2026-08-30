@@ -9,23 +9,57 @@ on:
       - main
 
 jobs:
-  ci:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Lint (clippy)
+        working-directory: backend
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Migrate
+        working-directory: backend
+        run: sqlx migrate run --source ./migrations
+
+      - name: Test
+        working-directory: backend
+        run: cargo test
+
+  app:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: subosito/flutter-action@v2
         with:
-          bun-version: latest
+          channel: stable
+          cache: true
 
-      - uses: arduino/setup-task@v2
-        with:
-          version: 3.x
+      - name: Analyze
+        working-directory: app
+        run: flutter analyze
 
-      - run: bun install --frozen-lockfile
-
-      - run: bunx biome ci
-
-      - run: task typecheck
-
-      - run: task test
+      - name: Test
+        working-directory: app
+        run: flutter test

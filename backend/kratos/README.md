@@ -16,7 +16,7 @@ and session-to-JWT exchange consumed by the Rust backend.
 
 ## Local dev run
 
-`task be-infra` (i.e. `docker compose up`) in `backend/` starts Postgres, Mailpit,
+`just be-infra` (i.e. `docker compose up`) in `backend/` starts Postgres, Mailpit,
 Kratos, and `kratos-jwks`. Kratos runs its own dedicated `kratos-db` Postgres so it
 never touches the app database. Public API is on `http://localhost:4433`, admin on
 `http://localhost:4434`. `kratos-jwks` serves the public JWK set at

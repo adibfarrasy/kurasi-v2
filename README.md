@@ -16,9 +16,9 @@ Monorepo:
 
 - [Flutter](https://docs.flutter.dev) (app)
 - [Rust](https://rustup.rs) (backend)
-- [Task](https://taskfile.dev) — task runner (`brew install go-task`)
+- [Just](https://just.systems) — task runner (`brew install just`)
 - [sqlx-cli](https://crates.io/crates/sqlx-cli) — `cargo install sqlx-cli`
-- Postgres (the `be-infra` task spins one up via Docker Compose, or bring your own)
+- Postgres (the `be-infra` recipe spins one up via Docker Compose, or bring your own)
 
 ## Setup
 
@@ -32,28 +32,28 @@ cd backend && cargo build
 Run each in its own terminal:
 
 ```bash
-task be-infra           # local Postgres + Mailpit (optional if you have your own)
-task db-migrate:local   # apply sqlx migrations to the local DB
-task be-dev             # rebuild + run
-task app-dev            # run the Flutter app on a connected device/simulator
+just be-infra           # local Postgres + Mailpit (optional if you have your own)
+just db-migrate-local   # apply sqlx migrations to the local DB
+just be-dev             # rebuild + run
+just app-dev            # run the Flutter app on a connected device/simulator
 ```
 
 ## Checks
 
 ```bash
-task app-analyze # flutter analyze (app)
-task app-test    # flutter test (app)
-task be-lint     # cargo clippy
-task be-test     # cargo test (needs local Postgres)
-task ci          # all of the above
+just app-analyze # flutter analyze (app)
+just app-test    # flutter test (app)
+just be-lint     # cargo clippy
+just be-test     # cargo test (needs local Postgres)
+just ci          # all of the above
 ```
 
 ## Useful commands
 
 ```bash
-task --list                  # list all tasks
-task be-build                # build backend release binary
-task reset-db:local          # reset local DB and re-run migrations
+just --list                  # list all recipes
+just be-build                # build backend release binary
+just reset-db-local          # reset local DB and re-run migrations
 ```
 
 ## Docker

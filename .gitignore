@@ -1,26 +1,7 @@
-# dependencies
-node_modules/
-
 # output
 out
 dist/
 *.tgz
-
-# Expo
-.expo/
-web-build/
-expo-env.d.ts
-
-# Native
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# Metro
-.metro-health-check*
 
 # code coverage
 coverage
@@ -30,18 +11,13 @@ coverage
 logs
 _.log
 report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
-npm-debug.*
-yarn-debug.*
-yarn-error.*
 
 # dotenv environment variable files
 .env
 .env*.local
 
 # caches
-.eslintcache
 .cache
-*.tsbuildinfo
 
 # macOS
 .DS_Store
@@ -54,7 +30,6 @@ app-example
 
 # Allium specs (override global *.allium ignore)
 !specs/*.allium
-.DS_Store
 
 # Local-only directories
 .claude/

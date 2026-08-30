@@ -1,5 +1,0 @@
-[install]
-linker = "hoisted"
-
-[test]
-preload = ["./backend/test/setup.ts"]
