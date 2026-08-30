@@ -135,6 +135,14 @@ pub fn build_router(state: AppState) -> axum::Router {
             get(crate::regenerate_fit::progress),
         )
         .route(
+            "/api/avatar/normalize",
+            post(crate::normalize_avatar::start),
+        )
+        .route(
+            "/api/avatar/normalize/{sessionId}",
+            get(crate::normalize_avatar::progress),
+        )
+        .route(
             "/api/subscription",
             get(crate::subscription::get).post(crate::subscription::start),
         )

@@ -18,6 +18,8 @@ pub mod jobs;
 pub mod me;
 pub mod migrations;
 pub mod models;
+pub mod normalize_avatar;
+pub mod normalize_prompts;
 pub mod onboarding;
 pub mod outfit_recommendation;
 pub mod outfits;
