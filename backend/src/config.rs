@@ -10,6 +10,8 @@ pub struct Config {
     pub firebase_project_id: String,
     pub jwks_url: String,
     pub environment: String,
+    pub fal_key: String,
+    pub output_dir: String,
 }
 
 impl Config {
@@ -25,6 +27,8 @@ impl Config {
             firebase_project_id: var("FIREBASE_PROJECT_ID").unwrap_or_default(),
             jwks_url: var("FIREBASE_JWKS_URL").unwrap_or_else(|_| DEFAULT_JWKS_URL.to_string()),
             environment: var("ENVIRONMENT").unwrap_or_else(|_| "production".to_string()),
+            fal_key: var("FAL_KEY").unwrap_or_default(),
+            output_dir: var("OUTPUT_DIR").unwrap_or_else(|_| "outputs".to_string()),
         }
     }
 }

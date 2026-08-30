@@ -7,6 +7,7 @@ pub mod config;
 pub mod credits;
 pub mod db;
 pub mod error;
+pub mod fal;
 pub mod firebase;
 pub mod fit_adjustment;
 pub mod me;
