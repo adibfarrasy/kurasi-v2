@@ -10,7 +10,6 @@ use axum::Json;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::HashSet;
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
@@ -80,14 +79,12 @@ async fn default_avatar(pool: &sqlx::PgPool, user_id: &str) -> Result<Option<Str
     .flatten())
 }
 
-fn mannequin_path() -> PathBuf {
-    let dir = std::env::var("AVATAR_ASSETS_DIR").unwrap_or_else(|_| "avatar/assets".to_string());
-    PathBuf::from(dir).join("pose.png")
-}
+/// Mannequin (pose.png) embedded at compile time so the binary is
+/// self-contained and CWD-independent.
+const MANNEQUIN_BYTES: &[u8] = include_bytes!("../avatar/assets/pose.png");
 
-fn mannequin_bytes() -> Result<Vec<u8>, String> {
-    let path = mannequin_path();
-    std::fs::read(&path).map_err(|e| format!("failed to read mannequin {path:?}: {e}"))
+fn mannequin_bytes() -> &'static [u8] {
+    MANNEQUIN_BYTES
 }
 
 /// Cache of the uploaded pose.png URL so the mannequin is only uploaded to fal
@@ -104,8 +101,8 @@ async fn mannequin_url(fal: &FalClient) -> Result<String, String> {
             return Ok(url.clone());
         }
     }
-    let bytes = mannequin_bytes()?;
-    let url = fal.upload(&bytes, "pose.png", "image/png").await?;
+    let bytes = mannequin_bytes();
+    let url = fal.upload(bytes, "pose.png", "image/png").await?;
     let mut cache = mannequin_url_cache().lock().expect("mannequin cache lock");
     *cache = Some(url.clone());
     Ok(url)
@@ -173,12 +170,7 @@ pub async fn dress_avatar(
         .collect::<Vec<_>>()
         .join(" ");
     let present: HashSet<&str> = reachable_garments.iter().map(|g| g.0).collect();
-    let mut absences: Vec<&'static str> = Vec::new();
-    for slot in prompts::SLOTS {
-        if let Some(clause) = prompts::absence_clause(slot, present.contains(slot)) {
-            absences.push(clause);
-        }
-    }
+    let absences = prompts::absent_slot_clauses(&present);
     let prompt = prompts::pass1_prompt(&slot_clauses, &absences);
     let mut image_urls = vec![mannequin];
     image_urls.extend(reachable_garments.iter().map(|g| g.1.clone()));

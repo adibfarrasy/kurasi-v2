@@ -1,4 +1,10 @@
+use std::collections::HashSet;
+
 pub const SLOTS: [&str; 5] = ["headwear", "base", "outer", "bottom", "footwear"];
+
+/// Order in which the legacy pipeline appends absence clauses (footwear first,
+/// then headwear, then outer) — see dress-avatar-pipeline.ts.
+const ABSENCE_SLOT_ORDER: [&str; 3] = ["footwear", "headwear", "outer"];
 
 /// Maps app item categories to dress-avatar slots.
 pub fn category_to_slot(category: &str) -> Option<&'static str> {
@@ -127,6 +133,15 @@ pub fn absence_clause(slot: &str, present: bool) -> Option<&'static str> {
     })
 }
 
+/// Absence clauses for every missing slot, in the legacy assembly order
+/// (footwear → headwear → outer), matching dress-avatar-pipeline.ts.
+pub fn absent_slot_clauses(present: &HashSet<&str>) -> Vec<&'static str> {
+    ABSENCE_SLOT_ORDER
+        .into_iter()
+        .filter_map(|slot| absence_clause(slot, present.contains(slot)))
+        .collect()
+}
+
 /// Assembles the verbatim PASS1 prompt (legacy `pass1Prompt` template literal).
 /// `slot_clauses` is the space-joined rendered SLOT_CLAUSES; `absence_clauses`
 /// are the "DO NOT INVENT" clauses for missing slots.
@@ -185,6 +200,16 @@ mod tests {
         assert_eq!(absence_clause("outer", false), Some(NO_OUTER_CLAUSE));
         assert_eq!(absence_clause("base", false), None);
         assert_eq!(absence_clause("footwear", true), None);
+    }
+
+    #[test]
+    fn absent_slot_clauses_follow_legacy_order_for_single_shirt() {
+        let present: HashSet<&str> = HashSet::from(["base"]);
+        let absences = absent_slot_clauses(&present);
+        assert_eq!(absences, vec![NO_FOOTWEAR_CLAUSE, NO_HEADWEAR_CLAUSE, NO_OUTER_CLAUSE]);
+        assert!(absences[0].starts_with("NO FOOTWEAR"));
+        assert!(absences[1].starts_with("NO HEADWEAR"));
+        assert!(absences[2].starts_with("NO OUTER LAYER"));
     }
 
     #[test]
