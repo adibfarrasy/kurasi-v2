@@ -58,6 +58,5 @@ app-example
 
 # Local-only directories
 .claude/
-app/ios/
 design/
 backend/outputs/

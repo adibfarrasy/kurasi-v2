@@ -1,8 +1,0 @@
-@import 'tailwindcss';
-@import 'uniwind';
-
-@theme {
-  --font-funnel: 'Funnel Sans';
-  --font-bebas: 'Bebas Neue';
-  --font-kirang: 'Kirang Haerang';
-}
