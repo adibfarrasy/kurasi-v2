@@ -6,12 +6,6 @@ class TryOnScreen extends StatelessWidget {
   Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Try On')));
 }
 
-class WardrobeScreen extends StatelessWidget {
-  const WardrobeScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Scaffold(body: Center(child: Text('Wardrobe')));
-}
-
 class _PlaceholderScreen extends StatelessWidget {
   const _PlaceholderScreen(this.title);
   final String title;
