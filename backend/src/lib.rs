@@ -10,6 +10,7 @@ pub mod error;
 pub mod fal;
 pub mod firebase;
 pub mod fit_adjustment;
+pub mod imageproc;
 pub mod jobs;
 pub mod me;
 pub mod migrations;
