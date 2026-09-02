@@ -13,7 +13,7 @@ import '../features/onboarding/onboarding_two_screen.dart';
 import '../features/myfit/myfit_screen.dart';
 import '../features/outfit/outfit_detail_screen.dart';
 import '../features/outfit/outfit_edit_screen.dart';
-import '../features/placeholder.dart';
+
 import '../features/shell/tab_shell.dart';
 import '../features/steal_the_look/analyzing_screen.dart';
 import '../features/steal_the_look/failed_screen.dart';
@@ -118,7 +118,6 @@ GoRouter buildRouter(Ref ref) {
           GoRoute(path: 'edit', builder: (_, state) => OutfitEditScreen(id: state.pathParameters['id']!)),
         ],
       ),
-      GoRoute(path: '/profile', builder: (_, __) => const ProfileScreen()),
     ],
   );
 }
