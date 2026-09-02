@@ -23,7 +23,7 @@ class _AiBalanceScreenState extends ConsumerState<AiBalanceScreen> {
     (credits: 100, price: 70, discountPct: 30),
   ];
 
-  int? _selected;
+  int? _selected = 20;
   final TextEditingController _custom = TextEditingController();
   bool _busy = false;
 
@@ -188,17 +188,18 @@ class _AiBalanceScreenState extends ConsumerState<AiBalanceScreen> {
                     const SizedBox(height: 20),
                     _SummaryBox(
                       baseCost: _selected != null
-                          ? _selected! * 1
-                          : (_amount > 0 ? _amount * 1 : 0),
-                      discountPct:
-                          _packages.firstWhere(
-                                (p) => p.credits == _selected,
-                                orElse: () => (credits: 0, price: 0, discountPct: 0),
-                              ).discountPct,
+                          ? (_selected! * 1).toDouble()
+                          : (_amount > 0 ? _amount * 1.0 : 0),
+                      discountPct: _selected != null
+                          ? _packages
+                              .firstWhere((p) => p.credits == _selected)
+                              .discountPct
+                          : (_amount >= 10 ? 10 : 0),
                       price: _selected != null
                           ? _packages
                               .firstWhere((p) => p.credits == _selected)
                               .price
+                              .toDouble()
                           : null,
                     ),
                   ],
@@ -363,13 +364,16 @@ class _SummaryBox extends StatelessWidget {
     required this.price,
   });
 
-  final int baseCost;
+  final double baseCost;
   final int discountPct;
-  final int? price;
+  final double? price;
 
   @override
   Widget build(BuildContext context) {
-    final discount = price != null ? baseCost - price! : 0;
+    final discount = price != null
+        ? baseCost - price!
+        : baseCost * discountPct / 100;
+    final total = price ?? (baseCost - discount);
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -379,22 +383,19 @@ class _SummaryBox extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _SummaryRow(label: 'AI credit', value: '\$$baseCost.00'),
+          _SummaryRow(
+              label: 'AI credit', value: '\$${baseCost.toStringAsFixed(2)}'),
           const SizedBox(height: 15),
           _SummaryRow(
             label: 'Discount • $discountPct%',
-            value: '-\$$discount.00',
+            value: '-\$${discount.toStringAsFixed(2)}',
           ),
           const SizedBox(height: 15),
           const Divider(height: 1, color: AppColors.textMuted),
           const SizedBox(height: 15),
           _SummaryRow(
             label: 'Total due',
-            value: price != null
-                ? '\$${price!.toStringAsFixed(2)}'
-                : baseCost > 0
-                    ? '\$$baseCost.00'
-                    : r'$0.00',
+            value: '\$${total.toStringAsFixed(2)}',
             bold: true,
           ),
         ],

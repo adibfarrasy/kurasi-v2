@@ -8,9 +8,13 @@ const double kTabBarBottomGap = 16;
 const double kTabBarPaddingTop = 11;
 const double kTabBarItemBand = 49;
 
-/// Bar height on top of `bottomInset`: padding top + item band + bottom gap.
-double tabBarHeight(double bottomInset) =>
-    bottomInset + kTabBarBottomGap + kTabBarPaddingTop + kTabBarItemBand;
+/// Full bar height including the device bottom inset: bottom gap + padding
+/// top + item band. Use this to pad screen content so it clears the bar.
+double tabBarHeight(BuildContext context) =>
+    MediaQuery.paddingOf(context).bottom +
+    kTabBarBottomGap +
+    kTabBarPaddingTop +
+    kTabBarItemBand;
 
 class CustomTabBar extends StatelessWidget {
   const CustomTabBar({
@@ -18,21 +22,19 @@ class CustomTabBar extends StatelessWidget {
     required this.index,
     required this.onIndexChanged,
     required this.onPlus,
-    required this.bottomInset,
   });
 
   /// Active tab position: 0 = Try On, 1 = My Fit, 2 = Wardrobe.
   final int index;
   final ValueChanged<int> onIndexChanged;
   final VoidCallback onPlus;
-  final double bottomInset;
 
   static const ValueKey<String> plusButtonKey = ValueKey('tab_plus_button');
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: tabBarHeight(bottomInset),
+      height: tabBarHeight(context),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -67,13 +69,13 @@ class CustomTabBar extends StatelessWidget {
                     onTap: () => onIndexChanged(2),
                   ),
                 ),
+                Expanded(
+                  // Fourth equal cell holds the plus, mirroring the RN
+                  // 4-cell geometry so it never overlaps the Wardrobe label.
+                  child: Center(child: _PlusButton(onPressed: onPlus)),
+                ),
               ],
             ),
-          ),
-          Positioned(
-            right: 20,
-            top: kTabBarPaddingTop - 7,
-            child: _PlusButton(onPressed: onPlus),
           ),
         ],
       ),

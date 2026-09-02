@@ -74,7 +74,10 @@ class ProfileSheet extends ConsumerWidget {
               _ProfileRow(
                 title: 'Log Out',
                 titleColor: AppColors.dontRed,
-                onTap: () => ref.read(authStateProvider.notifier).signOut(),
+                onTap: () {
+                  Navigator.of(context, rootNavigator: true).pop();
+                  ref.read(authStateProvider.notifier).signOut();
+                },
               ),
             ],
           ),

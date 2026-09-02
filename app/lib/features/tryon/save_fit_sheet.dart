@@ -12,27 +12,16 @@ import 'slot_strip.dart';
 import 'steal_the_look_draft.dart';
 
 Map<String, dynamic>? _aiItemForSlot(Map<String, dynamic> slot) {
-  final kind = slot['kind'];
-  if (kind == 'ai') {
+  if (slot['kind'] == 'ai') {
     final ai = slot['aiItem'];
     return ai is Map ? Map<String, dynamic>.from(ai) : null;
-  }
-  if (kind == 'upload') {
-    return {
-      'imageUrl': slot['imageUrl'] as String? ?? '',
-      'category': slot['category'],
-      'brand': null,
-      'fit': null,
-      'length': null,
-      'colors': <dynamic>[],
-    };
   }
   return null;
 }
 
 /// Builds the `slots` array for POST /api/outfits/from-tryon in fixed
-/// category order. Wardrobe slots become `{category, wardrobeId}`; AI/upload
-/// slots become `{category, aiItem}`.
+/// category order. Wardrobe slots become `{category, wardrobeId}`; AI slots
+/// become `{category, aiItem}`.
 List<Map<String, dynamic>> buildTryOnSlots(Map<String, dynamic> slots) {
   final result = <Map<String, dynamic>>[];
   for (final category in wardrobeCategories) {

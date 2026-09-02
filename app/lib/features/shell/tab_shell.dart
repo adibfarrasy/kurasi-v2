@@ -27,7 +27,6 @@ class _TabShellState extends ConsumerState<TabShell> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
       body: Stack(
         children: [
@@ -41,7 +40,6 @@ class _TabShellState extends ConsumerState<TabShell> {
               onIndexChanged: (tabIndex) =>
                   _shell.goBranch(_branchIndexForTab[tabIndex]),
               onPlus: () => PlusModal.show(context),
-              bottomInset: bottomInset,
             ),
           ),
         ],

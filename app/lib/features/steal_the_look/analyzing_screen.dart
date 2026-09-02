@@ -200,7 +200,7 @@ class _StealTheLookAnalyzingScreenState
   void _kickoff() {
     final uri = widget.uri;
     if (uri == null || uri.isEmpty) {
-      _goTo('/steal-the-look/failed?reason=unknown');
+      _goTo(_failedLocation(uri: uri));
       return;
     }
     ref.read(stealTheLookJobProvider.notifier).startJob(uri: uri);
@@ -214,6 +214,19 @@ class _StealTheLookAnalyzingScreenState
     });
   }
 
+  /// Builds the failed-screen location, carrying the reason, the offending
+  /// photo [uri] and (on phase errors) the backend [message].
+  String _failedLocation({String? reason, String? uri, String? message}) {
+    return Uri(
+      path: '/steal-the-look/failed',
+      queryParameters: {
+        'reason': reason ?? 'unknown',
+        if (uri != null && uri.isNotEmpty) 'uri': uri,
+        if (message != null && message.isNotEmpty) 'message': message,
+      },
+    ).toString();
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen(stealTheLookJobProvider, (previous, next) {
@@ -223,10 +236,14 @@ class _StealTheLookAnalyzingScreenState
         if (value.result == 'no_error') {
           _goTo('/tryon');
         } else {
-          _goTo('/steal-the-look/failed?reason=${value.result}');
+          _goTo(_failedLocation(reason: value.result, uri: widget.uri));
         }
       } else if (value.isError) {
-        _goTo('/steal-the-look/failed?reason=unknown');
+        _goTo(_failedLocation(
+          reason: 'unknown',
+          uri: widget.uri,
+          message: value.error,
+        ));
       }
     });
 

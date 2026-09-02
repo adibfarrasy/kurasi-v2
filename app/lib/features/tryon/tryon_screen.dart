@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/wardrobe_items_provider.dart';
+import '../../core/design/tab_bar.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import '../myfit/outfits_provider.dart';
@@ -138,7 +139,7 @@ class _Actions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+      padding: EdgeInsets.fromLTRB(20, 8, 20, tabBarHeight(context)),
       child: Row(
         children: [
           IconButton(

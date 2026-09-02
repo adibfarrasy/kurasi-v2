@@ -2,7 +2,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import '../../core/api/wardrobe_items_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -209,17 +208,6 @@ class AddItemSheet extends ConsumerWidget {
               const SizedBox(height: 10),
               _UploadTile(
                 key: ValueKey('upload_$category'),
-                onTap: () async {
-                  final picked = await ImagePicker()
-                      .pickImage(source: ImageSource.gallery);
-                  if (picked == null) return;
-                  ref.read(tryOnSlotsProvider.notifier).setSlot(category, {
-                    'kind': 'upload',
-                    'category': category,
-                    'imageUrl': picked.path,
-                  });
-                  if (context.mounted) Navigator.of(context).pop();
-                },
               ),
               const SizedBox(height: 16),
               if (buckets.isEmpty)
@@ -407,31 +395,36 @@ class _GenerateTile extends StatelessWidget {
   }
 }
 
+/// Upload entry point. Disabled (no-op, greyed out) until the image can be
+/// run through the wardrobe-upload pipeline — a raw local path would
+/// otherwise be persisted as a dead imageUrl.
 class _UploadTile extends StatelessWidget {
-  const _UploadTile({super.key, required this.onTap});
-
-  final VoidCallback onTap;
+  const _UploadTile({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: AppColors.chip,
       borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Icon(Icons.add_a_photo_outlined,
-                  color: AppColors.textSecondary, size: 22),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text('Upload an image', style: AppTypography.body),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            const Icon(Icons.add_a_photo_outlined,
+                color: AppColors.textMuted, size: 22),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Upload an image',
+                style: AppTypography.body.copyWith(color: AppColors.textMuted),
               ),
-            ],
-          ),
+            ),
+            Text(
+              'Coming soon',
+              style: AppTypography.caption
+                  .copyWith(color: AppColors.textSecondary),
+            ),
+          ],
         ),
       ),
     );

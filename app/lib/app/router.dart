@@ -92,6 +92,7 @@ GoRouter buildRouter(Ref ref) {
             builder: (_, state) => StealTheLookFailedScreen(
               reason: state.uri.queryParameters['reason'],
               uri: state.uri.queryParameters['uri'],
+              message: state.uri.queryParameters['message'],
             ),
           ),
         ],

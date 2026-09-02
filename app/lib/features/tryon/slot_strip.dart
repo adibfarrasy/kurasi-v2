@@ -12,7 +12,7 @@ import 'hero_floor.dart';
 
 /// Live selections for the 5 try-on slots, keyed by category
 /// (headwear/shirt/jacket/pants/footwear). Each value is
-/// `{kind: 'wardrobe'|'ai'|'upload', category, itemId?|aiItem?|imageUrl?}`.
+/// `{kind: 'wardrobe'|'ai', category, itemId?|aiItem?}`.
 final tryOnSlotsProvider =
     NotifierProvider<TryOnSlotsNotifier, Map<String, dynamic>>(
         TryOnSlotsNotifier.new);

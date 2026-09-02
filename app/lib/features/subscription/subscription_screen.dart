@@ -26,6 +26,8 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   Future<void> _start() => _post(ApiEndpoints.subscription,
       body: const {'providerRef': null});
 
+  Future<void> _renew() => _post(ApiEndpoints.subscriptionRenewSuccess);
+
   Future<void> _cancel() => _post(ApiEndpoints.subscriptionCancel);
 
   Future<void> _post(String path, {Object? body}) async {
@@ -179,12 +181,12 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
       'cancelled' => (
           'Renew Subscription',
           const ValueKey('subscription_start'),
-          _busy ? null : _start,
+          _busy ? null : _renew,
         ),
       'lapsed' => (
           'Reactivate Subscription',
           const ValueKey('subscription_start'),
-          _busy ? null : _start,
+          _busy ? null : _renew,
         ),
       _ => (
           'Subscribe',

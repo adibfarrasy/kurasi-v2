@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kurasi/core/api/api_client.dart';
+import 'package:kurasi/core/api/api_exception.dart';
 import 'package:kurasi/core/api/api_providers.dart';
 import 'package:kurasi/core/api/endpoints.dart';
 import 'package:kurasi/core/auth/auth_service.dart';
@@ -88,6 +89,16 @@ class _FakeApi extends ApiClient {
       return {'id': 'new', 'name': 'saved'};
     }
     return <String, dynamic>{};
+  }
+}
+
+class _FailingSaveFitApi extends _FakeApi {
+  @override
+  Future<dynamic> post(String path, {Object? body}) async {
+    if (path == ApiEndpoints.outfitsFromTryon) {
+      throw ApiException('SAVE_FAILED', 'save exploded', null);
+    }
+    return super.post(path, body: body);
   }
 }
 
@@ -322,5 +333,42 @@ void main() {
       ],
     });
     expect(find.text('myfit home'), findsOneWidget);
+  });
+
+  testWidgets('save fit failure surfaces an error and does not navigate',
+      (tester) async {
+    final container =
+        ProviderContainer(overrides: _overrides(_FailingSaveFitApi()));
+    addTearDown(container.dispose);
+    container
+        .read(tryOnSlotsProvider.notifier)
+        .setSlot('shirt', {'kind': 'wardrobe', 'category': 'shirt', 'itemId': 'w1'});
+
+    final router = GoRouter(
+      initialLocation: '/tryon',
+      routes: [
+        GoRoute(path: '/tryon', builder: (_, __) => const TryOnScreen()),
+        GoRoute(
+            path: '/myfit',
+            builder: (_, __) => const Scaffold(body: Text('myfit home'))),
+      ],
+    );
+
+    await tester.pumpWidget(UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp.router(routerConfig: router),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('tryon_save_fit')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byKey(const ValueKey('save_fit_name')), 'Night Out');
+    await tester.tap(find.byKey(const ValueKey('save_fit_confirm')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Failed to save fit'), findsOneWidget);
+    expect(find.byKey(const ValueKey('save_fit_confirm')), findsOneWidget);
+    expect(find.text('myfit home'), findsNothing);
   });
 }

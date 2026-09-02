@@ -145,7 +145,12 @@ class _ActionRow extends StatelessWidget {
                       Flexible(
                         child: Text(
                           title,
-                          style: AppTypography.body.copyWith(color: titleColor),
+                          style: AppTypography.body.copyWith(
+                            color: titleColor,
+                            decoration: enabled
+                                ? null
+                                : TextDecoration.lineThrough,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 4),

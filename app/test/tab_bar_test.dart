@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kurasi/core/design/tab_bar.dart';
 import 'package:kurasi/core/theme/app_colors.dart';
 import 'package:kurasi/features/credits/credits_provider.dart';
 import 'package:kurasi/features/shell/plus_modal.dart';
+import 'package:kurasi/features/shell/tab_shell.dart';
 
 class _FakeCreditsNotifier extends CreditsNotifier {
   @override
@@ -22,7 +24,6 @@ void main() {
             index: 1,
             onIndexChanged: (_) {},
             onPlus: () => plusTapped = true,
-            bottomInset: 0,
           ),
         ),
       ));
@@ -33,6 +34,69 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('tab_plus_button')));
       expect(plusTapped, isTrue);
+    });
+  });
+
+  group('TabShell', () {
+    testWidgets('taps each tab label and switches to the right branch',
+        (tester) async {
+      final router = GoRouter(
+        initialLocation: '/tryon',
+        routes: [
+          StatefulShellRoute.indexedStack(
+            builder: (_, __, shell) => TabShell(child: shell),
+            branches: [
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/myfit',
+                    builder: (_, __) =>
+                        const Scaffold(body: Text('MYFIT_BRANCH')),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/tryon',
+                    builder: (_, __) =>
+                        const Scaffold(body: Text('TRYON_BRANCH')),
+                  ),
+                ],
+              ),
+              StatefulShellBranch(
+                routes: [
+                  GoRoute(
+                    path: '/wardrobe',
+                    builder: (_, __) =>
+                        const Scaffold(body: Text('WARDROBE_BRANCH')),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+      await tester.pumpAndSettle();
+
+      expect(find.text('TRYON_BRANCH'), findsOneWidget);
+
+      await tester.tap(find.text('My Fit'));
+      await tester.pumpAndSettle();
+      expect(find.text('MYFIT_BRANCH'), findsOneWidget);
+      expect(find.text('TRYON_BRANCH'), findsNothing);
+
+      await tester.tap(find.text('Wardrobe'));
+      await tester.pumpAndSettle();
+      expect(find.text('WARDROBE_BRANCH'), findsOneWidget);
+      expect(find.text('MYFIT_BRANCH'), findsNothing);
+
+      await tester.tap(find.text('Try On'));
+      await tester.pumpAndSettle();
+      expect(find.text('TRYON_BRANCH'), findsOneWidget);
+      expect(find.text('WARDROBE_BRANCH'), findsNothing);
     });
   });
 

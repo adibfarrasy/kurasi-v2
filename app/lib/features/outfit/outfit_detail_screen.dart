@@ -141,12 +141,25 @@ class _OutfitDetailScreenState extends ConsumerState<OutfitDetailScreen> {
             backgroundColor: AppColors.page,
             body: Center(child: Text('Failed to load outfit'))),
         data: (_) {
-          final outfit =
-              outfitById(outfits.valueOrNull ?? [], widget.id);
+final outfit =
+            outfitById(outfits.valueOrNull ?? [], widget.id);
           if (outfit == null) {
-            return const Scaffold(
+            return Scaffold(
               backgroundColor: AppColors.page,
-              body: Center(child: Text('Outfit not found')),
+              body: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Outfit not found'),
+                    const SizedBox(height: 16),
+                    OutlinedButton(
+                      key: const ValueKey('outfit_retry'),
+                      onPressed: () => ref.invalidate(outfitsProvider),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
             );
           }
           final tone = outfitTone(_slotColorNames(outfit, itemsById));

@@ -9,10 +9,18 @@ import '../../core/theme/app_typography.dart';
 /// generic error) over the offending photo, with a retry that returns to the
 /// guide so the user can pick another picture.
 class StealTheLookFailedScreen extends StatelessWidget {
-  const StealTheLookFailedScreen({super.key, this.reason, this.uri});
+  const StealTheLookFailedScreen({
+    super.key,
+    this.reason,
+    this.uri,
+    this.message,
+  });
 
   final String? reason;
   final String? uri;
+
+  /// Backend error message surfaced when the pipeline reported a phase error.
+  final String? message;
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +34,7 @@ class StealTheLookFailedScreen extends StatelessWidget {
             "single person and try again."
         : 'Something went wrong while analyzing your inspiration. Please '
             'try again with a different photo.';
+    final message = this.message;
 
     return Scaffold(
       backgroundColor: AppColors.page,
@@ -74,6 +83,14 @@ class StealTheLookFailedScreen extends StatelessWidget {
                               color: AppColors.textPrimary,
                             ),
                           ),
+                          if (message != null && message.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              message,
+                              style: AppTypography.caption
+                                  .copyWith(color: AppColors.textSecondary),
+                            ),
+                          ],
                         ],
                       ),
                     ),

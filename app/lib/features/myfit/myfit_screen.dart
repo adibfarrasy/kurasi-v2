@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/api/wardrobe_items_provider.dart';
+import '../../core/design/tab_bar.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import 'outfits_provider.dart';
@@ -81,7 +82,7 @@ class MyFitScreen extends ConsumerWidget {
           ref.refresh(wardrobeItemsProvider.future),
         ]),
         child: GridView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 72, 16, 96),
+          padding: EdgeInsets.fromLTRB(16, 72, 16, tabBarHeight(context)),
           physics: const AlwaysScrollableScrollPhysics(),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,

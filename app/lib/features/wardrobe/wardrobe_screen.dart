@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/wardrobe_items_provider.dart';
+import '../../core/design/tab_bar.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 import 'filter_sheet.dart';
@@ -176,7 +177,7 @@ class _GridBody extends StatelessWidget {
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+      padding: EdgeInsets.fromLTRB(16, 0, 16, tabBarHeight(context)),
       children: [
         for (final category in wardrobeCategories)
           if (byCategory[category]?.isNotEmpty ?? false) ...[
@@ -276,7 +277,7 @@ class _ListItemCard extends StatelessWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
+      padding: EdgeInsets.fromLTRB(16, 0, 16, tabBarHeight(context)),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,

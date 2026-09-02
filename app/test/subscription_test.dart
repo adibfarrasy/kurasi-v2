@@ -121,6 +121,33 @@ void main() {
     expect(api.lastPostPath, ApiEndpoints.subscriptionCancel);
   });
 
+  testWidgets('cancelled subscription CTA posts renew-success', (tester) async {
+    final api = _FakeApi(subscription: {
+      'subscription': {
+        'id': 's1',
+        'status': 'cancelled',
+        'interval': 'monthly',
+        'currentPeriodEnd': '2026-09-30T00:00:00',
+      },
+      'isInTrial': false,
+      'isCurrent': false,
+      'hasAccess': true,
+    });
+    await tester.pumpWidget(ProviderScope(
+      overrides: _overrides(api),
+      child: const MaterialApp(home: SubscriptionScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('CANCELLED'), findsOneWidget);
+    expect(find.text('Renew Subscription'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('subscription_start')));
+    await tester.pumpAndSettle();
+
+    expect(api.lastPostPath, ApiEndpoints.subscriptionRenewSuccess);
+  });
+
   testWidgets('ai balance purchase posts chosen amount and updates balance',
       (tester) async {
     final api = _FakeApi(balance: 5);
@@ -160,6 +187,30 @@ void main() {
 
     expect(api.lastPostPath, ApiEndpoints.creditsPurchase);
     expect(api.lastPostBody, {'amount': 35});
+  });
+
+  testWidgets(
+      'ai balance defaults to the 20 pack and discounts custom >= \$10 by 10%',
+      (tester) async {
+    final api = _FakeApi(balance: 5);
+    await tester.pumpWidget(ProviderScope(
+      overrides: _overrides(api),
+      child: const MaterialApp(home: AiBalanceScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('ai_balance_custom')), findsNothing);
+    expect(find.text('\$18.00'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('package_other')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byKey(const ValueKey('ai_balance_custom')), '15');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Discount • 10%'), findsOneWidget);
+    expect(find.text('-\$1.50'), findsOneWidget);
+    expect(find.text('\$13.50'), findsOneWidget);
   });
 }
 
