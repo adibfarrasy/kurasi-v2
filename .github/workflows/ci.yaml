@@ -29,6 +29,8 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - uses: dtolnay/rust-toolchain@stable
 
@@ -37,6 +39,9 @@ jobs:
       - name: Lint (clippy)
         working-directory: backend
         run: cargo clippy --all-targets -- -D warnings
+
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --version "~0.8" --no-default-features --features rustls,postgres
 
       - name: Migrate
         working-directory: backend
@@ -50,6 +55,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - uses: subosito/flutter-action@v2
         with:
