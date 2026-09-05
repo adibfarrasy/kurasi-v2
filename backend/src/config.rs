@@ -61,10 +61,13 @@ mod tests {
     #[test]
     fn defaults_are_local_dev_coherent() {
         let c = Config::from_env();
-        assert_eq!(
-            c.database_url,
-            "postgresql://postgres:postgres@127.0.0.1:5437/postgres"
-        );
+        match var("DATABASE_URL") {
+            Ok(url) => assert_eq!(c.database_url, url),
+            Err(_) => assert_eq!(
+                c.database_url,
+                "postgresql://postgres:postgres@127.0.0.1:5437/postgres"
+            ),
+        }
         assert_eq!(c.port, 8989);
         assert_eq!(c.environment, "dev");
         assert_eq!(c.kratos_jwks_url, "http://localhost:4435/jwks.json");
