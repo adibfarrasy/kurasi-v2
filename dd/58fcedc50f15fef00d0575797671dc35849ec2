@@ -1,0 +1,21 @@
+.github/workflows/ci.yaml
+  s_d1f5a03cf1de92::t_6f78ee017ad0b4 58-59
+  s_d1f5a03cf1de92::t_fc0724fbedcd01 32-33,43-44
+  s_d1f5a03cf1de92::t_9183f6b56a3dc6 45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "dd58fcedc50f15fef00d0575797671dc35849ec2",
+  "prompts": {},
+  "sessions": {
+    "s_d1f5a03cf1de92": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f90d6980bffe66Sx3qRafl4x6t",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "Adib Farrasy <adibfarrasy@gmail.com>"
+    }
+  }
+}
