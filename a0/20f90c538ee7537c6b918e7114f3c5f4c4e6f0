@@ -1,0 +1,19 @@
+backend/src/config.rs
+  s_d1f5a03cf1de92::t_ffc1c34c4cf827 64-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "a020f90c538ee7537c6b918e7114f3c5f4c4e6f0",
+  "prompts": {},
+  "sessions": {
+    "s_d1f5a03cf1de92": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f90d6980bffe66Sx3qRafl4x6t",
+        "model": "deepseek-v4-flash"
+      },
+      "human_author": "Adib Farrasy <adibfarrasy@gmail.com>"
+    }
+  }
+}
