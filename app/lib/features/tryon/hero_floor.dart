@@ -89,8 +89,9 @@ class HeroFloor extends StatelessWidget {
                         cameraControls: true,
                         disableZoom: true,
                         disablePan: true,
-                        // Rotate around the vertical axis only, framed like the 2D figure.
-                        cameraOrbit: '0deg 90deg auto',
+                        // Tripo's export faces a quarter turn off the viewer's default; start
+                        // from the front and only spin around the vertical axis.
+                        cameraOrbit: '-90deg 90deg auto',
                         minCameraOrbit: 'auto 90deg auto',
                         maxCameraOrbit: 'auto 90deg auto',
                         interactionPrompt: InteractionPrompt.none,
