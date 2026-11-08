@@ -1,0 +1,25 @@
+backend/src/fal.rs
+  s_3d500482ec433b::t_f78485472226ee 78,83-85
+  s_3d500482ec433b::t_cf56ac6d31a265 136,139-142,150-153,155,158,162-183
+  s_3d500482ec433b::t_a57c1690b3e1c9 300-322
+  s_3d500482ec433b::t_801e04b96c57f6 368-376,378-386,393,396-397
+  s_3d500482ec433b::t_6da92f85331cf3 57-67
+  s_3d500482ec433b::t_f1e269c941a895 105,109-111
+  s_3d500482ec433b::t_fd2f7ba246163c 299
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "fb620bb57c2d5149a951a8e323ae0a80e7116fc4",
+  "prompts": {},
+  "sessions": {
+    "s_3d500482ec433b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5bb83b-5e1d-458f-ba56-698d439c9cce",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Adib Farrasy <adibfarrasy@gmail.com>"
+    }
+  }
+}
