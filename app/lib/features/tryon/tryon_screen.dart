@@ -158,7 +158,8 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
       for (final it in wardrobe.whereType<Map>()) it['id'] as String? ?? '': Map<String, dynamic>.from(it),
     };
     final outfits = (ref.watch(outfitsProvider).valueOrNull ?? const []).whereType<Map>();
-    final defaultAvatar = ref.watch(biometricsProvider).valueOrNull?['defaultAvatarUrl'] as String?;
+    final biometrics = ref.watch(biometricsProvider);
+    final defaultAvatar = biometrics.valueOrNull?['defaultAvatarUrl'] as String?;
 
     final slots = <SlotEntry>[];
     final regenItems = <Map<String, dynamic>>[];
@@ -288,7 +289,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        Positioned.fill(child: HeroFloor(imageUrl: heroUrl, topOffset: top + 8, maxHeight: 520)),
+                        Positioned.fill(child: HeroFloor(imageUrl: heroUrl, topOffset: top + 8, maxHeight: 520, loading: biometrics.isLoading)),
                         if (_regenerating) ...[
                           Positioned(
                             left: 0,

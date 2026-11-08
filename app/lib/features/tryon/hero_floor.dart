@@ -28,9 +28,9 @@ String slotKeyForCategory(String category) => switch (category) {
 
 /// The hero figure standing on a soft floor glow. With [topOffset] the
 /// figure is top-aligned that far below the parent's top; otherwise it sits
-/// at the bottom. The mannequin shows while a remote image is loading.
+/// at the bottom. The mannequin with a spinner shows while a remote image is loading.
 class HeroFloor extends StatelessWidget {
-  const HeroFloor({super.key, required this.imageUrl, this.topOffset, this.maxHeight});
+  const HeroFloor({super.key, required this.imageUrl, this.topOffset, this.maxHeight, this.loading = false});
 
   /// Fixed canvas of the dress-avatar pipeline.
   static const double aspectRatio = 832 / 1248;
@@ -39,9 +39,20 @@ class HeroFloor extends StatelessWidget {
   final double? topOffset;
   final double? maxHeight;
 
+  /// The image URL itself is still being resolved; shows the spinner over
+  /// the mannequin until [imageUrl] arrives.
+  final bool loading;
+
   @override
   Widget build(BuildContext context) {
     const mannequin = Image(image: AssetImage('assets/mannequin.png'), fit: BoxFit.contain);
+    const pending = Stack(
+      alignment: Alignment.center,
+      children: [
+        Positioned.fill(child: mannequin),
+        SizedBox(width: 28, height: 28, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.black)),
+      ],
+    );
     return LayoutBuilder(
       builder: (context, c) {
         final height = maxHeight == null ? c.maxHeight : c.maxHeight.clamp(0.0, maxHeight!);
@@ -65,11 +76,11 @@ class HeroFloor extends StatelessWidget {
               left: (c.maxWidth - width) / 2,
               child: figure(
                 url == null
-                    ? mannequin
+                    ? (loading ? pending : mannequin)
                     : Image.network(
                         url,
                         fit: BoxFit.contain,
-                        frameBuilder: (context, child, frame, sync) => sync || frame != null ? child : mannequin,
+                        frameBuilder: (context, child, frame, sync) => sync || frame != null ? child : pending,
                         errorBuilder: (_, __, ___) => mannequin,
                       ),
               ),
