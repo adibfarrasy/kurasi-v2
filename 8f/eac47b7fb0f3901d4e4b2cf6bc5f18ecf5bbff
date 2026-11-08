@@ -1,0 +1,19 @@
+backend/src/normalize_avatar.rs
+  s_3d500482ec433b::t_123b76d70e74b2 173,193,209,223
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "8feac47b7fb0f3901d4e4b2cf6bc5f18ecf5bbff",
+  "prompts": {},
+  "sessions": {
+    "s_3d500482ec433b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5bb83b-5e1d-458f-ba56-698d439c9cce",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Adib Farrasy <adibfarrasy@gmail.com>"
+    }
+  }
+}
