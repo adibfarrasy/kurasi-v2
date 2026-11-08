@@ -1,0 +1,275 @@
+app/lib/features/tryon/save_fit_sheet.dart
+  s_3d500482ec433b::t_d1e6696d353b82 2,4-7,9-10,13,16-17,21,27-75,77-81,85,88,91
+app/lib/features/onboarding/capture_face_screen.dart
+  s_3d500482ec433b::t_ff35d608f17555 7,91-108,111-136,139-159,161-188,248-253
+app/lib/features/wardrobe/upload_review_screen.dart
+  s_3d500482ec433b::t_1088018a394597 9,14-38,40,42-47,49,53-55,63-64,72,74-75,87-88,96,99,102,108-110,115-116,122,126-127,133-135,139-180,183-208,210-313,316-332,334-354,368-369,374-375,378-379,381-385,389-410,412-414,419-420,422,426-431,433-455,457-474,478,483-498,500-501,503-510,512-513,517-549,551-553,555,557-560,563-564,566-568,571,574-575,579-598,600-611,615-629,635-638,641,644-646,650-730,734
+app/test/steal_the_look_test.dart
+  s_3d500482ec433b::t_d6adab0c859b2a 163-164
+app/lib/features/onboarding/avatar_job_state.dart
+  s_3d500482ec433b::t_7042e01a2ee77d 65,130
+  s_3d500482ec433b::t_1edabebf77ede2 96-97
+  s_3d500482ec433b::t_dc081da90e4a54 44-46
+  s_3d500482ec433b::t_7ef4659a15504d 126
+app/lib/features/shell/plus_modal.dart
+  s_3d500482ec433b::t_d69a3bb68cb6b6 45
+  s_3d500482ec433b::t_e33f399cb88e36 4,7-12,16-34,37,42-44,46-66,68-119,127,130,132-134,139,141-143,147-150,152,161-168,172-178,183-184,189-190
+app/lib/features/onboarding/onboarding_three_screen.dart
+  s_3d500482ec433b::t_2ca4b888c28be7 1-2,66-92
+  s_3d500482ec433b::t_fb385594c81e11 31,37-38
+app/lib/features/tryon/hero_floor.dart
+  s_3d500482ec433b::t_3e0f5727c067cd 7,9,15,20-27,29-31,33,35,39-40,44-61,63-74,77-79,82
+app/lib/features/wardrobe/upload_processing_screen.dart
+  s_3d500482ec433b::t_ace388ad217230 12,25,28-29,47-50,60-61,65-70,82-85,88-91,224,243,247-287,289-290,293-295,301-302,308-322,326-329,332,335-336,338-345,349-353,357-380,382-383,385-387,391-397
+app/lib/features/myfit/profile_sheet.dart
+  s_3d500482ec433b::t_d69a3bb68cb6b6 70
+  s_3d500482ec433b::t_03088148be1235 4,11,135-146
+  s_3d500482ec433b::t_98bfc836516497 6,8,15-48,55,60-62,67,69,71-73,75-98,100-102,104-128,131-134,147-151,154-156,162-163,165-166,176-178,181-189,194-233,235-285,287-328,331,333,337
+  s_3d500482ec433b::t_0c6527d7dfbd23 49-54
+app/lib/core/design/avatar_loader.dart
+  s_3d500482ec433b::t_7042e01a2ee77d 1-2,5,7,10-11,13-24,29-60,62,66-67,69,73-88,90,94
+  s_3d500482ec433b::t_32b1831af4117d 8,61
+app/test/tab_bar_test.dart
+  s_3d500482ec433b::t_debf06a595a0b3 135,137,140,142,144,148
+app/lib/features/onboarding/onboarding_one_screen.dart
+  s_3d500482ec433b::t_03088148be1235 60
+app/test/myfit_test.dart
+  s_3d500482ec433b::t_1f1898aa3b8693 4,82-83
+  s_3d500482ec433b::t_debf06a595a0b3 109
+app/lib/features/subscription/subscription_screen.dart
+  s_3d500482ec433b::t_2aeaedb8328121 224,229-230,251
+  s_3d500482ec433b::t_72833197fb8834 276
+  s_3d500482ec433b::t_6d84c53763ed76 7-27,39,43,46,54-56,58-81,84-118,120-121,123-136,142-143,146-150,154-168,171-173,175-196,217-219,221,231-248,252-254,258,279-290,298,302,308-316,318,324-325,328,332-334,336-341,345
+app/lib/features/onboarding/ai_credits_screen.dart
+  s_3d500482ec433b::t_25dc54a7c7cc5a 10-12,39,41-83,85-98,102-103,110-111,113,119-132,135-145,150-151,156-159,161-162,164-169
+app/lib/core/design/membership_card_view.dart
+  s_3d500482ec433b::t_c1b8523fc443ae 26,29-30,150
+  s_3d500482ec433b::t_d70c38642dc574 1-2,4,6-7,10-25,27,33-37,39-40,43-81,83-140,143-149,151-165,167-169,173-174
+  s_3d500482ec433b::t_2c641be4507c6d 28
+app/lib/features/myfit/myfit_screen.dart
+  s_3d500482ec433b::t_b99b0b920b73df 2,4,13,26-40,50,52-53,55-106,108,110,113-130,132-138,140-141,152,155-156,159-160,164-166,168,170-203,205-208,214-217,221-222,225-230,234
+app/lib/features/outfit/outfit_detail_screen.dart
+  s_3d500482ec433b::t_5e20befda07cf1 10-16,18-19,30-32,36,42-44,46,48-67,70-75,79-103,106-136,138-177,182-188,191-192,199,201-206,210-229,232,238-239,241,244,248,253-260
+app/lib/features/steal_the_look/analyzing_screen.dart
+  s_3d500482ec433b::t_32b1831af4117d 11,61-62,258-259,263-290,299,304-313,315-319,323-336,338-339,342,345
+  s_3d500482ec433b::t_39424aef8325d3 239-240,242,244
+  s_3d500482ec433b::t_f2449c4be75e03 241,243
+app/lib/features/onboarding/membership_card_screen.dart
+  s_3d500482ec433b::t_5ec2e64c247db4 1-2,15-17,29-31,69-73,77-81,94-105,108-111,113-130,141,144-151,164-168,213-215,264,300,302,304,306-307,312
+  s_3d500482ec433b::t_eaa1e98d12c5f9 284-286
+  s_3d500482ec433b::t_c1b8523fc443ae 28,32-40,43-45,48-56,59-62,133-140,143,220,222-223,228-261,268-283,287-299,301,303,305,308-310
+  s_3d500482ec433b::t_3a4ae60dbd93e7 25-27,152-161,169-210,212,216-217
+  s_3d500482ec433b::t_4a80777cebdea0 65-67,142
+app/lib/core/design/photo_source.dart
+  s_3d500482ec433b::t_a995d31ce665c5 1-37,40,45,52-55
+  s_3d500482ec433b::t_b0d6d9c939fe87 38-39,41-44,46-51
+app/test/tryon_test.dart
+  s_3d500482ec433b::t_0a76645ccef9e4 74-84,86-87,102,125,129-130,132-136,139-147,150-153,156,161,165,167,169-171,174,177,183,187-204,213,215,219
+app/lib/features/wardrobe/wardrobe_screen.dart
+  s_3d500482ec433b::t_cc234b0c2ad32b 4,6,9-11,14-23,26-34,37-51,55-100,102-105,107-129,131-132,135-230,236-263,265-275,278-282,285-295,298-308,311-318,321,328-329,331,333,337-356,358-369,371-373,378-379,382,386-398,403-408,411,415,419-422,425-427,431-439,441-451,453-474,476-478,480-484,488-498,504-508,510-512,514-515,519-546,558,563-586,589
+  s_3d500482ec433b::t_c095694e012db2 547-557,559-562
+app/test/avatar_job_test.dart
+  s_3d500482ec433b::t_db9b383893d041 55
+app/lib/core/design/signature_pad.dart
+  s_3d500482ec433b::t_9484f55831b820 3-4,7,21,53-54,63,65,67,71,84-85,122-123,150
+  s_3d500482ec433b::t_c1b8523fc443ae 45-48,50,55-56,72-83,86-91,93-121,126-147,151-152
+app/lib/features/onboarding/onboarding_two_screen.dart
+  s_3d500482ec433b::t_03088148be1235 59
+app/assets/ai-items-badge.svg.tmpl
+  s_3d500482ec433b::t_3a8a468bb005d3 1-3
+app/assets/logomark-dark.png
+  s_3d500482ec433b::t_6f501a4d0d3483 1-3
+app/lib/features/wardrobe/upload_guide_screen.dart
+  s_3d500482ec433b::t_a995d31ce665c5 7,28
+  s_3d500482ec433b::t_8fa5791064a728 167-168,180
+  s_3d500482ec433b::t_d01297b08187da 35,38,44,50,55-67,71,73,75-76,82-95,111-125
+  s_3d500482ec433b::t_fec3ca1383f343 8,155
+app/test/outfit_test.dart
+  s_3d500482ec433b::t_b54ba5d4cbd427 118,120-121,135-136
+app/lib/core/design/stage_carousel.dart
+  s_3d500482ec433b::t_32b1831af4117d 1-60
+app/assets/silhouette.svg
+  s_3d500482ec433b::t_ae44906ef50be6 1-3
+app/lib/features/credits/ai_balance_screen.dart
+  s_3d500482ec433b::t_b14433fb4d6529 97
+  s_3d500482ec433b::t_5fa4e205602519 2,8-19,28-29,38,41,43-52,54-62,70-84,87-95,98-103,106-107,109-113,115-138,140-193,195,198,201-210,212-214,217-218,222,224-245,247-248,254,256,262,264,266-269,275-277,279,281,285,299,301-302,307,309,311-312,314-315
+  s_3d500482ec433b::t_4c35d0e0d5cd19 288-297
+app/lib/features/outfit/outfit_edit_screen.dart
+  s_3d500482ec433b::t_d0c05cce593c98 12,15,17-22,25,27-28,41,45,47-51,54-57,63,65,67-77,79-83,85-93,96,99-107,112-138,142-229,234,239-240,243,248-259,266,268,274-290,293-294,300,302-308,310-312,315-323,325,329-382,384-386,389,391,393-396,400
+app/lib/features/wardrobe/wardrobe_ui_provider.dart
+  s_3d500482ec433b::t_cc234b0c2ad32b 9
+app/test/wardrobe_test.dart
+  s_3d500482ec433b::t_976fa71d2cd5a9 104-108,110,112,121-123,126-128,131,134-136,141,152
+app/lib/features/tryon/slot_strip.dart
+  s_3d500482ec433b::t_56f7a2d565a1f5 165-167
+  s_3d500482ec433b::t_3e0f5727c067cd 3-4,6-7,9-10,12-13,16-17,19-22,25,27-30,32-34,37-41,43-54,61-62,64,66-67,71,73-81,85-97,99-124,128-129,137,139,143-156,158-164,168-170,176
+app/lib/features/tryon/tone_background.dart
+  s_3d500482ec433b::t_3e0f5727c067cd 4,8,11-12,25-37,51,54,57
+app/assets/google-logo.svg
+  s_3d500482ec433b::t_ae44906ef50be6 1-3
+app/assets/Warning.svg
+  s_3d500482ec433b::t_ae44906ef50be6 1-3
+app/test/subscription_test.dart
+  s_3d500482ec433b::t_4c35d0e0d5cd19 107
+  s_3d500482ec433b::t_7b3fa018c3b0ea 79,81,89-91,93-94,97,99,108,110,131,174-175
+app/lib/features/tryon/add_item_sheet.dart
+  s_3d500482ec433b::t_d1e6696d353b82 5,7,10-11,13,16-20,23-28,31-32,34-35,37-41,43,46-52,55-68,70-71,74-76,78-79,81-83,85-87,89-104,107-108,111-112,114-140,142-151,153,155-172,174-193,195-213,215-262,266-298,300-315,318-321,323,330-331,333-336,341-355,358-366,368,371-375,378,384-385,387-388,392-398,404-405,409-447,449-451,453-454,457
+  s_3d500482ec433b::t_2327f51260630d 152,154
+  s_3d500482ec433b::t_e33f399cb88e36 69
+app/lib/features/tryon/tryon_screen.dart
+  s_3d500482ec433b::t_2327f51260630d 1-3,6-7,11,13,20-28,38-49,57-60,62-68,71-78,80-89,92-124,126-151,155-272,274-329,332-353,357
+app/lib/core/design/flair_sheet.dart
+  s_3d500482ec433b::t_5d53472144508c 37-40
+  s_3d500482ec433b::t_18124814c085f3 52-55,64-65
+  s_3d500482ec433b::t_70c0fd2dc46a36 1-34,47,63,66-68,102
+  s_3d500482ec433b::t_bec71a2375269d 35-36,41-46,48-51,56-62,69-101
+app/pubspec.yaml
+  s_3d500482ec433b::t_f09f9c4a0a6e3f 46
+  s_3d500482ec433b::t_1857a4063e2ead 22
+app/lib/features/steal_the_look/failed_screen.dart
+  s_3d500482ec433b::t_a778a01da7442e 4
+  s_3d500482ec433b::t_9e077f0487cf40 57-58,114
+app/lib/features/steal_the_look/guide_screen.dart
+  s_3d500482ec433b::t_8fa5791064a728 84,102,188-189,201
+  s_3d500482ec433b::t_a995d31ce665c5 5,21
+app/assets/Image.png
+  s_3d500482ec433b::t_131adf8a95ac8f 1-3
+app/assets/add-item.png
+  s_3d500482ec433b::t_855c1ffb427537 1-3
+app/assets/arrow-left.png
+  s_3d500482ec433b::t_430eb62bf7b886 1-3
+app/assets/bar.png
+  s_3d500482ec433b::t_05094a9c4ee5de 1-3
+app/assets/book-open.png
+  s_3d500482ec433b::t_18ffe0cb9ea2d6 1-3
+app/assets/bookmark-simple-filled.png
+  s_3d500482ec433b::t_6f3d9a438abf50 1-3
+app/assets/camera.png
+  s_3d500482ec433b::t_4518d027a2edbf 1-3
+app/assets/canvas.png
+  s_3d500482ec433b::t_252b451ef01db4 1-3
+app/assets/card-shadow.png
+  s_3d500482ec433b::t_fd271db4bc8dc3 1-3
+app/assets/caretdown.png
+  s_3d500482ec433b::t_a92d6826be1322 1-3
+app/assets/check-circle.png
+  s_3d500482ec433b::t_a4e894972923b6 1-3
+app/assets/check.png
+  s_3d500482ec433b::t_1751f2f9c459b2 1-3
+app/assets/checkcircle.png
+  s_3d500482ec433b::t_74404544850291 1-3
+app/assets/coat-hanger.png
+  s_3d500482ec433b::t_c096a6af7cc420 1-3
+app/assets/default-man.png
+  s_3d500482ec433b::t_3ab45a280476b3 1-3
+app/assets/diamond.png
+  s_3d500482ec433b::t_354dee4d564220 1-3
+app/assets/dots-nine.png
+  s_3d500482ec433b::t_553cdd59d4dab8 1-3
+app/assets/ellipse-select.png
+  s_3d500482ec433b::t_5cf728df97c06d 1-3
+app/assets/ellipse.png
+  s_3d500482ec433b::t_ef160f0d218477 1-3
+app/assets/gold-button.png
+  s_3d500482ec433b::t_3c8ede1bcd3606 1-3
+app/assets/itembox.png
+  s_3d500482ec433b::t_6abda840bdec4c 1-3
+app/assets/key.png
+  s_3d500482ec433b::t_862ac37cb6f952 1-3
+app/assets/lightbulb-filament.png
+  s_3d500482ec433b::t_33f2c2d7bcef59 1-3
+app/assets/list.png
+  s_3d500482ec433b::t_e77e553de194a1 1-3
+app/assets/magnifying-glass.png
+  s_3d500482ec433b::t_c400630effa72d 1-3
+app/assets/paperclip.png
+  s_3d500482ec433b::t_cb8038f0625d34 1-3
+app/assets/pencil-line.png
+  s_3d500482ec433b::t_a22705646b35da 1-3
+app/assets/picture.png
+  s_3d500482ec433b::t_0765bcbe3e1c02 1-3
+app/assets/pro-button.png
+  s_3d500482ec433b::t_7fcff8b9570b47 1-3
+app/assets/reset.png
+  s_3d500482ec433b::t_ef6fcb00108882 1-3
+app/assets/shadow.png
+  s_3d500482ec433b::t_92d7095268ab38 1-3
+app/assets/share.png
+  s_3d500482ec433b::t_d57a80febf1eb7 1-3
+app/assets/sign-out.png
+  s_3d500482ec433b::t_cfc2d7fb7b55c5 1-3
+app/assets/signature-box.png
+  s_3d500482ec433b::t_40999c6c02232f 1-3
+app/assets/signature.png
+  s_3d500482ec433b::t_015fa38d1dbb97 1-3
+app/assets/sort.png
+  s_3d500482ec433b::t_0b3686b1028ac1 1-3
+app/assets/star.png
+  s_3d500482ec433b::t_6fa39773800169 1-3
+app/assets/stealthelook-do.png
+  s_3d500482ec433b::t_07ab8def851b4c 1-3
+app/assets/stealthelook-dont.png
+  s_3d500482ec433b::t_317c7061d4975e 1-3
+app/assets/t-shirt-edit.png
+  s_3d500482ec433b::t_be297fc62f7d2e 1-3
+app/assets/t-shirt-upload.png
+  s_3d500482ec433b::t_03793a645a7b7d 1-3
+app/assets/t-shirt.png
+  s_3d500482ec433b::t_3acd3293653e79 1-3
+app/assets/tab-underline.png
+  s_3d500482ec433b::t_76e665f76ad761 1-3
+app/assets/top-flair-edge.png
+  s_3d500482ec433b::t_5828389d572f91 1-3
+app/assets/trash.png
+  s_3d500482ec433b::t_a1225009c9a8b2 1-3
+app/assets/upload-wardrobe-do.png
+  s_3d500482ec433b::t_546934d80baecd 1-3
+app/assets/upload-wardrobe-dont.png
+  s_3d500482ec433b::t_ab8b3e27b11675 1-3
+app/assets/user.png
+  s_3d500482ec433b::t_764092cda4c150 1-3
+app/assets/variant-ankle-length.png
+  s_3d500482ec433b::t_08d391f76ca7dc 1-3
+app/assets/variant-cropped.png
+  s_3d500482ec433b::t_d4a8a3454ec4ca 1-3
+app/assets/variant-full-length-pants.png
+  s_3d500482ec433b::t_cbeff5de4c3de0 1-3
+app/assets/variant-full-length.png
+  s_3d500482ec433b::t_9437674ba5614e 1-3
+app/assets/variant-hip.png
+  s_3d500482ec433b::t_762c094d83d416 1-3
+app/assets/variant-knee-shorts.png
+  s_3d500482ec433b::t_1dec08140a5963 1-3
+app/assets/variant-knee.png
+  s_3d500482ec433b::t_8262dd8b60a384 1-3
+app/assets/variant-thigh-shorts.png
+  s_3d500482ec433b::t_0eae20ee029af9 1-3
+app/assets/variant-thigh.png
+  s_3d500482ec433b::t_a691db69e65781 1-3
+app/assets/variant-waist.png
+  s_3d500482ec433b::t_4c5a913760a7c4 1-3
+app/assets/x-circle.png
+  s_3d500482ec433b::t_9b294b46dd4a3b 1-3
+app/assets/x.png
+  s_3d500482ec433b::t_9afb1d87069db2 1-3
+app/assets/your-plan.png
+  s_3d500482ec433b::t_3b5e95bdeca31d 1-3
+app/pubspec.lock
+  s_3d500482ec433b::t_30f381dea98b4c 289-296,539-546,595-602,864-887,936-943
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "bdd8aaa3db929513cf92b8b4adaf1514dee5fb0e",
+  "prompts": {},
+  "sessions": {
+    "s_3d500482ec433b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5bb83b-5e1d-458f-ba56-698d439c9cce",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Adib Farrasy <adibfarrasy@gmail.com>"
+    }
+  }
+}
