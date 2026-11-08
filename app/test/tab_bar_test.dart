@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:kurasi/core/design/tab_bar.dart';
-import 'package:kurasi/core/theme/app_colors.dart';
 import 'package:kurasi/features/credits/credits_provider.dart';
 import 'package:kurasi/features/shell/plus_modal.dart';
 import 'package:kurasi/features/shell/tab_shell.dart';
@@ -133,20 +132,20 @@ void main() {
       await pumpModal(tester);
 
       final stealTitle = tester.widget<Text>(find.text('Steal the Look'));
-      expect(stealTitle.style?.color, Colors.grey);
+      expect(stealTitle.style?.color, const Color(0xFF666666));
       final addTitle = tester.widget<Text>(find.text('Add Clothes'));
-      expect(addTitle.style?.color, Colors.grey);
+      expect(addTitle.style?.color, const Color(0xFF666666));
 
       final stealCost = tester.widget<Text>(find.text('6'));
-      expect(stealCost.style?.color, AppColors.dontRed);
+      expect(stealCost.style?.color, const Color(0xFFFF0D00));
       final addCost = tester.widget<Text>(find.text('1'));
-      expect(addCost.style?.color, AppColors.dontRed);
+      expect(addCost.style?.color, const Color(0xFFFF0D00));
 
-      await tester.tap(find.byKey(const ValueKey('plus_action_steal')));
+      await tester.tap(find.byKey(const ValueKey('plus_steal_the_look')));
       await tester.pumpAndSettle();
       expect(find.byType(PlusModal), findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('plus_action_add')));
+      await tester.tap(find.byKey(const ValueKey('plus_add_clothes')));
       await tester.pumpAndSettle();
       expect(find.byType(PlusModal), findsOneWidget);
     });

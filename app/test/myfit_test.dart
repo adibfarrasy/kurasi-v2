@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kurasi/core/api/api_client.dart';
 import 'package:kurasi/core/api/api_providers.dart';
@@ -78,7 +79,8 @@ void main() {
     ));
     await tester.pumpAndSettle();
     expect(find.text('Fit'), findsOneWidget);
-    expect(find.text('1'), findsOneWidget);
+    // The unowned-item count lives in the curved SVG badge.
+    expect(find.byType(SvgPicture), findsOneWidget);
   });
 
   testWidgets('profile sheet log out signs out', (tester) async {
@@ -104,6 +106,7 @@ void main() {
 
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
+    await tester.dragUntilVisible(find.text('Log Out'), find.byType(ListView), const Offset(0, -100));
     await tester.tap(find.text('Log Out'));
     await tester.pumpAndSettle();
     expect(fakeAuth.signedOut, isTrue);

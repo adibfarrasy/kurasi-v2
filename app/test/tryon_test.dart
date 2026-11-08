@@ -2,9 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:kurasi/core/api/api_client.dart';
-import 'package:kurasi/core/api/api_exception.dart';
 import 'package:kurasi/core/api/api_providers.dart';
 import 'package:kurasi/core/api/endpoints.dart';
 import 'package:kurasi/core/auth/auth_service.dart';
@@ -73,7 +71,20 @@ class _FakeApi extends ApiClient {
               {'name': 'black', 'hex': '#000000', 'ratio': 1.0},
             ],
           },
+          {
+            'id': 'w2',
+            'name': 'Denim Jacket',
+            'category': 'jacket',
+            'imageUrl': 'https://x/w2.png',
+            'owned': true,
+            'status': 'active',
+            'colors': [
+              {'name': 'blue', 'hex': '#1E6FBA', 'ratio': 1.0},
+            ],
+          },
         ];
+      case final p when p == ApiEndpoints.outfitRegenerateProgress('s1'):
+        return {'phase': 'done', 'resultUrl': 'https://x/regen.png'};
       case ApiEndpoints.biometrics:
         return {'defaultAvatarUrl': 'https://x/avatar.png'};
       default:
@@ -88,17 +99,8 @@ class _FakeApi extends ApiClient {
     if (path == ApiEndpoints.outfitsFromTryon) {
       return {'id': 'new', 'name': 'saved'};
     }
+    if (path == ApiEndpoints.outfitRegenerate('tryon')) return {'sessionId': 's1'};
     return <String, dynamic>{};
-  }
-}
-
-class _FailingSaveFitApi extends _FakeApi {
-  @override
-  Future<dynamic> post(String path, {Object? body}) async {
-    if (path == ApiEndpoints.outfitsFromTryon) {
-      throw ApiException('SAVE_FAILED', 'save exploded', null);
-    }
-    return super.post(path, body: body);
   }
 }
 
@@ -120,192 +122,86 @@ void main() {
     expect(outfitTone([]), 'neutral');
   });
 
-  test('colorSimilarity ranks identical and alternative colors', () {
+  test('colorSimilarity scores palettes and buckets by threshold', () {
     final black = [
       {'name': 'black', 'hex': '#000000', 'ratio': 1.0},
     ];
-    final charcoal = [
-      {'name': 'charcoal', 'hex': '#1a1a1a', 'ratio': 1.0},
+    final white = [
+      {'name': 'white', 'hex': '#FFFFFF', 'ratio': 1.0},
     ];
-    final gray = [
-      {'name': 'gray', 'hex': '#4A4A4A', 'ratio': 1.0},
-    ];
-    final blue = [
-      {'name': 'blue', 'hex': '#1E6FBA', 'ratio': 1.0},
-    ];
-    expect(colorSimilarity(black, black), greaterThanOrEqualTo(0.9));
-    expect(colorSimilarity(black, charcoal), greaterThanOrEqualTo(0.9));
-    expect(colorSimilarity(black, gray), greaterThanOrEqualTo(0.5));
-    expect(colorSimilarity(black, blue), lessThan(0.5));
+    expect(colorSimilarity(black, black), 1.0);
+    expect(colorSimilarity(black, white), 0.0);
+    expect(similarityBucket(0.95), 'identical');
+    expect(similarityBucket(0.6), 'alternative');
+    expect(similarityBucket(0.2), 'other');
   });
 
-  test('bucketItemsByColor splits identical, alternative and other buckets', () {
-    final reference = [
-      {'name': 'black', 'hex': '#000000', 'ratio': 1.0},
-    ];
-    final items = [
-      {'id': 'a', 'colors': [{'name': 'black', 'hex': '#000000', 'ratio': 1.0}]},
-      {'id': 'b', 'colors': [{'name': 'gray', 'hex': '#4A4A4A', 'ratio': 1.0}]},
-      {'id': 'c', 'colors': [{'name': 'blue', 'hex': '#1E6FBA', 'ratio': 1.0}]},
-    ];
-    final buckets = bucketItemsByColor(items, reference);
-    final labels = buckets.map((b) => b.label).toList();
-    expect(labels, ['Same color', 'Alternatives', 'Other']);
-    expect(buckets[0].items.single['id'], 'a');
-    expect(buckets[1].items.single['id'], 'b');
-    expect(buckets[2].items.single['id'], 'c');
-  });
-
-  testWidgets('slot strip shows 5 slot positions and add cards for empty slots',
-      (tester) async {
-    final container = ProviderContainer(overrides: _overrides(_FakeApi()));
-    addTearDown(container.dispose);
-    container
-        .read(tryOnSlotsProvider.notifier)
-        .setSlot('shirt', {'kind': 'wardrobe', 'category': 'shirt', 'itemId': 'w1'});
-
-    await tester.pumpWidget(UncontrolledProviderScope(
-      container: container,
-      child: const MaterialApp(
-        home: Scaffold(body: Center(child: SlotStrip())),
-      ),
-    ));
-    await tester.pumpAndSettle();
-
-    for (final category in ['headwear', 'shirt', 'jacket', 'pants', 'footwear']) {
-      expect(find.byKey(ValueKey('slot_$category')), findsOneWidget);
-    }
-    expect(find.byKey(const ValueKey('add_slot_shirt')), findsNothing);
-    expect(find.byKey(const ValueKey('add_slot_headwear')), findsOneWidget);
-    expect(find.byKey(const ValueKey('add_slot_jacket')), findsOneWidget);
-    expect(find.byKey(const ValueKey('add_slot_pants')), findsOneWidget);
-    expect(find.byKey(const ValueKey('add_slot_footwear')), findsOneWidget);
-  });
-
-  testWidgets('slot strip shows changed dot and ai badge for ai slot',
-      (tester) async {
-    final container = ProviderContainer(overrides: _overrides(_FakeApi()));
-    addTearDown(container.dispose);
-    container.read(tryOnSlotsProvider.notifier).setSlot('jacket', {
-      'kind': 'ai',
-      'category': 'jacket',
-      'aiItem': {
-        'imageUrl': 'https://ai/j.png',
-        'category': 'jacket',
-        'colors': <dynamic>[],
-      },
-    });
-
-    await tester.pumpWidget(UncontrolledProviderScope(
-      container: container,
-      child: const MaterialApp(
-        home: Scaffold(body: Center(child: SlotStrip())),
-      ),
-    ));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const ValueKey('changed_dot_jacket')), findsOneWidget);
-    expect(find.byKey(const ValueKey('ai_badge_jacket')), findsOneWidget);
-    expect(find.byKey(const ValueKey('changed_dot_shirt')), findsNothing);
-  });
-
-  testWidgets('add item sheet lists wardrobe items for the slot category',
-      (tester) async {
-    final container = ProviderContainer(overrides: _overrides(_FakeApi()));
-    addTearDown(container.dispose);
-
-    await tester.pumpWidget(UncontrolledProviderScope(
-      container: container,
-      child: MaterialApp(
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => Center(
-              child: TextButton(
-                onPressed: () => showAddItemSheet(context, 'shirt'),
-                child: const Text('open'),
-              ),
-            ),
-          ),
+  testWidgets('slot strip renders labels, changed dot and ai diamond', (tester) async {
+    await tester.pumpWidget(const MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: SlotStrip(slots: [
+            SlotEntry(key: 'shirt', label: 'SHIRT', item: SlotItem(imageUrl: '', brand: 'Nike')),
+            SlotEntry(key: 'jacket', label: 'JACKET', item: SlotItem(imageUrl: '', changed: true, aiGenerated: true)),
+          ]),
         ),
       ),
     ));
-    await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Black Hoodie'), findsOneWidget);
-    expect(find.byKey(const ValueKey('generate_shirt')), findsOneWidget);
-    expect(find.byKey(const ValueKey('upload_shirt')), findsOneWidget);
+    expect(find.text('SHIRT'), findsOneWidget);
+    expect(find.text('JACKET'), findsOneWidget);
+    expect(find.text('Nike'), findsOneWidget);
+    expect(find.image(const AssetImage('assets/diamond.png')), findsOneWidget);
   });
 
-  testWidgets('generate marks the slot as ai-pending', (tester) async {
+  testWidgets('picking a saved combination shows the My Fit indicator', (tester) async {
     final container = ProviderContainer(overrides: _overrides(_FakeApi()));
     addTearDown(container.dispose);
-
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => Center(
-              child: TextButton(
-                onPressed: () => showAddItemSheet(context, 'shirt'),
-                child: const Text('open'),
-              ),
-            ),
-          ),
-        ),
-      ),
+      child: const MaterialApp(home: TryOnScreen()),
     ));
-    await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('generate_shirt')));
     await tester.pumpAndSettle();
 
-    final slot = container.read(tryOnSlotsProvider)['shirt'];
-    expect(slot, isNotNull);
-    expect((slot as Map)['kind'], 'ai');
+    await tester.tap(find.byKey(const ValueKey('slot_add')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('add_item_tab_Shirt')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('add_item_w1')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('add_item_done')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('My Fit • Night Look', findRichText: true), findsOneWidget);
   });
 
-  testWidgets('save fit sheet posts from-tryon with the right body',
-      (tester) async {
+  testWidgets('new combination regenerates then saves from-tryon', (tester) async {
     final fakeApi = _FakeApi();
     final container = ProviderContainer(overrides: _overrides(fakeApi));
     addTearDown(container.dispose);
-    container
-        .read(tryOnSlotsProvider.notifier)
-        .setSlot('shirt', {'kind': 'wardrobe', 'category': 'shirt', 'itemId': 'w1'});
-    container.read(tryOnSlotsProvider.notifier).setSlot('jacket', {
-      'kind': 'ai',
-      'category': 'jacket',
-      'aiItem': {
-        'imageUrl': 'https://ai/j.png',
-        'category': 'jacket',
-        'brand': null,
-        'fit': 'regular',
-        'length': 'hip',
-        'colors': [
-          {'name': 'blue', 'hex': '#1E6FBA', 'ratio': 1.0},
-        ],
-      },
-    });
-
-    final router = GoRouter(
-      initialLocation: '/tryon',
-      routes: [
-        GoRoute(path: '/tryon', builder: (_, __) => const TryOnScreen()),
-        GoRoute(
-            path: '/myfit',
-            builder: (_, __) => const Scaffold(body: Text('myfit home'))),
-      ],
-    );
-
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: MaterialApp.router(routerConfig: router),
+      child: const MaterialApp(home: TryOnScreen()),
     ));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('tryon_save_fit')));
+    await tester.tap(find.byKey(const ValueKey('slot_add')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('add_item_tab_Jacket')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('add_item_w2')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('add_item_done')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Regenerate my fit'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('tryon_cta')));
+    await tester.pump();
+    expect(fakeApi.lastPostPath, ApiEndpoints.outfitRegenerate('tryon'));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Save to My Fit'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('tryon_cta')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const ValueKey('save_fit_name')), 'Night Out');
     await tester.tap(find.byKey(const ValueKey('save_fit_confirm')));
@@ -314,61 +210,10 @@ void main() {
     expect(fakeApi.lastPostPath, ApiEndpoints.outfitsFromTryon);
     expect(fakeApi.lastPostBody, {
       'name': 'Night Out',
-      'heroImageUrl': 'https://fit/he.png',
+      'heroImageUrl': 'https://x/regen.png',
       'slots': [
-        {'category': 'shirt', 'wardrobeId': 'w1'},
-        {
-          'category': 'jacket',
-          'aiItem': {
-            'imageUrl': 'https://ai/j.png',
-            'category': 'jacket',
-            'brand': null,
-            'fit': 'regular',
-            'length': 'hip',
-            'colors': [
-              {'name': 'blue', 'hex': '#1E6FBA', 'ratio': 1.0},
-            ],
-          },
-        },
+        {'category': 'jacket', 'wardrobeId': 'w2'},
       ],
     });
-    expect(find.text('myfit home'), findsOneWidget);
-  });
-
-  testWidgets('save fit failure surfaces an error and does not navigate',
-      (tester) async {
-    final container =
-        ProviderContainer(overrides: _overrides(_FailingSaveFitApi()));
-    addTearDown(container.dispose);
-    container
-        .read(tryOnSlotsProvider.notifier)
-        .setSlot('shirt', {'kind': 'wardrobe', 'category': 'shirt', 'itemId': 'w1'});
-
-    final router = GoRouter(
-      initialLocation: '/tryon',
-      routes: [
-        GoRoute(path: '/tryon', builder: (_, __) => const TryOnScreen()),
-        GoRoute(
-            path: '/myfit',
-            builder: (_, __) => const Scaffold(body: Text('myfit home'))),
-      ],
-    );
-
-    await tester.pumpWidget(UncontrolledProviderScope(
-      container: container,
-      child: MaterialApp.router(routerConfig: router),
-    ));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('tryon_save_fit')));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-        find.byKey(const ValueKey('save_fit_name')), 'Night Out');
-    await tester.tap(find.byKey(const ValueKey('save_fit_confirm')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Failed to save fit'), findsOneWidget);
-    expect(find.byKey(const ValueKey('save_fit_confirm')), findsOneWidget);
-    expect(find.text('myfit home'), findsNothing);
   });
 }

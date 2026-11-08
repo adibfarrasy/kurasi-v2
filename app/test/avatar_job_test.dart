@@ -52,7 +52,7 @@ void main() {
     final container = ProviderContainer(overrides: [
       apiClientProvider.overrideWithValue(_FakeApi([
         {'sessionId': 's1'},
-        {'phase': 'error', 'error': 'face not found'},
+        {'phase': 'error', 'message': 'face not found'},
       ])),
     ]);
     addTearDown(container.dispose);

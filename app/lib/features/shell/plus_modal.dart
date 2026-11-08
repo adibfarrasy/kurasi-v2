@@ -1,103 +1,122 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_typography.dart';
+import '../../core/design/flair_sheet.dart';
 import '../credits/credits_provider.dart';
 
-class PlusModal extends ConsumerStatefulWidget {
+const TextStyle _funnel = TextStyle(fontFamily: 'FunnelSans', color: Colors.black);
+const Color _insufficientRed = Color(0xFFFF0D00);
+const List<BoxShadow> _buttonShadow = [BoxShadow(color: Color(0x66000000), offset: Offset(0.5, 1), blurRadius: 1)];
+
+/// Tab-bar plus: Steal the Look, Add Clothes, and the AI balance.
+class PlusModal extends ConsumerWidget {
   const PlusModal({super.key});
 
   static Future<void> show(BuildContext context) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+    // Refetch so the insufficient-balance check reflects recent spends/grants.
+    ProviderScope.containerOf(context).invalidate(creditsProvider);
+    return showFlairSheet<void>(
+      context,
+      divider: false,
+      above: (sheetContext) => Container(
+        height: 60,
+        alignment: Alignment.topRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: GestureDetector(
+          key: const ValueKey('plus_close'),
+          onTap: () => Navigator.of(sheetContext).pop(),
+          child: Container(
+            width: 48,
+            height: 48,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: _buttonShadow),
+            child: Image.asset('assets/x.png', width: 24, height: 24, color: Colors.black),
+          ),
+        ),
+      ),
       builder: (_) => const PlusModal(),
     );
   }
 
   @override
-  ConsumerState<PlusModal> createState() => _PlusModalState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final balance = (ref.watch(creditsProvider).valueOrNull?['balance'] as num?)?.toInt() ?? 0;
+    void go(String path) {
+      final router = GoRouter.of(context);
+      Navigator.of(context).pop();
+      router.push(path);
+    }
 
-class _PlusModalState extends ConsumerState<PlusModal> {
-  @override
-  void initState() {
-    super.initState();
-    Future.microtask(() => ref.read(creditsProvider.notifier).refresh());
-  }
-
-  void _navigateTo(String location) {
-    Navigator.of(context).pop();
-    context.go(location);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final balance = ref.watch(creditsProvider).value?['balance'] as int? ?? 0;
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _CloseRow(onClose: () => Navigator.of(context).pop()),
-            const Divider(height: 1, color: AppColors.page),
-            _ActionRow(
-              rowKey: const ValueKey('plus_action_steal'),
-              title: 'Steal the Look',
-              subtitle: 'Upload an inspiration, and the AI will analyze it for you',
-              iconAsset: 'assets/sparkle.png',
-              cost: 6,
-              enabled: balance >= 6,
-              onPressed: () => _navigateTo('/steal-the-look'),
-            ),
-            const Divider(height: 1, color: AppColors.page),
-            _ActionRow(
-              rowKey: const ValueKey('plus_action_add'),
-              title: 'Add Clothes',
-              subtitle: 'Add items into your wardrobe collection',
-              iconAsset: 'assets/dresser.png',
-              cost: 1,
-              costUnit: '/image',
-              enabled: balance >= 1,
-              onPressed: () => _navigateTo('/upload-wardrobe-guide'),
-            ),
-            const Divider(height: 1, color: AppColors.page),
-            _BalanceRow(balance: balance, onAdd: () => _navigateTo('/ai-balance')),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _CloseRow extends StatelessWidget {
-  const _CloseRow({required this.onClose});
-
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: InkWell(
-          onTap: onClose,
-          customBorder: const CircleBorder(),
-          child: const SizedBox(
-            width: 48,
-            height: 48,
-            child: Icon(Icons.close, color: AppColors.textPrimary, size: 24),
+    const divider = Divider(height: 1, thickness: 1, color: Color(0xFFE5E5E5));
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 11, 20, 50),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          divider,
+          const SizedBox(height: 11),
+          _ActionRow(
+            key: const ValueKey('plus_steal_the_look'),
+            title: 'Steal the Look',
+            subtitle: 'Upload an inspiration, and the AI will analyze it for you',
+            icon: 'assets/lightbulb-filament.png',
+            cost: 6,
+            balance: balance,
+            onTap: () => go('/steal-the-look'),
           ),
-        ),
+          const SizedBox(height: 11),
+          divider,
+          const SizedBox(height: 11),
+          _ActionRow(
+            key: const ValueKey('plus_add_clothes'),
+            title: 'Add Clothes',
+            subtitle: 'Add items into your wardrobe collection',
+            icon: 'assets/t-shirt-upload.png',
+            cost: 1,
+            unit: '/image',
+            balance: balance,
+            onTap: () => go('/upload-wardrobe-guide'),
+          ),
+          const SizedBox(height: 11),
+          divider,
+          const SizedBox(height: 11),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Image.asset('assets/star.png', width: 24, height: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('AI balance', style: _funnel.copyWith(fontSize: 16, height: 22 / 16, letterSpacing: -0.16)),
+                      Text('$balance', style: _funnel.copyWith(fontSize: 20, height: 24 / 20, letterSpacing: -0.3, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  key: const ValueKey('plus_add_credits'),
+                  onTap: () => go('/ai-balance'),
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 16, 8),
+                    decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(999)),
+                    child: Row(
+                      children: [
+                        const Text('＋', style: TextStyle(color: Colors.white, fontSize: 18, height: 1)),
+                        const SizedBox(width: 6),
+                        Text('Add', style: _funnel.copyWith(color: Colors.white, fontSize: 16, height: 22 / 16, letterSpacing: -0.16)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 11),
+          divider,
+        ],
       ),
     );
   }
@@ -105,35 +124,32 @@ class _CloseRow extends StatelessWidget {
 
 class _ActionRow extends StatelessWidget {
   const _ActionRow({
-    required this.rowKey,
+    super.key,
     required this.title,
     required this.subtitle,
-    required this.iconAsset,
+    required this.icon,
     required this.cost,
-    this.costUnit,
-    required this.enabled,
-    required this.onPressed,
+    required this.balance,
+    required this.onTap,
+    this.unit,
   });
 
-  final Key rowKey;
   final String title;
   final String subtitle;
-  final String iconAsset;
+  final String icon;
   final int cost;
-  final String? costUnit;
-  final bool enabled;
-  final VoidCallback onPressed;
+  final String? unit;
+  final int balance;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final titleColor = enabled ? AppColors.textPrimary : Colors.grey;
-    final costColor = enabled ? AppColors.textPrimary : AppColors.dontRed;
-
-    return InkWell(
-      key: rowKey,
-      onTap: enabled ? onPressed : null,
+    final insufficient = balance < cost;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: insufficient ? null : onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
             Expanded(
@@ -142,82 +158,36 @@ class _ActionRow extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Flexible(
-                        child: Text(
-                          title,
-                          style: AppTypography.body.copyWith(
-                            color: titleColor,
-                            decoration: enabled
-                                ? null
-                                : TextDecoration.lineThrough,
-                          ),
+                      Text(
+                        title,
+                        style: _funnel.copyWith(
+                          fontSize: 16,
+                          height: 22 / 16,
+                          letterSpacing: -0.16,
+                          color: insufficient ? const Color(0xFF666666) : Colors.black,
+                          decoration: insufficient ? TextDecoration.lineThrough : null,
                         ),
                       ),
                       const SizedBox(width: 4),
-                      Text(
-                        '$cost',
-                        style: AppTypography.buttonLabel.copyWith(color: costColor),
-                      ),
-                      if (costUnit != null)
-                        Text(
-                          costUnit!,
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
+                      Image.asset('assets/star.png', width: 14, height: 14),
+                      const SizedBox(width: 4),
+                      Text('$cost', style: _funnel.copyWith(fontSize: 14, height: 18 / 14, fontWeight: FontWeight.bold, color: insufficient ? _insufficientRed : Colors.black)),
+                      if (unit != null) ...[
+                        const SizedBox(width: 4),
+                        Text(unit!, style: _funnel.copyWith(fontSize: 12, height: 16 / 12, letterSpacing: 0.06, color: const Color(0xFF666666))),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    subtitle,
-                    style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
+                    insufficient ? 'Insufficient AI balance. Purchase more to continue' : subtitle,
+                    style: _funnel.copyWith(fontSize: 12, height: 16 / 12, letterSpacing: 0.06, color: insufficient ? _insufficientRed : const Color(0xFF666666)),
                   ),
                 ],
               ),
             ),
-            SizedBox(
-              width: 40,
-              height: 40,
-              child: ImageIcon(
-                AssetImage(iconAsset),
-                size: 32,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BalanceRow extends StatelessWidget {
-  const _BalanceRow({required this.balance, required this.onAdd});
-
-  final int balance;
-  final VoidCallback onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      key: const ValueKey('plus_balance_row'),
-      onTap: onAdd,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Row(
-          children: [
-            const Expanded(
-              child: Text('AI balance', style: AppTypography.body),
-            ),
-            Text(
-              '$balance',
-              style: AppTypography.buttonLabel.copyWith(color: AppColors.textPrimary),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Add',
-              style: AppTypography.buttonLabel.copyWith(color: AppColors.accent),
-            ),
+            const SizedBox(width: 24),
+            Opacity(opacity: insufficient ? 0.4 : 1, child: SizedBox(width: 40, height: 40, child: Center(child: Image.asset(icon, width: 32, height: 32)))),
           ],
         ),
       ),

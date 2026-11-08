@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/design/photo_source.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
 
@@ -17,14 +18,7 @@ class StealTheLookScreen extends ConsumerStatefulWidget {
 
 class _StealTheLookScreenState extends ConsumerState<StealTheLookScreen> {
   Future<void> _upload() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) => const _SourceSheet(),
-    );
+    final source = await pickPhotoSource(context);
     if (source == null || !mounted) return;
 
     XFile? image;
@@ -87,7 +81,7 @@ class _StealTheLookScreenState extends ConsumerState<StealTheLookScreen> {
             child: IconButton(
               key: const ValueKey('stl_close'),
               onPressed: () => context.pop(),
-              icon: const Icon(Icons.close, color: AppColors.textPrimary, size: 24),
+              icon: Image.asset('assets/x.png', width: 24, height: 24, color: Colors.black),
             ),
           ),
           Positioned(
@@ -105,57 +99,12 @@ class _StealTheLookScreenState extends ConsumerState<StealTheLookScreen> {
                   elevation: 0,
                   shape: const StadiumBorder(),
                 ),
-                icon: const Icon(Icons.add_photo_alternate_outlined, size: 20),
+                icon: Image.asset('assets/picture.png', width: 24, height: 20, color: Colors.white),
                 label: const Text('Upload a picture',
                     style: AppTypography.buttonLabel),
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Camera / library chooser that returns the selected [ImageSource].
-class _SourceSheet extends StatelessWidget {
-  const _SourceSheet();
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 16),
-            child: Text(
-              'Upload a picture',
-              style: TextStyle(
-                fontFamily: 'FunnelSans',
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ),
-          ListTile(
-            key: const ValueKey('stl_source_camera'),
-            leading: const Icon(Icons.photo_camera_outlined,
-                color: AppColors.textPrimary),
-            title: const Text('Take Photo',
-                style: AppTypography.body),
-            onTap: () => Navigator.of(context).pop(ImageSource.camera),
-          ),
-          ListTile(
-            key: const ValueKey('stl_source_library'),
-            leading: const Icon(Icons.photo_library_outlined,
-                color: AppColors.textPrimary),
-            title: const Text('Choose from Library',
-                style: AppTypography.body),
-            onTap: () => Navigator.of(context).pop(ImageSource.gallery),
-          ),
-          const SizedBox(height: 8),
         ],
       ),
     );
@@ -236,11 +185,8 @@ class _GuideCard extends StatelessWidget {
                     color: AppColors.page,
                     borderRadius: BorderRadius.circular(1),
                   ),
-                  child: Icon(
-                    isDo ? Icons.person : Icons.group,
-                    color: AppColors.textMuted,
-                    size: 40,
-                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.asset(isDo ? 'assets/stealthelook-do.png' : 'assets/stealthelook-dont.png', fit: BoxFit.cover),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -252,11 +198,7 @@ class _GuideCard extends StatelessWidget {
                         const Spacer(),
                         Row(
                           children: [
-                            Icon(
-                              isDo ? Icons.check_circle : Icons.cancel,
-                              color: accent,
-                              size: 20,
-                            ),
+                            Image.asset(isDo ? 'assets/check-circle.png' : 'assets/x-circle.png', width: 20, height: 20),
                             const SizedBox(width: 6),
                             Text(
                               title,

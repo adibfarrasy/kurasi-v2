@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/api/api_providers.dart';
 import '../../core/api/endpoints.dart';
+import '../../core/design/stage_carousel.dart';
 import '../../core/theme/app_colors.dart';
 import '../tryon/steal_the_look_draft.dart';
 
@@ -57,7 +58,8 @@ class StealTheLookJobState {
 /// `done`/`error`, and persists the successful result as the try-on draft.
 class StealTheLookJobNotifier extends AsyncNotifier<StealTheLookJobState> {
   static const _pollInterval = Duration(seconds: 1);
-  static const _maxAttempts = 60;
+  // Detection plus per-item extraction runs several fal calls.
+  static const _maxAttempts = 300;
 
   @override
   Future<StealTheLookJobState> build() async => const StealTheLookJobState();
@@ -234,7 +236,12 @@ class _StealTheLookAnalyzingScreenState
       if (value == null || _navigated) return;
       if (value.isDone) {
         if (value.result == 'no_error') {
-          _goTo('/tryon');
+          // Hold on "Finalizing style" briefly so the last stage registers.
+          _navigated = true;
+          final router = GoRouter.of(context);
+          Future.delayed(const Duration(seconds: 3), () {
+            if (mounted) router.go('/tryon');
+          });
         } else {
           _goTo(_failedLocation(reason: value.result, uri: widget.uri));
         }
@@ -248,113 +255,91 @@ class _StealTheLookAnalyzingScreenState
     });
 
     final stageIndex = ref.watch(stealTheLookJobProvider).value?.stageIndex ?? 0;
+    final insets = MediaQuery.paddingOf(context);
+    final file = _fileFor(widget.uri);
 
     return Scaffold(
       backgroundColor: AppColors.page,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-          child: Column(
-            children: [
-              Expanded(child: _ImageFrame(uri: widget.uri)),
-              const SizedBox(height: 24),
-              _StageCarousel(stageIndex: stageIndex),
-            ],
-          ),
+      body: Padding(
+        padding: EdgeInsets.fromLTRB(20, insets.top + 24, 20, insets.bottom + 32),
+        child: Column(
+          children: [
+            Flexible(
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 353, maxHeight: 530),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFDCDCDC),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.white, width: 5),
+                  boxShadow: const [BoxShadow(color: Color(0x66000000), offset: Offset(0.5, 1), blurRadius: 1)],
+                ),
+                clipBehavior: Clip.hardEdge,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    file == null
+                        ? Image.asset('assets/default-man.png', fit: BoxFit.cover)
+                        : Image.file(file, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox()),
+                    const _Beam(),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            StageCarousel(stages: _stlStages, active: stageIndex),
+          ],
         ),
       ),
-    );
-  }
-}
-
-/// The picked inspiration photo in a white frame (fallback: empty canvas).
-class _ImageFrame extends StatelessWidget {
-  const _ImageFrame({this.uri});
-
-  final String? uri;
-
-  @override
-  Widget build(BuildContext context) {
-    final file = _fileFor(uri);
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.chip,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white, width: 5),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x66000000),
-            blurRadius: 4,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.hardEdge,
-      child: file == null
-          ? const ColoredBox(color: AppColors.chip)
-          : Image.file(
-              file,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
-                  const ColoredBox(color: AppColors.chip),
-            ),
     );
   }
 
   static File? _fileFor(String? rawUri) {
     if (rawUri == null || rawUri.isEmpty) return null;
     final uri = Uri.tryParse(rawUri);
-    if (uri != null && uri.isAbsolute && uri.scheme == 'file') {
-      return File.fromUri(uri);
-    }
+    if (uri != null && uri.isAbsolute && uri.scheme == 'file') return File.fromUri(uri);
     return File(rawUri);
   }
 }
 
-/// Spinner + the three-stage progress carousel; the active stage is bold,
-/// the upcoming stages are dimmed.
-class _StageCarousel extends StatelessWidget {
-  const _StageCarousel({required this.stageIndex});
+/// Diagonal light sweep across the photo while the analyzer runs.
+class _Beam extends StatefulWidget {
+  const _Beam();
 
-  final int stageIndex;
+  @override
+  State<_Beam> createState() => _BeamState();
+}
+
+class _BeamState extends State<_Beam> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        const SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 3, color: AppColors.dark),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 96,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              for (var i = 0; i < _stlStages.length; i++)
-                AnimatedDefaultTextStyle(
-                  duration: const Duration(milliseconds: 200),
-                  style: TextStyle(
-                    fontFamily: 'FunnelSans',
-                    fontSize: 20,
-                    height: 24 / 20,
-                    letterSpacing: -0.3,
-                    fontWeight:
-                        i == stageIndex ? FontWeight.w700 : FontWeight.w400,
-                    color: i == stageIndex
-                        ? AppColors.textPrimary
-                        : AppColors.textMuted.withValues(alpha: 0.35),
-                  ),
-                  child: Text(_stlStages[i], textAlign: TextAlign.center),
+    return IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (context, _) => OverflowBox(
+          maxHeight: double.infinity,
+          child: Transform.translate(
+            offset: Offset(-260 + 520 * _c.value, 0),
+            child: Transform.rotate(
+              angle: 20 * 3.14159 / 180,
+              child: Container(
+                width: 180,
+                height: 700,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(colors: [Color(0x00FFFFFF), Color(0xD9FFFFFF), Color(0x00FFFFFF)]),
                 ),
-            ],
+              ),
+            ),
           ),
         ),
-      ],
+      ),
     );
   }
 }

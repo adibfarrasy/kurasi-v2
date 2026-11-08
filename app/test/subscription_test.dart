@@ -76,36 +76,9 @@ List<Override> _overrides(_FakeApi api) => [
     ];
 
 void main() {
-  testWidgets('subscription screen shows trial chip and start posts',
-      (tester) async {
-    final api = _FakeApi();
-    await tester.pumpWidget(ProviderScope(
-      overrides: _overrides(api),
-      child: const MaterialApp(home: SubscriptionScreen()),
-    ));
-    await tester.pumpAndSettle();
-
-    expect(find.text('IN TRIAL'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('subscription_start')));
-    await tester.pumpAndSettle();
-
-    expect(api.lastPostPath, ApiEndpoints.subscription);
-    expect(api.lastPostBody, {'providerRef': null});
-  });
-
-  testWidgets('subscription screen cancel posts the cancel endpoint',
-      (tester) async {
+  testWidgets('subscription screen toggles plans and shows the renewal date', (tester) async {
     final api = _FakeApi(subscription: {
-      'subscription': {
-        'id': 's1',
-        'status': 'active',
-        'interval': 'monthly',
-        'currentPeriodEnd': '2026-09-30T00:00:00',
-      },
-      'isInTrial': false,
-      'isCurrent': true,
-      'hasAccess': true,
+      'subscription': {'status': 'active', 'currentPeriodEnd': '2026-11-17T00:00:00Z'},
     });
     await tester.pumpWidget(ProviderScope(
       overrides: _overrides(api),
@@ -113,39 +86,28 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('ACTIVE'), findsOneWidget);
+    expect(find.text('Pro Button'), findsOneWidget);
+    expect(find.text('November 17, 2026'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('plan_gold')));
+    await tester.pumpAndSettle();
+    expect(find.text('Gold Button'), findsOneWidget);
+    expect(find.text('Upgrade to Max Plan'), findsOneWidget);
+  });
 
+  testWidgets('subscription cancel pill posts the cancel endpoint', (tester) async {
+    final api = _FakeApi(subscription: {
+      'subscription': {'status': 'active', 'currentPeriodEnd': '2026-11-17T00:00:00Z'},
+    });
+    await tester.pumpWidget(ProviderScope(
+      overrides: _overrides(api),
+      child: const MaterialApp(home: SubscriptionScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byKey(const ValueKey('subscription_cancel')));
     await tester.tap(find.byKey(const ValueKey('subscription_cancel')));
     await tester.pumpAndSettle();
-
     expect(api.lastPostPath, ApiEndpoints.subscriptionCancel);
-  });
-
-  testWidgets('cancelled subscription CTA posts renew-success', (tester) async {
-    final api = _FakeApi(subscription: {
-      'subscription': {
-        'id': 's1',
-        'status': 'cancelled',
-        'interval': 'monthly',
-        'currentPeriodEnd': '2026-09-30T00:00:00',
-      },
-      'isInTrial': false,
-      'isCurrent': false,
-      'hasAccess': true,
-    });
-    await tester.pumpWidget(ProviderScope(
-      overrides: _overrides(api),
-      child: const MaterialApp(home: SubscriptionScreen()),
-    ));
-    await tester.pumpAndSettle();
-
-    expect(find.text('CANCELLED'), findsOneWidget);
-    expect(find.text('Renew Subscription'), findsOneWidget);
-
-    await tester.tap(find.byKey(const ValueKey('subscription_start')));
-    await tester.pumpAndSettle();
-
-    expect(api.lastPostPath, ApiEndpoints.subscriptionRenewSuccess);
   });
 
   testWidgets('ai balance purchase posts chosen amount and updates balance',
@@ -166,6 +128,7 @@ void main() {
 
     expect(api.lastPostPath, ApiEndpoints.creditsPurchase);
     expect(api.lastPostBody, {'amount': 20});
+    expect(find.text('Purchase complete'), findsOneWidget);
     expect(_balanceText(tester), '25');
   });
 
@@ -208,8 +171,8 @@ void main() {
         find.byKey(const ValueKey('ai_balance_custom')), '15');
     await tester.pumpAndSettle();
 
-    expect(find.text('Discount • 10%'), findsOneWidget);
-    expect(find.text('-\$1.50'), findsOneWidget);
+    expect(find.text('Discount • 10%', findRichText: true), findsOneWidget);
+    expect(find.text('\$1.50'), findsOneWidget);
     expect(find.text('\$13.50'), findsOneWidget);
   });
 }

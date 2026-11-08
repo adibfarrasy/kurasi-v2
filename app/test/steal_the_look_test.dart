@@ -160,7 +160,8 @@ void main() {
         container: container,
         child: MaterialApp.router(routerConfig: router),
       ));
-      await Future<void>.delayed(const Duration(milliseconds: 200));
+      // The screen holds on the final stage for 3s (a real timer here) before leaving.
+      await Future<void>.delayed(const Duration(milliseconds: 3300));
     });
     await tester.pumpAndSettle();
 

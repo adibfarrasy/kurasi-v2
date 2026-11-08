@@ -1,211 +1,91 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import '../../core/api/api_providers.dart';
-import '../../core/api/endpoints.dart';
-import '../../core/api/wardrobe_items_provider.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_typography.dart';
-import '../myfit/outfits_provider.dart';
-import '../wardrobe/wardrobe_ui_provider.dart';
-import 'slot_strip.dart';
-import 'steal_the_look_draft.dart';
+import '../../core/design/flair_sheet.dart';
 
-Map<String, dynamic>? _aiItemForSlot(Map<String, dynamic> slot) {
-  if (slot['kind'] == 'ai') {
-    final ai = slot['aiItem'];
-    return ai is Map ? Map<String, dynamic>.from(ai) : null;
-  }
-  return null;
-}
+/// Asks for the fit's name. Resolves to the trimmed name (possibly empty)
+/// on confirm, or null when dismissed.
+Future<String?> showSaveFitSheet(BuildContext context) =>
+    showFlairSheet<String>(context, builder: (_) => const _SaveFitSheet());
 
-/// Builds the `slots` array for POST /api/outfits/from-tryon in fixed
-/// category order. Wardrobe slots become `{category, wardrobeId}`; AI slots
-/// become `{category, aiItem}`.
-List<Map<String, dynamic>> buildTryOnSlots(Map<String, dynamic> slots) {
-  final result = <Map<String, dynamic>>[];
-  for (final category in wardrobeCategories) {
-    final slot = slotForCategory(slots, category);
-    if (slot == null) continue;
-    if (slot['kind'] == 'wardrobe') {
-      result.add({'category': category, 'wardrobeId': slot['itemId']});
-    } else {
-      final aiItem = _aiItemForSlot(slot);
-      if (aiItem != null) {
-        result.add({'category': category, 'aiItem': aiItem});
-      }
-    }
-  }
-  return result;
-}
-
-class SaveFitSheet extends ConsumerStatefulWidget {
-  const SaveFitSheet({super.key, required this.heroImageUrl});
-
-  final String? heroImageUrl;
-
-  static Future<void> show(BuildContext context, {String? heroImageUrl}) {
-    return showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => SaveFitSheet(heroImageUrl: heroImageUrl),
-    );
-  }
+class _SaveFitSheet extends StatefulWidget {
+  const _SaveFitSheet();
 
   @override
-  ConsumerState<SaveFitSheet> createState() => _SaveFitSheetState();
+  State<_SaveFitSheet> createState() => _SaveFitSheetState();
 }
 
-class _SaveFitSheetState extends ConsumerState<SaveFitSheet> {
-  final _nameController = TextEditingController();
-  bool _saving = false;
-  String? _error;
+class _SaveFitSheetState extends State<_SaveFitSheet> {
+  final _controller = TextEditingController();
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _controller.dispose();
     super.dispose();
-  }
-
-  Future<void> _onConfirm() async {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      setState(() => _error = 'Give your fit a name');
-      return;
-    }
-    final slots = buildTryOnSlots(ref.read(tryOnSlotsProvider));
-    if (slots.isEmpty) {
-      setState(() => _error = 'Pick at least one item to save');
-      return;
-    }
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-    final navigator = Navigator.of(context);
-    final router = GoRouter.of(context);
-    try {
-      await ref.read(apiClientProvider).post(
-            ApiEndpoints.outfitsFromTryon,
-            body: {
-              'name': name,
-              'heroImageUrl': widget.heroImageUrl,
-              'slots': slots,
-            },
-          );
-      ref.invalidate(outfitsProvider);
-      ref.invalidate(wardrobeItemsProvider);
-      ref.read(tryOnSlotsProvider.notifier).reset();
-      await persistStealTheLookDraft(ref, null);
-      if (!mounted) return;
-      navigator.pop();
-      router.go('/myfit');
-    } catch (err) {
-      if (!mounted) return;
-      setState(() {
-        _saving = false;
-        _error = 'Failed to save fit';
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final filledCount = ref
-        .watch(tryOnSlotsProvider)
-        .values
-        .whereType<Map>()
-        .length;
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
+    const bebas = TextStyle(fontFamily: 'BebasNeue', fontSize: 36, height: 40 / 36, color: Colors.black);
+    const kirang = TextStyle(fontFamily: 'KirangHaerang', fontSize: 44, height: 40 / 44, color: Colors.black);
+    const divider = Divider(height: 1, thickness: 1, color: Color(0xFFE5E5E5));
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 24, 20, 15),
+          child: Text.rich(TextSpan(children: [
+            TextSpan(text: 'SA', style: bebas),
+            TextSpan(text: 'V', style: kirang),
+            TextSpan(text: 'E ', style: bebas),
+            TextSpan(text: 'T', style: kirang),
+            TextSpan(text: 'O ', style: bebas),
+            TextSpan(text: 'M', style: kirang),
+            TextSpan(text: 'Y ', style: bebas),
+            TextSpan(text: 'F', style: kirang),
+            TextSpan(text: 'IT', style: bebas),
+          ])),
+        ),
+        divider,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          child: TextField(
+            key: const ValueKey('save_fit_name'),
+            controller: _controller,
+            style: const TextStyle(fontFamily: 'FunnelSans', fontSize: 16, height: 22 / 16, color: Colors.black),
+            decoration: InputDecoration(
+              hintText: 'Name the fit',
+              hintStyle: const TextStyle(color: Color(0xFF999999)),
+              filled: true,
+              fillColor: const Color(0xFFF2F2F2),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 17),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+            ),
+          ),
+        ),
+        divider,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 15, 20, 50),
+          child: GestureDetector(
+            key: const ValueKey('save_fit_confirm'),
+            onTap: () => Navigator.of(context).pop(_controller.text.trim()),
+            child: Container(
+              height: 56,
+              decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(99)),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Expanded(
-                    child: Text(
-                      'Save Fit',
-                      style: AppTypography.body
-                          .copyWith(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () => Navigator.of(context).pop(),
-                    customBorder: const CircleBorder(),
-                    child: const Padding(
-                      padding: EdgeInsets.all(4),
-                      child: Icon(Icons.close,
-                          color: AppColors.textPrimary, size: 24),
-                    ),
+                  Image.asset('assets/bookmark-simple.png', width: 20, height: 20, color: Colors.white),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Save to My Fit',
+                    style: TextStyle(fontFamily: 'FunnelSans', fontSize: 16, height: 24 / 16, letterSpacing: -0.24, fontWeight: FontWeight.w500, color: Colors.white),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              TextField(
-                key: const ValueKey('save_fit_name'),
-                controller: _nameController,
-                decoration: InputDecoration(
-                  hintText: 'Fit name',
-                  filled: true,
-                  fillColor: AppColors.chip,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 8),
-                Text(
-                  _error!,
-                  style: AppTypography.caption.copyWith(color: AppColors.dontRed),
-                ),
-              ],
-              const SizedBox(height: 16),
-              Text(
-                '$filledCount of 5 pieces',
-                style: AppTypography.caption.copyWith(color: AppColors.textMuted),
-              ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  key: const ValueKey('save_fit_confirm'),
-                  onPressed: _saving ? null : _onConfirm,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: AppColors.disabled,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: _saving
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : const Text('Save Fit', style: AppTypography.buttonLabel),
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

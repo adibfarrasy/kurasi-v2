@@ -56,7 +56,7 @@ class OnboardingTwoScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 30),
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 16),
-                        child: _ContinueButton(onPressed: () => context.go('/onboarding-3')),
+                        child: _ContinueButton(onPressed: () => context.push('/onboarding-3')),
                       ),
                     ),
                   ],

@@ -2,524 +2,456 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/api/wardrobe_items_provider.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_typography.dart';
-import '../wardrobe/wardrobe_screen.dart';
+import '../../core/design/flair_sheet.dart';
 import '../wardrobe/wardrobe_ui_provider.dart';
-import 'slot_strip.dart';
 
-class LabColor {
-  const LabColor(this.l, this.a, this.b);
+/// Selection value meaning "use the AI item" for a category.
+const String aiKey = '__ai__';
 
-  final double l;
-  final double a;
-  final double b;
-
-  double deltaE(LabColor other) {
-    final dl = l - other.l;
-    final da = a - other.a;
-    final db = b - other.b;
-    return math.sqrt(dl * dl + da * da + db * db);
-  }
-}
-
-LabColor? _hexToLab(String hex) {
+List<double>? _hexToLab(String hex) {
   final cleaned = hex.replaceFirst('#', '').trim();
   if (cleaned.length != 6) return null;
-  final value = int.tryParse(cleaned, radix: 16);
-  if (value == null) return null;
-  return _rgbToLab((value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF);
-}
-
-LabColor? _rgbToLab(int r, int g, int b) {
-  double linear(double channel) {
-    final c = channel / 255;
-    return c > 0.04045
-        ? math.pow((c + 0.055) / 1.055, 2.4).toDouble()
-        : c / 12.92;
+  final v = int.tryParse(cleaned, radix: 16);
+  if (v == null) return null;
+  double lin(int ch) {
+    final c = ch / 255;
+    return c > 0.04045 ? math.pow((c + 0.055) / 1.055, 2.4).toDouble() : c / 12.92;
   }
 
-  final rl = linear(r.toDouble());
-  final gl = linear(g.toDouble());
-  final bl = linear(b.toDouble());
-  final x = (rl * 0.4124 + gl * 0.3576 + bl * 0.1805) / 0.95047;
-  final y = (rl * 0.2126 + gl * 0.7152 + bl * 0.0722) / 1.0;
-  final z = (rl * 0.0193 + gl * 0.1192 + bl * 0.9505) / 1.08883;
-
-  double pivot(double t) =>
-      t > 0.008856 ? math.pow(t, 1 / 3).toDouble() : (7.787 * t) + 16 / 116;
-
-  final fx = pivot(x);
-  final fy = pivot(y);
-  final fz = pivot(z);
-  return LabColor(116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz));
+  final r = lin((v >> 16) & 0xFF), g = lin((v >> 8) & 0xFF), b = lin(v & 0xFF);
+  final x = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047;
+  final y = r * 0.2126 + g * 0.7152 + b * 0.0722;
+  final z = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883;
+  double f(double t) => t > 0.008856 ? math.pow(t, 1 / 3).toDouble() : 7.787 * t + 16 / 116;
+  return [116 * f(y) - 16, 500 * (f(x) - f(y)), 200 * (f(y) - f(z))];
 }
 
-/// Ratio-weighted CIELAB centroid for an item's color list.
-LabColor? _colorCentroid(List<Map<String, dynamic>> colors) {
-  var l = 0.0;
-  var a = 0.0;
-  var b = 0.0;
+List<double>? _centroid(List<dynamic> colors) {
+  final sum = [0.0, 0.0, 0.0];
   var total = 0.0;
-  for (final color in colors) {
-    final hex = color['hex'] as String?;
-    if (hex == null) continue;
-    final ratio = (color['ratio'] as num?)?.toDouble() ?? 1.0;
-    final lab = _hexToLab(hex);
+  for (final c in colors.whereType<Map>()) {
+    final lab = _hexToLab(c['hex'] as String? ?? '');
     if (lab == null) continue;
-    l += lab.l * ratio;
-    a += lab.a * ratio;
-    b += lab.b * ratio;
-    total += ratio;
-  }
-  if (total <= 0) return null;
-  return LabColor(l / total, a / total, b / total);
-}
-
-List<Map<String, dynamic>> _colorsOf(Map<String, dynamic> item) {
-  final colors = item['colors'];
-  if (colors is List) {
-    return colors.whereType<Map>().map(Map<String, dynamic>.from).toList();
-  }
-  return const [];
-}
-
-/// Port of the RN color-similarity helper: CIELAB centroid ΔE76 mapped to a
-/// 0..1 score (ΔE 0 → 1, ΔE 100 → 0).
-double colorSimilarity(
-  List<Map<String, dynamic>> a,
-  List<Map<String, dynamic>> b,
-) {
-  final ca = _colorCentroid(a);
-  final cb = _colorCentroid(b);
-  if (ca == null || cb == null) return 0;
-  return (1 - ca.deltaE(cb) / 100).clamp(0.0, 1.0);
-}
-
-typedef ColorBucket = ({String? label, List<Map<String, dynamic>> items});
-
-/// Buckets [items] by color similarity to [reference]: >= 0.9 → 'Same color',
-/// >= 0.5 → 'Alternatives', otherwise 'Other'. Without a reference the whole
-/// list is returned as a single unlabeled bucket.
-List<ColorBucket> bucketItemsByColor(
-  List<Map<String, dynamic>> items,
-  List<Map<String, dynamic>>? reference,
-) {
-  if (reference == null || reference.isEmpty || items.isEmpty) {
-    return [(label: null, items: items)];
-  }
-  final same = <Map<String, dynamic>>[];
-  final alt = <Map<String, dynamic>>[];
-  final other = <Map<String, dynamic>>[];
-  for (final item in items) {
-    final sim = colorSimilarity(_colorsOf(item), reference);
-    if (sim >= 0.9) {
-      same.add(item);
-    } else if (sim >= 0.5) {
-      alt.add(item);
-    } else {
-      other.add(item);
+    final w = (c['ratio'] as num?)?.toDouble() ?? 1.0;
+    for (var i = 0; i < 3; i++) {
+      sum[i] += lab[i] * w;
     }
+    total += w;
   }
-  return [
-    if (same.isNotEmpty) (label: 'Same color', items: same),
-    if (alt.isNotEmpty) (label: 'Alternatives', items: alt),
-    if (other.isNotEmpty) (label: 'Other', items: other),
-  ];
+  return total <= 0 ? null : [for (final s in sum) s / total];
 }
 
-Future<void> showAddItemSheet(BuildContext context, String category) {
-  return showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (_) => AddItemSheet(category: category),
+/// Perceptual palette similarity in 0..1: ratio-weighted CIELAB centroids,
+/// ΔE76 scaled so ΔE >= 60 scores 0 (white vs cream ~5, white vs grey ~30).
+double colorSimilarity(List<dynamic> a, List<dynamic> b) {
+  final la = _centroid(a), lb = _centroid(b);
+  if (la == null || lb == null) return 0;
+  final d = math.sqrt([for (var i = 0; i < 3; i++) math.pow(la[i] - lb[i], 2)].reduce((x, y) => x + y));
+  return math.max(0, 1 - d / 60);
+}
+
+String similarityBucket(double s) => s >= 0.9 ? 'identical' : (s >= 0.5 ? 'alternative' : 'other');
+
+/// Opens the try-on picker on [initialCategory]. [aiItems] maps a category
+/// to its steal-the-look item (`imageUrl`, `title`, `colors`). Resolves to
+/// the confirmed selections (category to wardrobe id or [aiKey]), or null
+/// when dismissed.
+Future<Map<String, String>?> showAddItemSheet(
+  BuildContext context, {
+  Map<String, String> initial = const {},
+  Map<String, Map<String, dynamic>> aiItems = const {},
+  String initialCategory = 'headwear',
+}) {
+  return showFlairSheet<Map<String, String>>(
+    context,
+    divider: false,
+    builder: (_) => AddItemSheet(initial: initial, aiItems: aiItems, initialCategory: initialCategory),
   );
 }
 
-class AddItemSheet extends ConsumerWidget {
-  const AddItemSheet({super.key, required this.category});
+const TextStyle _funnel = TextStyle(fontFamily: 'FunnelSans', color: Colors.black);
+const TextStyle _bebas36 = TextStyle(fontFamily: 'BebasNeue', fontSize: 36, height: 40 / 36, color: Colors.black);
+const TextStyle _kirang44 = TextStyle(fontFamily: 'KirangHaerang', fontSize: 44, height: 40 / 44, color: Colors.black);
 
-  final String category;
+class AddItemSheet extends ConsumerStatefulWidget {
+  const AddItemSheet({super.key, required this.initial, required this.aiItems, required this.initialCategory});
+
+  final Map<String, String> initial;
+  final Map<String, Map<String, dynamic>> aiItems;
+  final String initialCategory;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final itemsAsync = ref.watch(wardrobeItemsProvider);
-    final slots = ref.watch(tryOnSlotsProvider);
-    final current = slotForCategory(slots, category);
-    final allItems = itemsAsync.valueOrNull ?? [];
-    final items = allItems
+  ConsumerState<AddItemSheet> createState() => _AddItemSheetState();
+}
+
+class _AddItemSheetState extends ConsumerState<AddItemSheet> {
+  late String _active = widget.initialCategory;
+  late final Map<String, String> _selections = Map.of(widget.initial);
+
+  void _toggle(String value) => setState(() {
+        if (_selections[_active] == value) {
+          _selections.remove(_active);
+        } else {
+          _selections[_active] = value;
+        }
+      });
+
+  Future<void> _confirmReset() async {
+    final yes = await showFlairSheet<bool>(context, builder: (_) => const _ResetConfirm());
+    if (yes == true) setState(_selections.clear);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = (ref.watch(wardrobeItemsProvider).valueOrNull ?? const [])
         .whereType<Map>()
         .map(Map<String, dynamic>.from)
-        .where(wardrobeItemActive)
-        .where((item) => item['category'] == category)
+        // Unowned rows (AI items promoted by saved outfits) aren't wardrobe matches.
+        .where((i) => i['category'] == _active && i['owned'] == true)
         .toList();
-    final itemsById = <String, Map<String, dynamic>>{
-      for (final item in items) (item['id'] as String? ?? ''): item,
-    };
-    final reference = _referenceColors(current, itemsById);
-    final buckets = bucketItemsByColor(items, reference);
-    final label = wardrobeCategoryLabels[category] ?? category;
+    final ai = widget.aiItems[_active];
+    final inStealMode = widget.aiItems.isNotEmpty;
+    final palette = ai?['colors'] as List?;
+    final buckets = <String, List<Map<String, dynamic>>>{'identical': [], 'alternative': [], 'other': []};
+    for (final it in items) {
+      final bucket = palette == null ? 'other' : similarityBucket(colorSimilarity(palette, it['colors'] as List? ?? const []));
+      buckets[bucket]!.add(it);
+    }
+    final tabLabel = wardrobeCategoryLabels[_active]!;
+    final hasSelection = _selections.isNotEmpty;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    Widget tile(Map<String, dynamic> it) {
+      final selected = _selections[_active] == it['id'];
+      return GestureDetector(
+        key: ValueKey('add_item_${it['id']}'),
+        onTap: () => _toggle(it['id'] as String),
+        child: Container(
+          width: 100,
+          height: 100,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+            boxShadow: const [BoxShadow(color: Color(0x1A000000), offset: Offset(0, 1), blurRadius: 2)],
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Add $label',
-                      style: AppTypography.body
-                          .copyWith(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  InkWell(
-                    onTap: () => Navigator.of(context).pop(),
-                    customBorder: const CircleBorder(),
-                    child: const Padding(
-                      padding: EdgeInsets.all(4),
-                      child: Icon(Icons.close,
-                          color: AppColors.textPrimary, size: 24),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              _GenerateTile(
-                key: ValueKey('generate_$category'),
-                onTap: () {
-                  final aiItem = _pendingAiItem(current, itemsById);
-                  ref.read(tryOnSlotsProvider.notifier).setSlot(category, {
-                    'kind': 'ai',
-                    'category': category,
-                    'aiItem': aiItem,
-                  });
-                  Navigator.of(context).pop();
-                },
-              ),
-              const SizedBox(height: 10),
-              _UploadTile(
-                key: ValueKey('upload_$category'),
-              ),
-              const SizedBox(height: 16),
-              if (buckets.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Center(
-                    child: Text('No items yet', style: AppTypography.caption),
-                  ),
-                )
-              else
-                for (final bucket in buckets) ...[
-                  if (bucket.label != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text(
-                        bucket.label!,
-                        style: AppTypography.slotLabel
-                            .copyWith(color: AppColors.textSecondary),
-                      ),
-                    ),
-                  _ItemGrid(
-                    items: bucket.items,
-                    selectedId: current?['itemId'] as String?,
-                    onSelect: (item) {
-                      ref.read(tryOnSlotsProvider.notifier).setSlot(category, {
-                        'kind': 'wardrobe',
-                        'category': category,
-                        'itemId': item['id'],
-                      });
-                      Navigator.of(context).pop();
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  TextButton(
-                    key: const ValueKey('tryon_reset_slot'),
-                    onPressed: () =>
-                        _confirmReset(context, ref, category),
-                    child: Text(
-                      'Reset',
-                      style: AppTypography.buttonLabel
-                          .copyWith(color: AppColors.dontRed),
-                    ),
-                  ),
-                  const Spacer(),
-                  ElevatedButton(
-                    key: const ValueKey('tryon_done_slot'),
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 28, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: const Text('Done', style: AppTypography.buttonLabel),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
+              Positioned.fill(child: Image.network(it['imageUrl'] as String? ?? '', fit: BoxFit.contain, errorBuilder: (_, __, ___) => const SizedBox())),
+              if (selected) Positioned(left: -5, top: -5, child: Image.asset('assets/ellipse-select.png', width: 110, height: 110)),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  List<Map<String, dynamic>>? _referenceColors(
-    Map<String, dynamic>? current,
-    Map<String, Map<String, dynamic>> itemsById,
-  ) {
-    if (current == null) return null;
-    if (current['kind'] == 'wardrobe') {
-      final item = itemsById[current['itemId']];
-      return item == null ? null : _colorsOf(item);
+      );
     }
-    if (current['kind'] == 'ai') {
-      final ai = current['aiItem'];
-      if (ai is Map) return _colorsOf(Map<String, dynamic>.from(ai));
-    }
-    return null;
-  }
 
-  Map<String, dynamic> _pendingAiItem(
-    Map<String, dynamic>? current,
-    Map<String, Map<String, dynamic>> itemsById,
-  ) {
-    // AI generation is pending until a pipeline exists; for now an AI item
-    // reuses the selected wardrobe item's data (owned:false semantics are
-    // deferred to the backend).
-    if (current?['kind'] == 'wardrobe') {
-      final item = itemsById[current!['itemId']];
-      if (item != null) {
-        return {
-          'imageUrl': item['imageUrl'],
-          'category': item['category'] ?? category,
-          'brand': item['brand'],
-          'fit': item['fit'],
-          'length': item['length'],
-          'colors': item['colors'] ?? <dynamic>[],
-        };
-      }
-    }
-    return {
-      'imageUrl': '',
-      'category': category,
-      'brand': null,
-      'fit': null,
-      'length': null,
-      'colors': <dynamic>[],
-    };
-  }
-
-  Future<void> _confirmReset(
-    BuildContext context,
-    WidgetRef ref,
-    String category,
-  ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reset slot?'),
-        content: const Text('This clears the selected item for this slot.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Reset'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) {
-      ref.read(tryOnSlotsProvider.notifier).clearSlot(category);
-      if (context.mounted) Navigator.of(context).pop();
-    }
-  }
-}
-
-class _GenerateTile extends StatelessWidget {
-  const _GenerateTile({super.key, required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFFF6F2EA),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              const Icon(Icons.auto_awesome,
-                  color: AppColors.warmAccent, size: 22),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Generate with AI',
-                  style: AppTypography.body
-                      .copyWith(fontWeight: FontWeight.w500),
+    final upload = GestureDetector(
+      onTap: () {
+        final router = GoRouter.of(context);
+        Navigator.of(context).pop();
+        router.push('/upload-wardrobe-guide');
+      },
+      child: SizedBox(
+        width: 100,
+        height: 100,
+        child: Stack(
+          children: [
+            Positioned.fill(child: Image.asset('assets/itembox.png', fit: BoxFit.fill)),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset('assets/coat-hanger.png', width: 24, height: 24),
+                    const SizedBox(height: 4),
+                    Text('Upload new $tabLabel', textAlign: TextAlign.center, style: _funnel.copyWith(fontSize: 10, height: 1.2, color: const Color(0xFF3C3C3C))),
+                  ],
                 ),
               ),
-              Text(
-                'Generate',
-                style:
-                    AppTypography.buttonLabel.copyWith(color: AppColors.accent),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Upload entry point. Disabled (no-op, greyed out) until the image can be
-/// run through the wardrobe-upload pipeline — a raw local path would
-/// otherwise be persisted as a dead imageUrl.
-class _UploadTile extends StatelessWidget {
-  const _UploadTile({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.chip,
-      borderRadius: BorderRadius.circular(12),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            const Icon(Icons.add_a_photo_outlined,
-                color: AppColors.textMuted, size: 22),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Upload an image',
-                style: AppTypography.body.copyWith(color: AppColors.textMuted),
-              ),
-            ),
-            Text(
-              'Coming soon',
-              style: AppTypography.caption
-                  .copyWith(color: AppColors.textSecondary),
             ),
           ],
         ),
       ),
     );
-  }
-}
 
-class _ItemGrid extends StatelessWidget {
-  const _ItemGrid({
-    required this.items,
-    required this.selectedId,
-    required this.onSelect,
-  });
+    Widget grid(List<Widget> children) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
+          child: Wrap(spacing: 12, runSpacing: 12, children: children),
+        );
 
-  final List<Map<String, dynamic>> items;
-  final String? selectedId;
-  final ValueChanged<Map<String, dynamic>> onSelect;
+    Widget section(String label, List<Map<String, dynamic>> list) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: const Color(0xFFEEEEEE), borderRadius: BorderRadius.circular(4)),
+                child: Text(label, style: _funnel.copyWith(fontSize: 14, height: 18 / 14, letterSpacing: -0.14)),
+              ),
+            ),
+            grid([for (final it in list) tile(it)]),
+          ],
+        );
 
-  @override
-  Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: 170 / 200,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) => _WardrobeTile(
-        item: items[index],
-        selected: items[index]['id'] == selectedId,
-        onTap: () => onSelect(items[index]),
+    return SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.8,
+      child: Stack(
+        children: [
+          ListView(
+            padding: const EdgeInsets.only(bottom: 110),
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 24, 20, 12),
+                child: Text.rich(TextSpan(children: [
+                  TextSpan(text: 'T', style: _kirang44),
+                  TextSpan(text: 'RY O', style: _bebas36),
+                  TextSpan(text: 'N', style: _kirang44),
+                ])),
+              ),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                child: Row(
+                  children: [
+                    for (final c in wardrobeCategories) ...[
+                      _CategoryTab(
+                        label: wardrobeCategoryLabels[c]!,
+                        active: c == _active,
+                        hasItem: _selections.containsKey(c),
+                        // Slots the AI didn't fill have nothing to bucket against.
+                        struck: inStealMode && !widget.aiItems.containsKey(c),
+                        onTap: () => setState(() => _active = c),
+                      ),
+                      if (c != wardrobeCategories.last) const SizedBox(width: 16),
+                    ],
+                  ],
+                ),
+              ),
+              const Divider(height: 1, thickness: 1, color: Color(0xFFE5E5E5)),
+              if (ai != null) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 12, 8),
+                  child: Text.rich(TextSpan(
+                    style: _funnel.copyWith(fontSize: 12, height: 16 / 12, letterSpacing: 0.06),
+                    children: [
+                      const TextSpan(text: 'AI generated', style: TextStyle(fontStyle: FontStyle.italic)),
+                      TextSpan(text: ' • ${ai['title'] ?? ''}'),
+                    ],
+                  )),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 11),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: GestureDetector(
+                      onTap: () => _toggle(aiKey),
+                      child: SizedBox(
+                        width: 110,
+                        height: 110,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned.fill(child: Image.network(ai['imageUrl'] as String? ?? '', fit: BoxFit.contain, errorBuilder: (_, __, ___) => const SizedBox())),
+                            if (_selections[_active] == aiKey)
+                              Positioned(left: -5, top: -5, child: Image.asset('assets/ellipse-select.png', width: 120, height: 120)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const Divider(height: 1, thickness: 1, color: Color(0xFFE5E5E5)),
+              ],
+              if (palette == null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: grid([upload, for (final it in buckets['other']!) tile(it)]),
+                )
+              else ...[
+                if (buckets['identical']!.isEmpty && buckets['alternative']!.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                    child: Text("You don't have any similar item in your wardrobe.", style: _funnel.copyWith(fontSize: 16, height: 22 / 16, letterSpacing: -0.16)),
+                  ),
+                if (buckets['identical']!.isNotEmpty) section('${buckets['identical']!.length} identical items', buckets['identical']!),
+                if (buckets['alternative']!.isNotEmpty) section('${buckets['alternative']!.length} alternative items', buckets['alternative']!),
+                if (buckets['other']!.isNotEmpty) section('All $tabLabel you have', buckets['other']!),
+              ],
+            ],
+          ),
+          if (hasSelection)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: EdgeInsets.fromLTRB(20, 12, 20, bottomInset + 16),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0x00FFFFFF), Colors.white],
+                    stops: [0, 0.15],
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      key: const ValueKey('add_item_reset'),
+                      onTap: _confirmReset,
+                      child: Container(
+                        height: 56,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Image.asset('assets/reset.png', width: 20, height: 20, color: Colors.black),
+                            const SizedBox(width: 8),
+                            Text('Reset', style: _funnel.copyWith(fontSize: 16, height: 22 / 16, letterSpacing: -0.16, fontWeight: FontWeight.w500)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(child: _BlackButton(key: const ValueKey('add_item_done'), label: 'Done', onTap: () => Navigator.of(context).pop(_selections))),
+                  ],
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-class _WardrobeTile extends StatelessWidget {
-  const _WardrobeTile({
-    required this.item,
-    required this.selected,
-    required this.onTap,
-  });
+class _CategoryTab extends StatelessWidget {
+  const _CategoryTab({required this.label, required this.active, required this.hasItem, required this.struck, required this.onTap});
 
-  final Map<String, dynamic> item;
-  final bool selected;
+  final String label;
+  final bool active;
+  final bool hasItem;
+  final bool struck;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final id = item['id'] as String? ?? '';
-    final name = item['name'] as String? ?? '';
-    final imageUrl = item['imageUrl'] as String?;
+    final color = struck
+        ? const Color(0xFF999999)
+        : active
+            ? const Color(0xFFFF0D00)
+            : hasItem
+                ? Colors.black
+                : const Color(0xFF666666);
     return GestureDetector(
-      key: ValueKey('tryon_item_$id'),
-      onTap: onTap,
-      child: Column(
+      key: ValueKey('add_item_tab_$label'),
+      onTap: struck ? null : onTap,
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(10),
-                border: selected
-                    ? Border.all(color: AppColors.accent, width: 2)
-                    : Border.all(color: Colors.transparent),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Text(
+                label,
+                style: _funnel.copyWith(
+                  fontSize: 16,
+                  height: 22 / 16,
+                  letterSpacing: -0.16,
+                  color: color,
+                  fontWeight: active ? FontWeight.bold : FontWeight.normal,
+                  decoration: struck ? TextDecoration.lineThrough : null,
+                ),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: imageUrl == null
-                    ? const ColoredBox(color: AppColors.page)
-                    : Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, progress) =>
-                            progress == null
-                                ? child
-                                : const ColoredBox(color: AppColors.page),
-                        errorBuilder: (context, error, stackTrace) =>
-                            const ColoredBox(color: AppColors.page),
-                      ),
-              ),
+              if (active) Positioned(left: 0, right: 0, bottom: -2, height: 4, child: Image.asset('assets/tab-underline.png', fit: BoxFit.fill)),
+            ],
+          ),
+          if (hasItem) ...[
+            const SizedBox(width: 2),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Image.asset('assets/checkcircle.png', width: 12, height: 12, color: active ? const Color(0xFFFF0D00) : Colors.black),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style:
-                AppTypography.caption.copyWith(color: AppColors.textPrimary),
-          ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class _BlackButton extends StatelessWidget {
+  const _BlackButton({super.key, required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 56,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(99)),
+        child: Text(label, style: const TextStyle(fontFamily: 'FunnelSans', fontSize: 16, height: 24 / 16, letterSpacing: -0.24, fontWeight: FontWeight.w500, color: Colors.white)),
+      ),
+    );
+  }
+}
+
+class _ResetConfirm extends StatelessWidget {
+  const _ResetConfirm();
+
+  @override
+  Widget build(BuildContext context) {
+    const divider = Divider(height: 1, thickness: 1, color: Color(0xFFE5E5E5));
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 24, 20, 15),
+          child: Text.rich(TextSpan(children: [
+            TextSpan(text: 'R', style: _bebas36),
+            TextSpan(text: 'E', style: _kirang44),
+            TextSpan(text: 'SE', style: _bebas36),
+            TextSpan(text: 'T', style: _kirang44),
+            TextSpan(text: ' T', style: _bebas36),
+            TextSpan(text: 'H', style: _kirang44),
+            TextSpan(text: 'E ', style: _bebas36),
+            TextSpan(text: 'F', style: _kirang44),
+            TextSpan(text: 'IT', style: _bebas36),
+          ])),
+        ),
+        divider,
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          child: Text('Resetting will restore all five categories to default. Proceed?', style: _funnel.copyWith(fontSize: 16, height: 22 / 16, letterSpacing: -0.16)),
+        ),
+        divider,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 15, 20, 50),
+          child: Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(false),
+                  child: Container(
+                    height: 56,
+                    alignment: Alignment.center,
+                    color: Colors.transparent,
+                    child: Text('No, Cancel', style: _funnel.copyWith(fontSize: 16, height: 22 / 16, letterSpacing: -0.16)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: _BlackButton(label: 'Yes, Reset', onTap: () => Navigator.of(context).pop(true))),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

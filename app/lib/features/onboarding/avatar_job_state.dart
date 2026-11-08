@@ -41,7 +41,9 @@ class AvatarJobState {
 /// `normalizeAvatar`, then polls `normalizeAvatarProgress` until `done`/`error`.
 class AvatarJobNotifier extends AsyncNotifier<AvatarJobState> {
   static const _pollInterval = Duration(milliseconds: 800);
-  static const _maxAttempts = 60;
+  // The backend chains five fal calls (classify, two seedream passes,
+  // faceswap, rembg); a ~48s budget gave up while the job was still running.
+  static const _maxAttempts = 300;
 
   @override
   Future<AvatarJobState> build() async => const AvatarJobState();
@@ -60,6 +62,7 @@ class AvatarJobNotifier extends AsyncNotifier<AvatarJobState> {
         _setError(ApiException('INVALID_RESPONSE', 'No session id in response', null));
         return;
       }
+      _setState(AsyncValue.data(AvatarJobState(sessionId: sessionId, phase: 'classify')));
       await _poll(sessionId);
     } catch (err, stack) {
       _setState(AsyncValue.error(err, stack));
@@ -90,7 +93,8 @@ class AvatarJobNotifier extends AsyncNotifier<AvatarJobState> {
       body: {
         'imageBase64': base64Encode(bytes),
         'mimeType': _mimeFor(uri),
-        'gender': ref.read(genderProvider),
+        // The picker holds display labels; the API only accepts masc/femme.
+        'gender': ref.read(genderProvider) == 'Female' ? 'femme' : 'masc',
         'heightCm': ref.read(heightProvider),
         'weightKg': ref.read(weightProvider),
       },
@@ -119,10 +123,11 @@ class AvatarJobNotifier extends AsyncNotifier<AvatarJobState> {
           _setState(AsyncValue.data(AvatarJobState(
             sessionId: sessionId,
             phase: 'error',
-            error: (res['error'] as String?) ?? 'Avatar generation failed',
+            error: (res['message'] as String?) ?? 'Avatar generation failed',
           )));
           return;
         }
+        if (phase != null) _setState(AsyncValue.data(AvatarJobState(sessionId: sessionId, phase: phase)));
       }
       await Future<void>.delayed(_pollInterval);
     }

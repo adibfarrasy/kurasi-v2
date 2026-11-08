@@ -1,10 +1,10 @@
 import 'dart:io';
-import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'avatar_job_state.dart';
 import 'profile_state.dart';
@@ -88,36 +88,104 @@ class _CaptureFaceScreenState extends ConsumerState<CaptureFaceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final insets = MediaQuery.paddingOf(context);
+    final controller = _controller;
+    Widget preview;
+    if (_cameraFailed) {
+      preview = const _FallbackBackground();
+    } else if (controller != null && controller.value.isInitialized) {
+      final size = controller.value.previewSize!;
+      // Fill the frame like a cover-fit image; the sensor reports landscape.
+      preview = ClipRect(
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(width: size.height, height: size.width, child: CameraPreview(controller)),
+        ),
+      );
+    } else {
+      preview = const Center(child: CircularProgressIndicator(color: Colors.white));
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (_cameraFailed)
-              const _FallbackBackground()
-            else if (_controller != null && _controller!.value.isInitialized)
-              CameraPreview(_controller!)
-            else
-              const Center(child: CircularProgressIndicator(color: Colors.white)),
-            const IgnorePointer(child: CustomPaint(painter: _FaceGuidePainter())),
-            Positioned(
-              top: 12,
-              left: 12,
-              child: _IconButton(
-                icon: Icons.close,
-                onPressed: () => context.pop(),
+      body: Column(
+        children: [
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(24, insets.top + 20, 24, 0),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  preview,
+                  const _Corner(top: true, left: true),
+                  const _Corner(top: true, left: false),
+                  const _Corner(top: false, left: true),
+                  const _Corner(top: false, left: false),
+                  IgnorePointer(
+                    child: FractionallySizedBox(
+                      widthFactor: 0.78,
+                      heightFactor: 0.78,
+                      child: SvgPicture.asset('assets/silhouette.svg'),
+                    ),
+                  ),
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    child: _IconButton(icon: Icons.close, onPressed: () => context.pop()),
+                  ),
+                ],
               ),
             ),
-            Positioned(
-              bottom: 28,
-              left: 0,
-              right: 0,
-              child: _cameraFailed
-                  ? _FallbackButton(onPressed: _useFallback)
-                  : _ShutterButton(onPressed: _controller != null && _controller!.value.isInitialized ? _capture : null),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(24, 24, 24, insets.bottom + 24),
+            child: Column(
+              children: [
+                const Text(
+                  'Follow the guideline and take a picture',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Make sure your face is clearly visible. Please remove hats and glasses.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 14, height: 20 / 14),
+                ),
+                const SizedBox(height: 24),
+                _cameraFailed
+                    ? _FallbackButton(onPressed: _useFallback)
+                    : _ShutterButton(onPressed: controller != null && controller.value.isInitialized ? _capture : null),
+              ],
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Corner extends StatelessWidget {
+  const _Corner({required this.top, required this.left});
+
+  final bool top;
+  final bool left;
+
+  @override
+  Widget build(BuildContext context) {
+    const side = BorderSide(color: Colors.white, width: 3);
+    return Positioned(
+      top: top ? 0 : null,
+      bottom: top ? null : 0,
+      left: left ? 0 : null,
+      right: left ? null : 0,
+      child: IgnorePointer(
+        child: Container(
+          width: 26,
+          height: 26,
+          decoration: BoxDecoration(
+            border: Border(top: top ? side : BorderSide.none, bottom: top ? BorderSide.none : side, left: left ? side : BorderSide.none, right: left ? BorderSide.none : side),
+          ),
         ),
       ),
     );
@@ -177,13 +245,12 @@ class _ShutterButton extends StatelessWidget {
         child: Container(
           width: 72,
           height: 72,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 4),
-          ),
-          padding: const EdgeInsets.all(6),
-          child: const DecoratedBox(
-            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+          child: Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.white, border: Border.all(color: Colors.black.withValues(alpha: 0.1), width: 2)),
           ),
         ),
       ),
@@ -210,53 +277,3 @@ class _IconButton extends StatelessWidget {
   }
 }
 
-/// Corner brackets framing the face + a head-and-shoulders silhouette guide.
-class _FaceGuidePainter extends CustomPainter {
-  const _FaceGuidePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final guide = Paint()
-      ..color = Colors.white.withValues(alpha: 0.85)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-
-    const inset = 48.0;
-    const bracket = 34.0;
-    final rect = Rect.fromLTWH(inset, inset, size.width - inset * 2, size.height * 0.55 - inset);
-    final p = rect.width / 2;
-    final top = rect.top + rect.height * 0.18;
-    final headR = rect.width * 0.15;
-    canvas.drawCircle(Offset(p, top), headR, guide);
-    canvas.drawArc(
-      Rect.fromCenter(center: Offset(p, rect.bottom), width: rect.width * 0.85, height: rect.height * 0.5),
-      math.pi,
-      math.pi,
-      false,
-      guide,
-    );
-
-    final corner = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round;
-    final path = Path()
-      ..moveTo(rect.left, rect.top + bracket)
-      ..lineTo(rect.left, rect.top)
-      ..lineTo(rect.left + bracket, rect.top)
-      ..moveTo(rect.right - bracket, rect.top)
-      ..lineTo(rect.right, rect.top)
-      ..lineTo(rect.right, rect.top + bracket)
-      ..moveTo(rect.right, rect.bottom - bracket)
-      ..lineTo(rect.right, rect.bottom)
-      ..lineTo(rect.right - bracket, rect.bottom)
-      ..moveTo(rect.left + bracket, rect.bottom)
-      ..lineTo(rect.left, rect.bottom)
-      ..lineTo(rect.left, rect.bottom - bracket);
-    canvas.drawPath(path, corner);
-  }
-
-  @override
-  bool shouldRepaint(covariant _FaceGuidePainter oldDelegate) => false;
-}

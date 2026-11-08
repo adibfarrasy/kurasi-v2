@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_providers.dart';
 import '../../core/api/endpoints.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_typography.dart';
 import 'credits_provider.dart';
 
-/// AI Balance / top-up screen. Balance comes from [creditsProvider]; a 2x2
-/// package grid (20/50/100 + custom) drives `POST /api/credits/purchase`,
-/// after which the balance provider is refreshed.
+const TextStyle _funnel = TextStyle(fontFamily: 'FunnelSans', color: Colors.black);
+
+typedef _Package = ({String id, int? credits, int? price, int discountPct});
+
+const List<_Package> _packages = [
+  (id: '20', credits: 20, price: 18, discountPct: 10),
+  (id: '50', credits: 50, price: 40, discountPct: 20),
+  (id: '100', credits: 100, price: 70, discountPct: 30),
+  (id: 'other', credits: null, price: null, discountPct: 0),
+];
+
+/// Current balance plus credit packages; custom amounts of $10+ get 10% off.
 class AiBalanceScreen extends ConsumerStatefulWidget {
   const AiBalanceScreen({super.key});
 
@@ -17,14 +25,8 @@ class AiBalanceScreen extends ConsumerStatefulWidget {
 }
 
 class _AiBalanceScreenState extends ConsumerState<AiBalanceScreen> {
-  static const _packages = [
-    (credits: 20, price: 18, discountPct: 10),
-    (credits: 50, price: 40, discountPct: 20),
-    (credits: 100, price: 70, discountPct: 30),
-  ];
-
-  int? _selected = 20;
-  final TextEditingController _custom = TextEditingController();
+  String _selected = '20';
+  final _custom = TextEditingController();
   bool _busy = false;
 
   @override
@@ -33,25 +35,31 @@ class _AiBalanceScreenState extends ConsumerState<AiBalanceScreen> {
     super.dispose();
   }
 
-  int get _amount {
-    final preset = _selected;
-    if (preset != null) return preset;
-    return int.tryParse(_custom.text.trim()) ?? 0;
-  }
-
-  Future<void> _purchase() async {
-    final amount = _amount;
-    if (amount <= 0 || _busy) return;
+  Future<void> _purchase(int amount) async {
     setState(() => _busy = true);
-    final api = ref.read(apiClientProvider);
     try {
-      await api.post(ApiEndpoints.creditsPurchase, body: {'amount': amount});
+      await ref.read(apiClientProvider).post(ApiEndpoints.creditsPurchase, body: {'amount': amount});
       await ref.read(creditsProvider.notifier).refresh();
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Purchase complete'),
+          content: Text('+$amount AI credits added.'),
+          actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('OK'))],
+        ),
+      );
+      if (mounted && Navigator.of(context).canPop()) Navigator.of(context).pop();
     } catch (err) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$err')));
-      }
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Purchase failed'),
+          content: Text('$err'),
+          actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('OK'))],
+        ),
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -59,355 +67,166 @@ class _AiBalanceScreenState extends ConsumerState<AiBalanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final credits = ref.watch(creditsProvider);
-    final balance = credits.value?['balance'] as int? ?? 0;
-    final canBuy = _amount > 0 && !_busy;
+    final insets = MediaQuery.paddingOf(context);
+    final balance = (ref.watch(creditsProvider).valueOrNull?['balance'] as num?)?.toInt() ?? 0;
+    final pkg = _packages.firstWhere((p) => p.id == _selected);
+    final isOther = _selected == 'other';
+    final custom = int.tryParse(_custom.text) ?? 0;
+    final credits = isOther ? custom : pkg.credits!;
+    final base = credits.toDouble();
+    final otherPct = base >= 10 ? 10 : 0;
+    final discount = isOther ? base * otherPct / 100 : base - pkg.price!;
+    final total = isOther ? base - discount : pkg.price!.toDouble();
+    final pct = isOther ? otherPct : pkg.discountPct;
+    final canPurchase = credits > 0 && !_busy;
+    const kirang = TextStyle(fontFamily: 'KirangHaerang', fontSize: 38, height: 36 / 38);
+
+    Widget card(_Package p) => _PackageCard(pkg: p, selected: p.id == _selected, onTap: () => setState(() => _selected = p.id));
 
     return Scaffold(
-      backgroundColor: AppColors.page,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _header(context),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      backgroundColor: const Color(0xFFE5E5E5),
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(20, insets.top + 8, 20, 12),
+                child: Stack(
+                  alignment: Alignment.center,
                   children: [
-                    Text(
-                      'Current Balance',
-                      style: AppTypography.caption
-                          .copyWith(color: AppColors.textSecondary),
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text(
-                          '$balance',
-                          key: const ValueKey('ai_balance_value'),
-                          style: const TextStyle(
-                            fontFamily: 'FunnelSans',
-                            fontSize: 60,
-                            height: 60 / 60,
-                            letterSpacing: -0.9,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.star_rounded,
-                            size: 32, color: AppColors.textPrimary),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Text(
-                      'Buy Extra AI Credit',
-                      style: AppTypography.buttonLabel.copyWith(
-                        color: AppColors.textPrimary,
-                        fontSize: 20,
-                        height: 24 / 20,
-                        fontWeight: FontWeight.w700,
+                    const SizedBox(width: double.infinity, height: 40),
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      child: GestureDetector(
+                        onTap: () => Navigator.of(context).pop(),
+                        child: Padding(padding: const EdgeInsets.all(8), child: Image.asset('assets/arrow-left.png', width: 24, height: 24)),
                       ),
                     ),
-                    const SizedBox(height: 15),
-                    Row(
+                    const Text.rich(TextSpan(
+                      style: TextStyle(fontFamily: 'BebasNeue', fontSize: 32, height: 36 / 32, color: Colors.black),
                       children: [
-                        Expanded(
-                          child: _PackageCard(
-                            key: const ValueKey('package_20'),
-                            label: '20',
-                            price: r'$18',
-                            badge: 'Save 10%',
-                            selected: _selected == 20,
-                            onTap: () =>
-                                setState(() => _selected = 20),
-                          ),
-                        ),
-                        const SizedBox(width: 15),
-                        Expanded(
-                          child: _PackageCard(
-                            key: const ValueKey('package_50'),
-                            label: '50',
-                            price: r'$40',
-                            badge: 'Save 20%',
-                            selected: _selected == 50,
-                            onTap: () =>
-                                setState(() => _selected = 50),
-                          ),
-                        ),
+                        TextSpan(text: 'AI B'),
+                        TextSpan(text: 'A', style: kirang),
+                        TextSpan(text: 'LAN'),
+                        TextSpan(text: 'C', style: kirang),
+                        TextSpan(text: 'E'),
                       ],
-                    ),
-                    const SizedBox(height: 15),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _PackageCard(
-                            key: const ValueKey('package_100'),
-                            label: '100',
-                            price: r'$70',
-                            badge: 'Save 30%',
-                            selected: _selected == 100,
-                            onTap: () =>
-                                setState(() => _selected = 100),
-                          ),
-                        ),
-                        const SizedBox(width: 15),
-                        Expanded(
-                          child: _PackageCard(
-                            key: const ValueKey('package_other'),
-                            label: 'Other',
-                            price: 'Specify amount',
-                            badge: 'Discount starts at \$10',
-                            selected: _selected == null,
-                            onTap: () =>
-                                setState(() => _selected = null),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_selected == null) ...[
-                      const SizedBox(height: 16),
-                      TextField(
-                        key: const ValueKey('ai_balance_custom'),
-                        controller: _custom,
-                        keyboardType: TextInputType.number,
-                        onChanged: (_) => setState(() {}),
-                        decoration: InputDecoration(
-                          hintText: 'Amount of AI credits',
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 20),
-                    _SummaryBox(
-                      baseCost: _selected != null
-                          ? (_selected! * 1).toDouble()
-                          : (_amount > 0 ? _amount * 1.0 : 0),
-                      discountPct: _selected != null
-                          ? _packages
-                              .firstWhere((p) => p.credits == _selected)
-                              .discountPct
-                          : (_amount >= 10 ? 10 : 0),
-                      price: _selected != null
-                          ? _packages
-                              .firstWhere((p) => p.credits == _selected)
-                              .price
-                              .toDouble()
-                          : null,
-                    ),
+                    )),
                   ],
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-              child: SizedBox(
-                height: 56,
-                child: FilledButton(
-                  key: const ValueKey('ai_balance_continue'),
-                  onPressed: canBuy ? _purchase : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.dark,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: const StadiumBorder(),
-                    textStyle: AppTypography.buttonLabel,
-                  ),
-                  child: Text(_busy ? 'Purchasing…' : 'Continue'),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _header(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: IconButton(
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.arrow_back_ios_new,
-                  color: AppColors.textPrimary, size: 22),
-            ),
-          ),
-          Text(
-            'AI BALANCE',
-            style: AppTypography.display(32)
-                .copyWith(color: AppColors.textPrimary, letterSpacing: 0.4),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PackageCard extends StatelessWidget {
-  const _PackageCard({
-    super.key,
-    required this.label,
-    required this.price,
-    required this.badge,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final String price;
-  final String badge;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(4),
-          boxShadow: selected
-              ? const [
-                  BoxShadow(
-                    color: Color(0xBF000000),
-                    offset: Offset(1, 8),
-                    blurRadius: 20,
-                    spreadRadius: -8,
-                  ),
-                  BoxShadow(
-                    color: Color(0x80000000),
-                    offset: Offset(0, 2),
-                    blurRadius: 6,
-                    spreadRadius: -4,
-                  ),
-                ]
-              : const [
-                  BoxShadow(
-                    color: Color(0x54000000),
-                    offset: Offset(0, 1),
-                    blurRadius: 1,
-                  ),
-                ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        label,
-                        style: const TextStyle(
-                          fontFamily: 'FunnelSans',
-                          fontSize: 28,
-                          height: 34 / 28,
-                          letterSpacing: -0.42,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textPrimary,
-                        ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(top: 16, bottom: 460),
+                  child: Center(
+                    child: SizedBox(
+                      width: 333,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text('Current Balance', style: _funnel.copyWith(fontSize: 12, height: 16 / 12, letterSpacing: 0.06, color: const Color(0xFF666666))),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 60,
+                            child: Row(
+                              children: [
+                                Text('$balance', key: const ValueKey('ai_balance_value'), style: _funnel.copyWith(fontSize: 60, height: 1, letterSpacing: -0.9, fontWeight: FontWeight.bold)),
+                                const SizedBox(width: 8),
+                                Transform.translate(offset: const Offset(0, -8), child: Image.asset('assets/star.png', width: 32, height: 32)),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Text('Buy Extra AI Credit', style: _funnel.copyWith(fontSize: 20, height: 24 / 20, letterSpacing: -0.3, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 15),
+                          Row(children: [card(_packages[0]), const SizedBox(width: 15), card(_packages[1])]),
+                          const SizedBox(height: 15),
+                          Row(children: [card(_packages[2]), const SizedBox(width: 15), card(_packages[3])]),
+                          if (isOther) ...[
+                            const SizedBox(height: 20),
+                            Container(
+                              height: 48,
+                              padding: const EdgeInsets.symmetric(horizontal: 15),
+                              decoration: BoxDecoration(color: Colors.white, border: Border.all(color: const Color(0xFF8F8F8F))),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: TextField(
+                                      key: const ValueKey('ai_balance_custom'),
+                                      controller: _custom,
+                                      autofocus: true,
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                      cursorColor: const Color(0xFFFF0D00),
+                                      onChanged: (_) => setState(() {}),
+                                      style: _funnel.copyWith(fontSize: 20, height: 24 / 20, letterSpacing: -0.3, fontWeight: FontWeight.bold),
+                                      decoration: const InputDecoration(isCollapsed: true, border: InputBorder.none, hintText: '0', hintStyle: TextStyle(color: Color(0xFF8F8F8F))),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text('AI Credit', style: _funnel.copyWith(fontSize: 16, height: 22 / 16, letterSpacing: -0.16, color: const Color(0xFF666666))),
+                                ],
+                              ),
+                            ),
+                          ],
+                          SizedBox(height: isOther ? 20 : 32),
+                          Container(
+                            padding: const EdgeInsets.all(15),
+                            decoration: BoxDecoration(border: Border.all(color: const Color(0xFF8F8F8F))),
+                            child: Column(
+                              children: [
+                                _SummaryRow(label: const Text('AI credit', style: _rowLabel), value: '\$${base.toStringAsFixed(2)}'),
+                                const SizedBox(height: 15),
+                                _SummaryRow(
+                                  label: Text.rich(TextSpan(style: _rowLabel, children: [
+                                    const TextSpan(text: 'Discount • '),
+                                    TextSpan(text: '$pct%', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  ])),
+                                  value: '\$${discount.toStringAsFixed(2)}',
+                                ),
+                                const SizedBox(height: 15),
+                                const ColoredBox(color: Color(0xFF8F8F8F), child: SizedBox(height: 1, width: double.infinity)),
+                                const SizedBox(height: 15),
+                                _SummaryRow(label: const Text('Total due', style: _rowLabel), value: '\$${total.toStringAsFixed(2)}', bold: true),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.star_rounded,
-                          size: 16, color: AppColors.textPrimary),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    price,
-                    style: AppTypography.body.copyWith(
-                      color: label == 'Other'
-                          ? AppColors.textSecondary
-                          : AppColors.textPrimary,
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              color: const Color(0xFFEDEDED),
-              child: Text(
-                badge,
-                textAlign: TextAlign.center,
-                style: AppTypography.caption
-                    .copyWith(color: AppColors.textPrimary),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SummaryBox extends StatelessWidget {
-  const _SummaryBox({
-    required this.baseCost,
-    required this.discountPct,
-    required this.price,
-  });
-
-  final double baseCost;
-  final int discountPct;
-  final double? price;
-
-  @override
-  Widget build(BuildContext context) {
-    final discount = price != null
-        ? baseCost - price!
-        : baseCost * discountPct / 100;
-    final total = price ?? (baseCost - discount);
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.textMuted),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _SummaryRow(
-              label: 'AI credit', value: '\$${baseCost.toStringAsFixed(2)}'),
-          const SizedBox(height: 15),
-          _SummaryRow(
-            label: 'Discount • $discountPct%',
-            value: '-\$${discount.toStringAsFixed(2)}',
+            ],
           ),
-          const SizedBox(height: 15),
-          const Divider(height: 1, color: AppColors.textMuted),
-          const SizedBox(height: 15),
-          _SummaryRow(
-            label: 'Total due',
-            value: '\$${total.toStringAsFixed(2)}',
-            bold: true,
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: insets.bottom + 16,
+            child: GestureDetector(
+              key: const ValueKey('ai_balance_continue'),
+              onTap: canPurchase ? () => _purchase(credits) : null,
+              child: Container(
+                height: 56,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: canPurchase ? Colors.black : const Color(0xFF8F8F8F), borderRadius: BorderRadius.circular(99)),
+                child: Text(_busy ? 'Processing…' : 'Continue', style: _funnel.copyWith(color: Colors.white, fontSize: 16, height: 24 / 16, letterSpacing: -0.24, fontWeight: FontWeight.w500)),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 }
+
+const TextStyle _rowLabel = TextStyle(fontFamily: 'FunnelSans', fontSize: 16, height: 22 / 16, letterSpacing: -0.16, color: Colors.black);
 
 class _SummaryRow extends StatelessWidget {
   const _SummaryRow({required this.label, required this.value, this.bold = false});
 
-  final String label;
+  final Widget label;
   final String value;
   final bool bold;
 
@@ -416,20 +235,89 @@ class _SummaryRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style: AppTypography.body.copyWith(color: AppColors.textPrimary),
-        ),
+        label,
         Text(
           value,
-          style: AppTypography.body.copyWith(
-            color: AppColors.textPrimary,
+          style: _funnel.copyWith(
             fontSize: bold ? 20 : 16,
             height: bold ? 24 / 20 : 22 / 16,
-            fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
+            letterSpacing: bold ? -0.3 : -0.16,
+            fontWeight: bold ? FontWeight.bold : FontWeight.normal,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _PackageCard extends StatelessWidget {
+  const _PackageCard({required this.pkg, required this.selected, required this.onTap});
+
+  final _Package pkg;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isOther = pkg.id == 'other';
+    return GestureDetector(
+      key: ValueKey('package_${pkg.id}'),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: 159,
+        transform: Matrix4.translationValues(0, selected ? -8 : 0, 0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: selected
+              ? const [
+                  BoxShadow(color: Color(0xBF000000), offset: Offset(1, 8), blurRadius: 20, spreadRadius: -8),
+                  BoxShadow(color: Color(0x80000000), offset: Offset(0, 2), blurRadius: 6, spreadRadius: -4),
+                  BoxShadow(color: Color(0x40000000), offset: Offset(0, 1), blurRadius: 3, spreadRadius: -2),
+                ]
+              : const [BoxShadow(color: Color(0x54000000), offset: Offset(0, 1), blurRadius: 1)],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 11),
+              child: Column(
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(isOther ? 'Other' : '${pkg.credits}', style: _funnel.copyWith(fontSize: 28, height: 34 / 28, letterSpacing: -0.42, fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 4),
+                        Image.asset('assets/star.png', width: 16, height: 16),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 11),
+                  Text(
+                    isOther ? 'Specify amount' : '\$${pkg.price}',
+                    style: _funnel.copyWith(fontSize: 14, height: 18 / 14, color: isOther ? const Color(0xFF666666) : Colors.black),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Container(
+              width: double.infinity,
+              color: const Color(0xFFEDEDED),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              alignment: Alignment.center,
+              child: Text(
+                isOther ? 'Discount starts at \$10' : 'Save ${pkg.discountPct}%',
+                style: _funnel.copyWith(fontSize: 12, height: 16 / 12, letterSpacing: 0.06),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

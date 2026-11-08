@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_typography.dart';
@@ -53,11 +54,10 @@ class StealTheLookFailedScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          SvgPicture.asset('assets/Warning.svg', width: 24, height: 24, colorFilter: const ColorFilter.mode(AppColors.accent, BlendMode.srcIn)),
+                          const SizedBox(height: 12),
                           Row(
                             children: [
-                              const Icon(Icons.warning_amber_rounded,
-                                  color: AppColors.accent, size: 24),
-                              const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   title,
@@ -111,7 +111,7 @@ class StealTheLookFailedScreen extends StatelessWidget {
                     elevation: 0,
                     shape: const StadiumBorder(),
                   ),
-                  icon: const Icon(Icons.add_photo_alternate_outlined, size: 20),
+                  icon: Image.asset('assets/camera.png', width: 20, height: 20, color: Colors.white),
                   label: const Text('Upload another picture',
                       style: AppTypography.buttonLabel),
                 ),

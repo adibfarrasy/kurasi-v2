@@ -9,8 +9,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/api/api_providers.dart';
 import '../../core/api/endpoints.dart';
+import '../../core/design/stage_carousel.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_typography.dart';
 
 /// Snapshot of the batch upload-wardrobe job. [current]/[total] track the
 /// photo being processed, [results] accumulate one processed item per photo,
@@ -22,8 +22,11 @@ class UploadWardrobeJobState {
     this.phase = 'processing',
     this.results = const [],
     this.error,
+    this.stage = 0,
   });
 
+  /// Index into the user-facing stage carousel for the current photo.
+  final int stage;
   final int current;
   final int total;
   final String phase;
@@ -41,7 +44,10 @@ class UploadWardrobeJobState {
 /// remaining photos still process.
 class UploadWardrobeJobNotifier extends AsyncNotifier<UploadWardrobeJobState> {
   static const _pollInterval = Duration(milliseconds: 800);
-  static const _maxAttempts = 75;
+  static const _maxAttempts = 150;
+
+  /// Per-stage dwell; tests shrink it.
+  static Duration stageDwell = const Duration(seconds: 1);
 
   @override
   Future<UploadWardrobeJobState> build() async => const UploadWardrobeJobState();
@@ -51,12 +57,17 @@ class UploadWardrobeJobNotifier extends AsyncNotifier<UploadWardrobeJobState> {
     try {
       final results = <Map<String, dynamic>>[];
       for (var i = 0; i < uris.length; i++) {
-        _setState(
-            UploadWardrobeJobState(current: i, total: uris.length, results: results));
+        void stage(int s) => _setState(UploadWardrobeJobState(current: i, total: uris.length, results: results, stage: s));
+        stage(0);
         final uri = uris[i];
         final bytes = await _readFile(uri);
         final (encoded, mime) = await _prepare(bytes, uri);
-        final sessionId = await _start(encoded, mime);
+        // The pipeline does its own stages server side; the dwell keeps the
+        // first label on screen long enough to read.
+        final started = _start(encoded, mime);
+        await Future<void>.delayed(stageDwell * 3);
+        stage(1);
+        final sessionId = await started;
         if (sessionId == null) {
           _setState(UploadWardrobeJobState(
             current: i,
@@ -68,7 +79,15 @@ class UploadWardrobeJobNotifier extends AsyncNotifier<UploadWardrobeJobState> {
           return;
         }
         final item = await _poll(sessionId);
+        stage(2);
+        await Future<void>.delayed(stageDwell);
+        stage(3);
+        await Future<void>.delayed(stageDwell);
         if (item != null) results.add(item);
+      }
+      if (results.isEmpty) {
+        _setState(UploadWardrobeJobState(total: uris.length, phase: 'error', error: 'Could not process your photos. Please try again.'));
+        return;
       }
       _setState(UploadWardrobeJobState(
         current: uris.length,
@@ -202,7 +221,7 @@ class _UploadWardrobeScreenState extends ConsumerState<UploadWardrobeScreen> {
     if (_navigated) return;
     _navigated = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.push(location);
+      if (mounted) context.pushReplacement(location);
     });
   }
 
@@ -221,248 +240,158 @@ class _UploadWardrobeScreenState extends ConsumerState<UploadWardrobeScreen> {
     });
 
     final job = ref.watch(uploadWardrobeJobProvider).value;
+    final insets = MediaQuery.paddingOf(context);
 
     return Scaffold(
       backgroundColor: AppColors.page,
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const _Title(),
-              const SizedBox(height: 4),
-              Text(
-                'Adding photos to your wardrobe',
-                style: AppTypography.body.copyWith(color: AppColors.textPrimary),
-              ),
-              const SizedBox(height: 32),
-              if (job == null)
-                const Center(
-                    child: CircularProgressIndicator(strokeWidth: 3, color: AppColors.dark))
-              else if (job.isError)
-                _ErrorPanel(
-                  message: job.error ?? 'Could not process these photos',
-                  onRetry: () => ref
-                      .read(uploadWardrobeJobProvider.notifier)
-                      .startJob(uris: _uris),
-                  onClose: () => context.pop(),
-                )
-              else
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(child: _PhotoCarousel(uris: _uris, job: job)),
-                      const SizedBox(height: 20),
-                      Center(
-                        child: Text(
-                          job.total == 0
-                              ? 'Analyzing…'
-                              : 'Photo ${job.current + 1} of ${job.total}',
-                          style: AppTypography.body
-                              .copyWith(color: AppColors.textPrimary),
+      body: Stack(
+        children: [
+          Padding(
+            padding: EdgeInsets.only(top: insets.top + 24, bottom: insets.bottom + 32),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Padding(padding: EdgeInsets.fromLTRB(20, 0, 20, 20), child: _Title()),
+                _PhotoCarousel(uris: _uris, current: job?.current ?? 0),
+                const SizedBox(height: 32),
+                StageCarousel(stages: _stages, active: job?.stage ?? 0, visibleRows: 4),
+              ],
+            ),
+          ),
+          if (job?.isError ?? false)
+            Positioned.fill(
+              child: ColoredBox(
+                color: const Color(0x66000000),
+                child: Center(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 20),
+                    constraints: const BoxConstraints(maxWidth: 360),
+                    padding: const EdgeInsets.all(24),
+                    color: Colors.white,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text('Upload failed', style: TextStyle(fontFamily: 'FunnelSans', fontWeight: FontWeight.bold, fontSize: 18, height: 24 / 18, color: Colors.black)),
+                        const SizedBox(height: 16),
+                        Text(job?.error ?? '', style: const TextStyle(fontFamily: 'FunnelSans', fontSize: 14, height: 20 / 14, color: Color(0xFF444444))),
+                        const SizedBox(height: 20),
+                        GestureDetector(
+                          key: const ValueKey('ww_retry'),
+                          onTap: () => context.pushReplacement('/upload-wardrobe-guide'),
+                          child: Container(
+                            height: 48,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(99)),
+                            child: const Text('Try again', style: TextStyle(fontFamily: 'FunnelSans', fontWeight: FontWeight.w500, fontSize: 16, letterSpacing: -0.16, color: Colors.white)),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Center(
-                        child: Text(
-                          'Analyzing item',
-                          style: AppTypography.caption,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      const Center(
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 3, color: AppColors.dark),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-            ],
-          ),
-        ),
+              ),
+            ),
+        ],
       ),
     );
   }
 }
+
+const List<String> _stages = ['Removing background', 'Optimizing image', 'Prefilling tags', 'Wrapping up'];
 
 class _Title extends StatelessWidget {
   const _Title();
 
   @override
   Widget build(BuildContext context) {
-    const bebas = TextStyle(
-      fontFamily: 'BebasNeue',
-      fontSize: 36,
-      height: 40 / 36,
-      letterSpacing: 0.5,
-      color: AppColors.textPrimary,
-    );
-    const kirang = TextStyle(
-      fontFamily: 'KirangHaerang',
-      fontSize: 44,
-      height: 44 / 44,
-      color: AppColors.textPrimary,
-    );
-    return const Text.rich(
-      TextSpan(
-        style: bebas,
-        children: [
-          TextSpan(text: 'UP'),
-          TextSpan(text: 'L', style: kirang),
-          TextSpan(text: 'OADING WAR'),
-          TextSpan(text: 'D', style: kirang),
-          TextSpan(text: 'R'),
-          TextSpan(text: 'O', style: kirang),
-          TextSpan(text: 'BE'),
-        ],
-      ),
-    );
+    const kirang = TextStyle(fontFamily: 'KirangHaerang', fontSize: 58, height: 52 / 58);
+    return const Text.rich(TextSpan(
+      style: TextStyle(fontFamily: 'BebasNeue', fontSize: 48, height: 52 / 48, color: Colors.black),
+      children: [
+        TextSpan(text: 'U'),
+        TextSpan(text: 'P', style: kirang),
+        TextSpan(text: 'LO'),
+        TextSpan(text: 'A', style: kirang),
+        TextSpan(text: 'D WA'),
+        TextSpan(text: 'R', style: kirang),
+        TextSpan(text: 'DRO'),
+        TextSpan(text: 'B', style: kirang),
+        TextSpan(text: 'E'),
+      ],
+    ));
   }
 }
 
-/// Horizontal carousel of the picked photos. The photo being processed is
-/// highlighted; completed photos show a check badge.
-class _PhotoCarousel extends StatelessWidget {
-  const _PhotoCarousel({required this.uris, required this.job});
+/// Photo cards that auto-advance to the one being processed; the active
+/// card tilts slightly.
+class _PhotoCarousel extends StatefulWidget {
+  const _PhotoCarousel({required this.uris, required this.current});
 
   final List<String> uris;
-  final UploadWardrobeJobState job;
+  final int current;
+
+  @override
+  State<_PhotoCarousel> createState() => _PhotoCarouselState();
+}
+
+class _PhotoCarouselState extends State<_PhotoCarousel> {
+  PageController? _controller;
+
+  @override
+  void didUpdateWidget(covariant _PhotoCarousel old) {
+    super.didUpdateWidget(old);
+    if (old.current != widget.current && (_controller?.hasClients ?? false) && widget.current < widget.uris.length) {
+      _controller!.animateToPage(widget.current, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (uris.isEmpty) {
-      return const ColoredBox(color: AppColors.chip);
-    }
-    return ListView.separated(
-      scrollDirection: Axis.horizontal,
-      itemCount: uris.length,
-      separatorBuilder: (_, __) => const SizedBox(width: 8),
-      itemBuilder: (context, index) {
-        final isCurrent = index == job.current;
-        final isDone = index < job.current;
-        final file = _fileFor(uris[index]);
-        return Container(
-          width: 140,
-          decoration: BoxDecoration(
-            color: AppColors.chip,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isCurrent ? AppColors.dark : Colors.transparent,
-              width: 2,
+    final width = MediaQuery.sizeOf(context).width;
+    final cardW = width - 80;
+    _controller ??= PageController(viewportFraction: (cardW + 16) / width);
+    return SizedBox(
+      height: 420,
+      child: PageView.builder(
+        controller: _controller,
+        physics: const NeverScrollableScrollPhysics(),
+        clipBehavior: Clip.none,
+        itemCount: widget.uris.length,
+        itemBuilder: (context, i) {
+          final file = _fileFor(widget.uris[i]);
+          return Center(
+            child: AnimatedRotation(
+              turns: i == widget.current ? -2 / 360 : 0,
+              duration: const Duration(milliseconds: 300),
+              child: Container(
+                width: cardW,
+                height: 420,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCFCFCF),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.white, width: 5),
+                  boxShadow: const [BoxShadow(color: Color(0x66000000), offset: Offset(0.5, 1), blurRadius: 1)],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: file == null ? null : Image.file(file, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox()),
+              ),
             ),
-          ),
-          clipBehavior: Clip.hardEdge,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (file != null)
-                Image.file(
-                  file,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      const ColoredBox(color: AppColors.chip),
-                )
-              else
-                const ColoredBox(color: AppColors.chip),
-              if (isCurrent)
-                Container(
-                  color: const Color(0x33000000),
-                  child: const Center(
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 3, color: Colors.white),
-                    ),
-                  ),
-                ),
-              if (isDone)
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: AppColors.doGreen,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.check,
-                        color: Colors.white, size: 14),
-                  ),
-                ),
-            ],
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
   static File? _fileFor(String rawUri) {
     final uri = Uri.tryParse(rawUri);
-    if (uri != null && uri.isAbsolute && uri.scheme == 'file') {
-      return File.fromUri(uri);
-    }
+    if (uri != null && uri.isAbsolute && uri.scheme == 'file') return File.fromUri(uri);
     return File(rawUri);
-  }
-}
-
-class _ErrorPanel extends StatelessWidget {
-  const _ErrorPanel({
-    required this.message,
-    required this.onRetry,
-    required this.onClose,
-  });
-
-  final String message;
-  final VoidCallback onRetry;
-  final VoidCallback onClose;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.error_outline, color: AppColors.dontRed, size: 40),
-          const SizedBox(height: 12),
-          Text(message,
-              textAlign: TextAlign.center,
-              style: AppTypography.body.copyWith(color: AppColors.textPrimary)),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              OutlinedButton(
-                key: const ValueKey('ww_retry'),
-                onPressed: onRetry,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textPrimary,
-                  side: const BorderSide(color: AppColors.hairline),
-                  shape: const StadiumBorder(),
-                ),
-                child: const Text('Try Again', style: AppTypography.buttonLabel),
-              ),
-              const SizedBox(width: 12),
-              OutlinedButton(
-                key: const ValueKey('ww_error_close'),
-                onPressed: onClose,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textPrimary,
-                  side: const BorderSide(color: AppColors.hairline),
-                  shape: const StadiumBorder(),
-                ),
-                child: const Text('Go Back', style: AppTypography.buttonLabel),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 }

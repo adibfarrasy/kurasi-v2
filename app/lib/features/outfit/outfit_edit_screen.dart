@@ -8,47 +8,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../core/api/wardrobe_items_provider.dart';
-import '../../core/design/signature_pad.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_typography.dart';
 import '../myfit/outfits_provider.dart';
-import '../onboarding/signature_state.dart';
-import '../tryon/hero_floor.dart';
+import '../tryon/slot_strip.dart';
 import '../tryon/tone_background.dart';
-import '../wardrobe/wardrobe_ui_provider.dart';
-import 'outfit_detail_screen.dart';
 
-typedef _EditTool = ({String label, String key});
+const List<(String, double)> _ratios = [('9:16', 9 / 16), ('4:5', 4 / 5), ('3:4', 3 / 4), ('1:1', 1)];
 
-const List<_EditTool> _tools = [
-  (label: 'Canvas', key: 'canvas'),
-  (label: 'Background', key: 'background'),
-  (label: 'Items', key: 'items'),
+const List<(String, String)> _canvasSlots = [
+  ('baseId', 'SHIRT'),
+  ('headwearId', 'HEADWEAR'),
+  ('outerId', 'OUTER'),
+  ('bottomId', 'PANTS'),
+  ('footwearId', 'FOOTWEAR'),
 ];
 
-const List<({String label, double ratio})> _aspectRatios = [
-  (label: '9:16', ratio: 9 / 16),
-  (label: '4:5', ratio: 4 / 5),
-  (label: '3:4', ratio: 3 / 4),
-  (label: '1:1', ratio: 1),
-];
+const TextStyle _funnel = TextStyle(fontFamily: 'FunnelSans', color: Colors.black);
 
-const List<({String label, String value})> _backgrounds = [
-  (label: 'Transparent', value: 'transparent'),
-  (label: 'Neutral', value: 'neutral'),
-  (label: 'Cool', value: 'cool'),
-  (label: 'Warm', value: 'warm'),
-];
-
-const Map<String, Color> _backgroundSwatches = {
-  'neutral': Color(0xFFF0F0F0),
-  'cool': Color(0xFFA8C4E0),
-  'warm': Color(0xFFC9B89D),
-};
-
-/// Outfit share-canvas editor. The user re-frames the look (aspect ratio,
-/// backdrop, item-callout overlay) then taps Share to render the canvas to a
-/// PNG and hand it to the native share sheet via `share_plus`.
+/// Share-canvas editor reached from the outfit detail's Share pill: re-frame
+/// the look (ratio, backdrop, item cards) then share the rendered PNG.
 class OutfitEditScreen extends ConsumerStatefulWidget {
   const OutfitEditScreen({super.key, required this.id});
 
@@ -61,622 +38,362 @@ class OutfitEditScreen extends ConsumerStatefulWidget {
 class _OutfitEditScreenState extends ConsumerState<OutfitEditScreen> {
   final _canvasKey = GlobalKey();
   String? _tool;
-  double _aspectRatio = 9 / 16;
+  double _ratio = 9 / 16;
   String _background = 'warm';
   bool _itemsVisible = true;
-  bool _sharing = false;
 
-  Future<void> _share() async {
-    if (_sharing) return;
-    setState(() => _sharing = true);
+  Future<void> _share(String? name) async {
     try {
-      final renderObject =
-          _canvasKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (renderObject == null) return;
-      final image = await renderObject.toImage(pixelRatio: 2);
-      final byteData = await image.toByteData(format: ImageByteFormat.png);
-      if (byteData == null) return;
+      final boundary = _canvasKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      final image = await boundary.toImage(pixelRatio: MediaQuery.devicePixelRatioOf(context));
+      final bytes = await image.toByteData(format: ImageByteFormat.png);
+      if (bytes == null) return;
       final dir = await Directory.systemTemp.createTemp('kurasi_share');
       final file = File('${dir.path}/outfit_${widget.id}.png');
-      await file.writeAsBytes(byteData.buffer.asUint8List());
-      await SharePlus.instance.share(
-        ShareParams(files: [XFile(file.path)], text: 'My fit'),
-      );
-    } catch (_) {
-      // Sharing may fail on platforms without a share sheet; stay quiet.
-    } finally {
-      if (mounted) setState(() => _sharing = false);
+      await file.writeAsBytes(bytes.buffer.asUint8List());
+      await SharePlus.instance.share(ShareParams(files: [XFile(file.path, mimeType: 'image/png')], title: name ?? 'My fit'));
+    } catch (err) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not share: $err')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final outfits = ref.watch(outfitsProvider);
-    final wardrobe = ref.watch(wardrobeItemsProvider);
+    final outfit = (ref.watch(outfitsProvider).valueOrNull ?? const []).whereType<Map>().where((o) => o['id'] == widget.id).firstOrNull;
     final itemsById = <String, Map<String, dynamic>>{
-      for (final item in (wardrobe.valueOrNull ?? []))
-        if (item is Map)
-          (item['id'] as String? ?? ''): Map<String, dynamic>.from(item),
+      for (final it in (ref.watch(wardrobeItemsProvider).valueOrNull ?? const []).whereType<Map>()) it['id'] as String? ?? '': Map<String, dynamic>.from(it),
     };
-    final signaturePaths = ref.watch(signaturePathsProvider);
+    final slots = [
+      for (final (i, (key, label)) in _canvasSlots.indexed)
+        (
+          i,
+          SlotEntry(
+            key: label,
+            label: label,
+            item: switch (itemsById[outfit?[key]]) {
+              final it? => SlotItem(imageUrl: it['imageUrl'] as String? ?? '', brand: it['brand'] as String?, aiGenerated: it['owned'] == false),
+              null => null,
+            },
+          ),
+        ),
+    ];
+    final hero = outfit?['heroImageUrl'] as String?;
+    final insets = MediaQuery.paddingOf(context);
+    const fallback = Image(image: AssetImage('assets/default-man.png'), fit: BoxFit.contain);
 
     return Scaffold(
-      backgroundColor: AppColors.myFitPage,
-      body: outfits.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => const Center(child: Text('Failed to load outfit')),
-        data: (_) {
-          final outfit = outfitById(outfits.valueOrNull ?? [], widget.id);
-          if (outfit == null) {
-            return const Center(child: Text('Outfit not found'));
-          }
-          return SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _EditHeader(
-                  onBack: () => context.pop(),
-                  onShare: _share,
-                  sharing: _sharing,
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 11, 20, 0),
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        final canvasWidth = math.min(
-                            constraints.maxWidth,
-                            constraints.maxHeight * _aspectRatio);
-                        final canvasHeight =
-                            canvasWidth / _aspectRatio;
-                        return Center(
-                          child: RepaintBoundary(
-                            key: _canvasKey,
-                            child: SizedBox(
-                              key: const ValueKey('edit_canvas'),
-                              width: canvasWidth,
-                              height: canvasHeight,
-                              child: ClipRect(
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    _CanvasBackdrop(
-                                        background: _background,
-                                        outfit: outfit),
-                                    if (_itemsVisible)
-                                      _CanvasItemsStrip(
-                                        outfit: outfit,
-                                        itemsById: itemsById,
-                                        canvasWidth: canvasWidth,
-                                      ),
-                                    if (signaturePaths.isNotEmpty)
-                                      Positioned(
-                                        left: 16,
-                                        bottom: 16,
-                                        width: canvasWidth * 0.32,
-                                        child: SizedBox(
-                                          height: 40,
-                                          child: FittedBox(
-                                            fit: BoxFit.contain,
-                                            alignment: Alignment.centerLeft,
-                                            child: SizedBox(
-                                              width: 320,
-                                              height: 40,
-                                              child: CustomPaint(
-                                                painter: SignaturePainter(
-                                                  paths: signaturePaths,
-                                                  color: Colors.white,
-                                                  strokeWidth: 2,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                _BottomStrip(
-                  tool: _tool,
-                  aspectRatio: _aspectRatio,
-                  background: _background,
-                  itemsVisible: _itemsVisible,
-                  onTool: (tool) =>
-                      setState(() => _tool = _tool == tool ? null : tool),
-                  onAspectRatio: (ratio) =>
-                      setState(() => _aspectRatio = ratio),
-                  onBackground: (value) =>
-                      setState(() => _background = value),
-                  onItemsVisible: (value) =>
-                      setState(() => _itemsVisible = value),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _EditHeader extends StatelessWidget {
-  const _EditHeader({
-    required this.onBack,
-    required this.onShare,
-    required this.sharing,
-  });
-
-  final VoidCallback onBack;
-  final VoidCallback onShare;
-  final bool sharing;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 56,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          const Positioned.fill(
-            child: IgnorePointer(
-              child: Center(
-                child: Text(
-                  'EDIT',
-                  style: TextStyle(
-                    fontFamily: 'BebasNeue',
-                    fontSize: 36,
-                    height: 40 / 36,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: IconButton(
-              key: const ValueKey('outfit_edit_back'),
-              onPressed: onBack,
-              icon: const Icon(Icons.arrow_back_rounded,
-                  color: AppColors.textPrimary, size: 24),
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: GestureDetector(
-              key: const ValueKey('outfit_edit_share'),
-              onTap: sharing ? null : onShare,
-              child: Container(
-                margin: const EdgeInsets.only(right: 20),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: sharing ? AppColors.disabled : AppColors.dark,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-                child: Text(
-                  'Share',
-                  style: AppTypography.buttonLabel
-                      .copyWith(color: Colors.white, fontSize: 14),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Canvas backdrop: 'transparent' falls through to the page background, the
-/// other selections reuse the studio ToneBackground gradients.
-class _CanvasBackdrop extends StatelessWidget {
-  const _CanvasBackdrop({required this.background, required this.outfit});
-
-  final String background;
-  final Map<String, dynamic> outfit;
-
-  @override
-  Widget build(BuildContext context) {
-    final hero = outfit['heroImageUrl'] as String?;
-    final image = hero == null
-        ? const ColoredBox(color: Colors.white)
-        : Image.network(
-            hero,
-            fit: BoxFit.contain,
-            loadingBuilder: (context, child, progress) =>
-                progress == null ? child : const ColoredBox(color: Colors.white),
-            errorBuilder: (context, error, stackTrace) =>
-                const ColoredBox(color: Colors.white),
-          );
-
-    if (background == 'transparent') {
-      return Center(child: image);
-    }
-    return ToneBackground(
-      tone: background,
-      child: Center(child: image),
-    );
-  }
-}
-
-/// Compact item-card overlay anchored just above the canvas bottom. Cards
-/// scale down so all filled slots fit the canvas width.
-class _CanvasItemsStrip extends StatelessWidget {
-  const _CanvasItemsStrip({
-    required this.outfit,
-    required this.itemsById,
-    required this.canvasWidth,
-  });
-
-  final Map<String, dynamic> outfit;
-  final Map<String, Map<String, dynamic>> itemsById;
-  final double canvasWidth;
-
-  static const double _cardW = 64;
-  static const double _cardH = 72;
-  static const double _gap = 6;
-  static const double _side = 12;
-
-  @override
-  Widget build(BuildContext context) {
-    final slots = <Map<String, dynamic>>[];
-    for (final category in wardrobeCategories) {
-      final id = outfit[slotKeyForCategory(category)];
-      if (id is! String) continue;
-      final item = itemsById[id];
-      if (item == null) continue;
-      final url = item['imageUrl'];
-      if (url is! String) continue;
-      slots.add({
-        'category': category,
-        'imageUrl': url,
-        'label': wardrobeCategoryLabels[category] ?? category,
-      });
-    }
-    if (slots.isEmpty) return const SizedBox.shrink();
-
-    final available = canvasWidth - _side * 2 - _gap * (slots.length - 1);
-    final scale = math.min(1.0, available / (slots.length * _cardW));
-
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: 16,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          for (final slot in slots)
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: _gap / 2),
-              width: _cardW * scale,
-              height: _cardH * scale,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(color: AppColors.hairline),
-              ),
+      backgroundColor: const Color(0xFFEBEBEB),
+      body: Padding(
+        padding: EdgeInsets.only(top: insets.top + 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              height: 56,
               child: Stack(
-                fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    slot['imageUrl'] as String,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, progress) =>
-                        progress == null
-                            ? child
-                            : const ColoredBox(color: AppColors.chip),
-                    errorBuilder: (context, error, stackTrace) =>
-                        const ColoredBox(color: AppColors.chip),
-                  ),
-                  Positioned(
+                  const Positioned(
                     left: 0,
                     right: 0,
-                    bottom: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      decoration: const BoxDecoration(
-                        color: Color(0xB3000000),
-                      ),
-                      child: Text(
-                        slot['label'] as String,
+                    top: 8,
+                    child: IgnorePointer(
+                      child: Text.rich(
+                        TextSpan(style: TextStyle(fontFamily: 'BebasNeue', fontSize: 36, height: 40 / 36, color: Colors.black), children: [
+                          TextSpan(text: 'E'),
+                          TextSpan(text: 'D', style: TextStyle(fontFamily: 'KirangHaerang', fontSize: 44, height: 40 / 44)),
+                          TextSpan(text: 'I'),
+                          TextSpan(text: 'T', style: TextStyle(fontFamily: 'KirangHaerang', fontSize: 44, height: 40 / 44)),
+                        ]),
                         textAlign: TextAlign.center,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: 'FunnelSans',
-                          fontSize: 7,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 20,
+                    top: 0,
+                    bottom: 0,
+                    child: GestureDetector(
+                      key: const ValueKey('edit_back'),
+                      onTap: () => context.pop(),
+                      child: Padding(padding: const EdgeInsets.all(8), child: Image.asset('assets/arrow-left.png', width: 24, height: 24)),
+                    ),
+                  ),
+                  if (_tool == null)
+                    Positioned(
+                      right: 20,
+                      top: 0,
+                      bottom: 0,
+                      child: Center(
+                        child: GestureDetector(
+                          key: const ValueKey('edit_share'),
+                          onTap: () => _share(outfit?['name'] as String?),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(99)),
+                            child: const Text('Share', style: TextStyle(fontFamily: 'FunnelSans', fontSize: 14, color: Colors.white)),
+                          ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BottomStrip extends StatelessWidget {
-  const _BottomStrip({
-    required this.tool,
-    required this.aspectRatio,
-    required this.background,
-    required this.itemsVisible,
-    required this.onTool,
-    required this.onAspectRatio,
-    required this.onBackground,
-    required this.onItemsVisible,
-  });
-
-  final String? tool;
-  final double aspectRatio;
-  final String background;
-  final bool itemsVisible;
-  final ValueChanged<String> onTool;
-  final ValueChanged<double> onAspectRatio;
-  final ValueChanged<String> onBackground;
-  final ValueChanged<bool> onItemsVisible;
-
-  @override
-  Widget build(BuildContext context) {
-    if (tool == null) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-        child: Row(
-          children: [
-            for (final t in _tools)
-              Expanded(
-                child: _ToolButton(
-                  key: ValueKey('edit_tool_${t.key}'),
-                  label: t.label,
-                  onTap: () => onTool(t.key),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 11, 20, 0),
+                child: LayoutBuilder(
+                  builder: (context, c) {
+                    final w = math.min(c.maxWidth, c.maxHeight * _ratio);
+                    final h = w / _ratio;
+                    const n = 5;
+                    final cardScale = math.min(1.0, (w - 24 - 8 * (n - 1)) / (n * 88));
+                    Widget canvas = Stack(
+                      children: [
+                        Positioned.fill(child: hero == null ? fallback : Image.network(hero, fit: BoxFit.contain, errorBuilder: (_, __, ___) => fallback)),
+                        if (_itemsVisible)
+                          Positioned(
+                            left: 12,
+                            right: 12,
+                            bottom: 36,
+                            child: Row(
+                              children: [
+                                for (final (i, s) in slots) ...[
+                                  SizedBox(
+                                    width: 88 * cardScale,
+                                    height: 100 * cardScale,
+                                    child: OverflowBox(
+                                      alignment: Alignment.topLeft,
+                                      maxWidth: 88,
+                                      maxHeight: 100,
+                                      child: Transform.scale(scale: cardScale, alignment: Alignment.topLeft, child: SlotCard(entry: s, index: i)),
+                                    ),
+                                  ),
+                                  if (i < n - 1) const SizedBox(width: 8),
+                                ],
+                              ],
+                            ),
+                          ),
+                      ],
+                    );
+                    if (_background != 'transparent') canvas = ToneBackground(tone: _background, child: canvas);
+                    return Center(
+                      child: RepaintBoundary(key: _canvasKey, child: ClipRect(child: SizedBox(width: w, height: h, child: canvas))),
+                    );
+                  },
+                ),
+              ),
+            ),
+            if (_tool == null)
+              Padding(
+                padding: EdgeInsets.fromLTRB(20, 46, 20, insets.bottom + 16),
+                child: Row(
+                  children: [
+                    _ToolbarItem(label: 'Canvas', icon: 'assets/canvas.png', onTap: () => setState(() => _tool = 'canvas')),
+                    _ToolbarItem(label: 'Background', icon: 'assets/Image.png', onTap: () => setState(() => _tool = 'background')),
+                    _ToolbarItem(label: 'Items', icon: 'assets/t-shirt-edit.png', onTap: () => setState(() => _tool = 'items')),
+                  ],
+                ),
+              )
+            else
+              Padding(
+                padding: EdgeInsets.only(top: 20, bottom: insets.bottom + 16),
+                child: Column(
+                  children: [
+                    _PanelHeader(
+                      icon: switch (_tool) { 'canvas' => 'assets/canvas.png', 'background' => 'assets/Image.png', _ => 'assets/t-shirt-edit.png' },
+                      label: switch (_tool) { 'canvas' => 'Canvas', 'background' => 'Background', _ => 'Items' },
+                      onSave: () => setState(() => _tool = null),
+                    ),
+                    switch (_tool) {
+                      'canvas' => _Segmented<double>(
+                          options: [for (final (l, v) in _ratios) (l, v)],
+                          value: _ratio,
+                          radius: 40,
+                          onChange: (v) => setState(() => _ratio = v),
+                        ),
+                      'background' => _Segmented<String>(
+                          options: const [('Transparent', 'transparent'), ('Neutral', 'neutral'), ('Cool', 'cool'), ('Warm', 'warm')],
+                          value: _background,
+                          radius: 10,
+                          swatches: true,
+                          onChange: (v) => setState(() => _background = v),
+                        ),
+                      _ => _Segmented<bool>(
+                          options: const [('Hide', false), ('Show', true)],
+                          value: _itemsVisible,
+                          radius: 40,
+                          onChange: (v) => setState(() => _itemsVisible = v),
+                        ),
+                    },
+                  ],
                 ),
               ),
           ],
         ),
-      );
-    }
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _PanelHeader(
-          label: tool!,
-          onSave: () => onTool(tool!),
-        ),
-        if (tool == 'canvas')
-          _SegmentedSelector(
-            options: [
-              for (final r in _aspectRatios)
-                (label: r.label, value: r.ratio),
-            ],
-            value: aspectRatio,
-            onChanged: onAspectRatio,
-          )
-        else if (tool == 'background')
-          _BackgroundSelector(value: background, onChanged: onBackground)
-        else
-          _SegmentedSelector(
-            options: const [
-              (label: 'Hide', value: false),
-              (label: 'Show', value: true),
-            ],
-            value: itemsVisible,
-            onChanged: onItemsVisible,
-          ),
-        const SizedBox(height: 16),
-      ],
+      ),
     );
   }
 }
 
-class _ToolButton extends StatelessWidget {
-  const _ToolButton({super.key, required this.label, required this.onTap});
+class _ToolbarItem extends StatelessWidget {
+  const _ToolbarItem({required this.label, required this.icon, required this.onTap});
 
   final String label;
+  final String icon;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.tune_rounded,
-                color: AppColors.textSecondary, size: 24),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            label,
-            style: AppTypography.slotLabel
-                .copyWith(color: AppColors.textSecondary),
-          ),
-        ],
+    return Expanded(
+      child: GestureDetector(
+        key: ValueKey('edit_tool_$label'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Column(
+          children: [
+            Image.asset(icon, width: 28, height: 28, color: const Color(0xFF666666)),
+            const SizedBox(height: 6),
+            Text(label, style: _funnel.copyWith(fontSize: 12, height: 16 / 12, fontWeight: FontWeight.bold, letterSpacing: 0.06, color: const Color(0xFF666666))),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _PanelHeader extends StatelessWidget {
-  const _PanelHeader({required this.label, required this.onSave});
+  const _PanelHeader({required this.icon, required this.label, required this.onSave});
 
+  final String icon;
   final String label;
   final VoidCallback onSave;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: Color(0xFFC8C8C8))),
-      ),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: AppTypography.body.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const Spacer(),
-          GestureDetector(
-            onTap: onSave,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.dark,
-                borderRadius: BorderRadius.circular(99),
-              ),
-              child: const Text(
-                'Save',
-                style: TextStyle(
-                  fontFamily: 'FunnelSans',
-                  fontSize: 14,
-                  height: 18 / 14,
-                  color: Colors.white,
-                ),
+    return CustomPaint(
+      painter: _DashedTopBorder(),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 15),
+        child: Row(
+          children: [
+            Image.asset(icon, width: 20, height: 20, color: const Color(0xFF1A1A1A)),
+            const SizedBox(width: 8),
+            Text(label, style: _funnel.copyWith(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            GestureDetector(
+              key: const ValueKey('edit_panel_save'),
+              onTap: onSave,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(99)),
+                child: Text('Save', style: _funnel.copyWith(fontSize: 14, height: 18 / 14, color: Colors.white)),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _SegmentedSelector<T> extends StatelessWidget {
-  const _SegmentedSelector({
-    required this.options,
-    required this.value,
-    required this.onChanged,
-  });
+class _DashedTopBorder extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFC8C8C8)
+      ..strokeWidth = 1;
+    for (var x = 0.0; x < size.width; x += 6) {
+      canvas.drawLine(Offset(x, 0), Offset(math.min(x + 3, size.width), 0), paint);
+    }
+  }
 
-  final List<({String label, T value})> options;
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Grey strip with a white thumb that slides to the selected option.
+class _Segmented<T> extends StatelessWidget {
+  const _Segmented({required this.options, required this.value, required this.radius, required this.onChange, this.swatches = false});
+
+  final List<(String, T)> options;
   final T value;
-  final ValueChanged<T> onChanged;
+  final double radius;
+  final bool swatches;
+  final ValueChanged<T> onChange;
+
+  static const Map<String, Color> _swatchColors = {'neutral': Color(0xFFF0F0F0), 'cool': Color(0xFFA8C4E0), 'warm': Color(0xFFC9B89D)};
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: const Color(0xFFD6D6D6),
-        borderRadius: BorderRadius.circular(40),
-      ),
-      child: Row(
-        children: [
-          for (final option in options)
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onChanged(option.value),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: option.value == value
-                      ? BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(40),
-                        )
-                      : null,
-                  child: Text(
-                    option.label,
-                    textAlign: TextAlign.center,
-                    style: AppTypography.caption.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: option.value == value
-                          ? AppColors.textPrimary
-                          : AppColors.textSecondary,
-                    ),
-                  ),
+    final active = options.indexWhere((o) => o.$2 == value);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.all(2),
+        decoration: BoxDecoration(color: const Color(0xFFD6D6D6), borderRadius: BorderRadius.circular(radius)),
+        child: LayoutBuilder(
+          builder: (context, c) {
+            final cell = (c.maxWidth - 4 * (options.length - 1)) / options.length;
+            return Stack(
+              children: [
+                AnimatedPositioned(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutBack,
+                  left: active * (cell + 4),
+                  top: 0,
+                  bottom: 0,
+                  width: cell,
+                  child: DecoratedBox(decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(radius))),
                 ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BackgroundSelector extends StatelessWidget {
-  const _BackgroundSelector({required this.value, required this.onChanged});
-
-  final String value;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(2),
-      decoration: BoxDecoration(
-        color: const Color(0xFFD6D6D6),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          for (final option in _backgrounds)
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onChanged(option.value),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: option.value == 'transparent'
-                            ? BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppColors.textMuted,
-                                  width: 1.5,
+                Row(
+                  children: [
+                    for (final (i, (label, v)) in options.indexed) ...[
+                      Expanded(
+                        child: GestureDetector(
+                          key: ValueKey('edit_option_$label'),
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => onChange(v),
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(vertical: swatches ? 10 : 12),
+                            child: Column(
+                              children: [
+                                if (swatches) ...[
+                                  Container(
+                                    width: 28,
+                                    height: 28,
+                                    decoration: v == 'transparent'
+                                        ? BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFF9A9A9A), width: 1.5))
+                                        : BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: _swatchColors[v],
+                                            boxShadow: const [BoxShadow(color: Color(0xA8000000), offset: Offset(0, 0.5), blurRadius: 0.5)],
+                                          ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                ],
+                                Text(
+                                  label,
+                                  style: _funnel.copyWith(
+                                    fontSize: swatches ? 12 : 14,
+                                    height: swatches ? 16 / 12 : 18 / 14,
+                                    fontWeight: !swatches || i == active ? FontWeight.bold : FontWeight.normal,
+                                    color: i == active ? Colors.black : const Color(0xFF666666),
+                                  ),
                                 ),
-                              )
-                            : BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: _backgroundSwatches[option.value],
-                                border: option.value == value
-                                    ? Border.all(
-                                        color: AppColors.dark, width: 2)
-                                    : null,
-                              ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        option.label,
-                        style: AppTypography.slotLabel.copyWith(
-                          color: option.value == value
-                              ? AppColors.textPrimary
-                              : AppColors.textSecondary,
+                              ],
+                            ),
+                          ),
                         ),
                       ),
+                      if (i < options.length - 1) const SizedBox(width: 4),
                     ],
-                  ),
+                  ],
                 ),
-              ),
-            ),
-        ],
+              ],
+            );
+          },
+        ),
       ),
     );
   }

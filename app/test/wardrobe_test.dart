@@ -101,9 +101,15 @@ Future<void> _pump(WidgetTester tester) async {
   await tester.pumpAndSettle();
 }
 
+Future<void> _toList(WidgetTester tester) async {
+  await tester.tap(find.byKey(const Key('wardrobe_mode_list')));
+  await tester.pumpAndSettle();
+}
+
 void main() {
-  testWidgets('wardrobe grid shows owned active items', (tester) async {
+  testWidgets('wardrobe list shows owned active items', (tester) async {
     await _pump(tester);
+    await _toList(tester);
     expect(find.text('Black Hoodie'), findsOneWidget);
     expect(find.text('White Tee'), findsOneWidget);
     expect(find.text('Denim Jacket'), findsOneWidget);
@@ -112,27 +118,27 @@ void main() {
 
   testWidgets('wardrobe search filters items to prefix matches', (tester) async {
     await _pump(tester);
+    await _toList(tester);
+    await tester.tap(find.byKey(const Key('wardrobe_search_toggle')));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byKey(const Key('wardrobe_search')), 'blac');
     await tester.pump();
-    expect(find.text('Black Hoodie'), findsOneWidget);
-    expect(find.text('White Tee'), findsNothing);
-    expect(find.text('Denim Jacket'), findsNothing);
+    expect(find.text('Black Hoodie', findRichText: true), findsOneWidget);
+    expect(find.text('White Tee', findRichText: true), findsNothing);
+    expect(find.text('Denim Jacket', findRichText: true), findsNothing);
   });
 
-  testWidgets('wardrobe mode toggle switches grid to list', (tester) async {
+  testWidgets('wardrobe mode toggle switches pager to list', (tester) async {
     await _pump(tester);
-    expect(find.byType(GridView), findsWidgets);
-    expect(find.byType(PageView), findsNothing);
-
-    await tester.tap(find.byKey(const Key('wardrobe_mode_toggle')));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(GridView), findsNothing);
     expect(find.byType(PageView), findsOneWidget);
+    await _toList(tester);
+    expect(find.byType(PageView), findsNothing);
+    expect(find.byType(ListView), findsOneWidget);
   });
 
   testWidgets('wardrobe category filter sheet filters items', (tester) async {
     await _pump(tester);
+    await _toList(tester);
     await tester.tap(find.byKey(const Key('wardrobe_sort')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('filter_chip_jacket')));

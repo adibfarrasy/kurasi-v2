@@ -1,17 +1,30 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_providers.dart';
 import '../../core/api/endpoints.dart';
-import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_typography.dart';
-import '../credits/credits_provider.dart';
 import 'subscription_provider.dart';
 
-/// Subscription screen — Chrome/Gold plan toggle + subscribe/cancel/renew.
-/// Billing is monthly (backend `POST /api/subscription`); the weekly
-/// pricing copy is carried over statically from the RN screen.
+const List<String> _planFeatures = [
+  'Add **10 AI credits** / week',
+  'Easily visualize clothing items combination',
+  'Upload an outfit inspiration and see how it looks on you',
+  'Show off your OOTD to your Instagram followers',
+];
+
+const TextStyle _funnel = TextStyle(fontFamily: 'FunnelSans', color: Colors.black);
+
+const List<String> _months = [
+  'January', 'February', 'March', 'April', 'May', 'June', //
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+String _formatDate(String? iso) {
+  final d = iso == null ? null : DateTime.tryParse(iso)?.toLocal();
+  return d == null ? '—' : '${_months[d.month - 1]} ${d.day}, ${d.year}';
+}
+
+/// Plans screen: Chrome (current) / Gold (upgrade) toggle, the plan card,
+/// and for Chrome the current subscription's type and renewal controls.
 class SubscriptionScreen extends ConsumerStatefulWidget {
   const SubscriptionScreen({super.key});
 
@@ -23,306 +36,169 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   bool _gold = false;
   bool _busy = false;
 
-  Future<void> _start() => _post(ApiEndpoints.subscription,
-      body: const {'providerRef': null});
-
-  Future<void> _renew() => _post(ApiEndpoints.subscriptionRenewSuccess);
-
-  Future<void> _cancel() => _post(ApiEndpoints.subscriptionCancel);
-
-  Future<void> _post(String path, {Object? body}) async {
+  Future<void> _cancel() async {
     if (_busy) return;
     setState(() => _busy = true);
-    final api = ref.read(apiClientProvider);
     try {
-      await api.post(path, body: body);
+      await ref.read(apiClientProvider).post(ApiEndpoints.subscriptionCancel);
       ref.invalidate(subscriptionProvider);
-      if (path == ApiEndpoints.subscription) {
-        await ref.read(creditsProvider.notifier).refresh();
-      }
     } catch (err) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('$err')));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$err')));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  String get _statusLabel {
-    final status = ref.read(subscriptionProvider.notifier).status;
-    final isInTrial = ref.read(subscriptionProvider.notifier).isInTrial;
-    switch (status) {
-      case 'active':
-        return 'ACTIVE';
-      case 'grace':
-        return 'GRACE';
-      case 'cancelled':
-        return 'CANCELLED';
-      case 'lapsed':
-        return 'LAPSED';
-      default:
-        return isInTrial ? 'IN TRIAL' : 'NO PLAN';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final sub = ref.watch(subscriptionProvider);
+    final insets = MediaQuery.paddingOf(context);
+    final sub = ref.watch(subscriptionProvider).valueOrNull?['subscription'] as Map<String, dynamic>?;
+    final cancelled = sub?['status'] == 'cancelled';
     return Scaffold(
-      backgroundColor: AppColors.page,
-      body: SafeArea(
-        child: Column(
-          children: [
-            _header(context),
-            Expanded(
-              child: sub.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => const Center(
-                  child: Text('Failed to load subscription',
-                      style: AppTypography.body),
+      backgroundColor: const Color(0xFFE5E5E5),
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              SizedBox(
+                width: 333,
+                child: Padding(
+                  padding: EdgeInsets.only(top: insets.top + 8, bottom: 12),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned(
+                        left: 0,
+                        top: 0,
+                        child: GestureDetector(
+                          key: const ValueKey('subscription_back'),
+                          onTap: () => Navigator.of(context).pop(),
+                          child: Padding(padding: const EdgeInsets.all(8), child: Image.asset('assets/arrow-left.png', width: 24, height: 24)),
+                        ),
+                      ),
+                      Image.asset('assets/logomark-dark.png', width: 160, height: 40),
+                    ],
+                  ),
                 ),
-                data: (_) => _body(context),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.only(bottom: insets.bottom + 100),
+                  child: Center(
+                    child: SizedBox(
+                      width: 333,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _PlanSlider(gold: _gold, onChange: (g) => setState(() => _gold = g)),
+                          const SizedBox(height: 28),
+                          _PlanCard(gold: _gold),
+                          if (!_gold) ...[
+                            const SizedBox(height: 28),
+                            const _InfoRow(label: 'Type', value: 'Weekly', trailing: _OutlinePill(label: 'Change')),
+                            const SizedBox(height: 16),
+                            _InfoRow(
+                              label: 'Next Renewal Date',
+                              value: _formatDate(sub?['currentPeriodEnd'] as String?),
+                              trailing: _OutlinePill(
+                                key: const ValueKey('subscription_cancel'),
+                                label: 'Cancel',
+                                onTap: sub == null || cancelled || _busy ? null : _cancel,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'If you cancel, you can keep using your remaining AI credits',
+                              style: _funnel.copyWith(fontSize: 14, height: 18 / 14, color: const Color(0xFF666666)),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_gold)
+            Positioned(
+              left: 20,
+              right: 20,
+              bottom: insets.bottom + 16,
+              child: Container(
+                key: const ValueKey('subscription_upgrade'),
+                height: 56,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(99)),
+                child: Text('Upgrade to Max Plan', style: _funnel.copyWith(color: Colors.white, fontSize: 16, height: 24 / 16, letterSpacing: -0.24, fontWeight: FontWeight.w500)),
               ),
             ),
-            _cta(context),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _header(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: IconButton(
-              onPressed: () => Navigator.of(context).pop(),
-              icon: const Icon(Icons.arrow_back_ios_new,
-                  color: AppColors.textPrimary, size: 22),
-            ),
-          ),
-          Text(
-            'SUBSCRIPTION',
-            style: AppTypography.display(32)
-                .copyWith(color: AppColors.textPrimary, letterSpacing: 0.4),
-          ),
         ],
-      ),
-    );
-  }
-
-  Widget _body(BuildContext context) {
-    final sub = ref.watch(subscriptionProvider).valueOrNull;
-    final subscription = sub?['subscription'] as Map<String, dynamic>?;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Align(
-            alignment: Alignment.center,
-            child: _StatusChip(label: _statusLabel),
-          ),
-          const SizedBox(height: 16),
-          _PlanToggle(gold: _gold, onChanged: (gold) => setState(() => _gold = gold)),
-          const SizedBox(height: 20),
-          _PlanCard(gold: _gold),
-          if (!_gold && subscription != null) ...[
-            const SizedBox(height: 20),
-            _renewalRow(subscription),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _renewalRow(Map<String, dynamic> subscription) {
-    final periodEnd = subscription['currentPeriodEnd'] as String?;
-    final cancelled = subscription['status'] == 'cancelled';
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const _InfoRow(label: 'Type', value: 'Monthly'),
-        const SizedBox(height: 16),
-        _InfoRow(
-          label: 'Next Renewal Date',
-          value: periodEnd?.split('T').first ?? '—',
-          trailing: cancelled
-              ? null
-              : _Pill(
-                  key: const ValueKey('subscription_cancel_pill'),
-                  label: 'Cancel',
-                  onPressed: _busy ? null : _cancel,
-                ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'If you cancel, you can keep using your remaining AI credits',
-          style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
-        ),
-      ],
-    );
-  }
-
-  Widget _cta(BuildContext context) {
-    final status = ref.read(subscriptionProvider.notifier).status;
-    final (label, key, onPressed) = switch (status) {
-      'active' || 'grace' => (
-          'Cancel Subscription',
-          const ValueKey('subscription_cancel'),
-          _busy ? null : _cancel,
-        ),
-      'cancelled' => (
-          'Renew Subscription',
-          const ValueKey('subscription_start'),
-          _busy ? null : _renew,
-        ),
-      'lapsed' => (
-          'Reactivate Subscription',
-          const ValueKey('subscription_start'),
-          _busy ? null : _renew,
-        ),
-      _ => (
-          'Subscribe',
-          const ValueKey('subscription_start'),
-          _busy ? null : _start,
-        ),
-    };
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-      child: SizedBox(
-        height: 56,
-        child: FilledButton(
-          key: key,
-          onPressed: onPressed,
-          style: FilledButton.styleFrom(
-            backgroundColor: AppColors.dark,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shape: const StadiumBorder(),
-            textStyle: AppTypography.buttonLabel,
-          ),
-          child: Text(label),
-        ),
       ),
     );
   }
 }
 
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.dark,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: AppTypography.slotLabel.copyWith(color: Colors.white),
-      ),
-    );
-  }
-}
-
-class _PlanToggle extends StatelessWidget {
-  const _PlanToggle({required this.gold, required this.onChanged});
+class _PlanSlider extends StatelessWidget {
+  const _PlanSlider({required this.gold, required this.onChange});
 
   final bool gold;
-  final ValueChanged<bool> onChanged;
+  final ValueChanged<bool> onChange;
+
+  static const double _width = 333 - 40;
+  static const double _pad = 4;
+  static const double _tab = (_width - _pad * 2) / 2;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 52,
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFD9D9D9),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _ToggleTab(
-              label: 'Chrome',
-              selected: !gold,
-              onTap: () => onChanged(false),
+    Widget tab(String label, bool value) => Expanded(
+          child: GestureDetector(
+            key: ValueKey('plan_${label.toLowerCase()}'),
+            behavior: HitTestBehavior.opaque,
+            onTap: () => onChange(value),
+            child: Center(
+              child: Text(
+                label,
+                style: _funnel.copyWith(
+                  fontSize: 16,
+                  height: 22 / 16,
+                  fontWeight: gold == value ? FontWeight.bold : FontWeight.normal,
+                  color: gold == value ? Colors.black : const Color(0xFF666666),
+                ),
+              ),
             ),
           ),
-          Expanded(
-            child: _ToggleTab(
-              label: 'Gold',
-              selected: gold,
-              onTap: () => onChanged(true),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ToggleTab extends StatelessWidget {
-  const _ToggleTab({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
+        );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
       child: Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: selected
-              ? const [
-                  BoxShadow(
-                    color: Color(0x1F000000),
-                    offset: Offset(0, 1),
-                    blurRadius: 2,
-                  ),
-                ]
-              : null,
-        ),
-        child: Text(
-          label,
-          style: AppTypography.buttonLabel.copyWith(
-            color: selected
-                ? AppColors.textPrimary
-                : AppColors.textSecondary,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-          ),
+        width: _width,
+        height: 52,
+        padding: const EdgeInsets.all(_pad),
+        decoration: BoxDecoration(color: const Color(0xFFD9D9D9), borderRadius: BorderRadius.circular(999)),
+        child: Stack(
+          children: [
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 220),
+              left: gold ? _tab : 0,
+              top: 0,
+              bottom: 0,
+              width: _tab,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(999),
+                  boxShadow: const [BoxShadow(color: Color(0x1F000000), offset: Offset(0, 1), blurRadius: 2)],
+                ),
+              ),
+            ),
+            Row(children: [tab('Chrome', false), tab('Gold', true)]),
+          ],
         ),
       ),
     );
   }
 }
-
-const List<String> _planFeatures = [
-  'Add **10 AI credits** / week',
-  'Easily visualize clothing items combination',
-  'Upload an outfit inspiration and see how it looks on you',
-  'Show off your OOTD to your Instagram followers',
-];
 
 class _PlanCard extends StatelessWidget {
   const _PlanCard({required this.gold});
@@ -338,118 +214,50 @@ class _PlanCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         boxShadow: gold
             ? const [
-                BoxShadow(
-                  color: Color(0x99CEA050),
-                  offset: Offset(1, 8),
-                  blurRadius: 15,
-                  spreadRadius: -4,
-                ),
-                BoxShadow(
-                  color: Color(0xB3CEA050),
-                  offset: Offset(0, 2),
-                  blurRadius: 6,
-                  spreadRadius: -2,
-                ),
+                BoxShadow(color: Color(0x99CEA050), offset: Offset(1, 8), blurRadius: 15, spreadRadius: -4),
+                BoxShadow(color: Color(0xB3CEA050), offset: Offset(0, 2), blurRadius: 6, spreadRadius: -2),
+                BoxShadow(color: Color(0xCCC2850A), offset: Offset(0, 1), blurRadius: 3),
               ]
-            : const [
-                BoxShadow(
-                  color: Color(0x14000000),
-                  offset: Offset(0, 1),
-                  blurRadius: 3,
-                ),
-              ],
+            : const [BoxShadow(color: Color(0x14000000), offset: Offset(0, 1), blurRadius: 3)],
       ),
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          if (!gold)
-            const Positioned(
-              top: 0,
-              right: 0,
-              child: _PlanBadge(),
-            ),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                gold ? 'Gold Button' : 'Pro Button',
-                style: AppTypography.buttonLabel.copyWith(
-                  color: AppColors.textPrimary,
-                  fontSize: 24,
-                  height: 28 / 24,
-                  fontWeight: FontWeight.w700,
+              Image.asset(gold ? 'assets/gold-button.png' : 'assets/pro-button.png', width: 56, height: 60),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(gold ? 'Gold Button' : 'Pro Button', style: _funnel.copyWith(fontSize: 24, height: 28 / 24, letterSpacing: -0.36, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text('\$1', style: _funnel.copyWith(fontSize: 36, height: 40 / 36, letterSpacing: -0.54, fontWeight: FontWeight.bold)),
+                        Text('.99', style: _funnel.copyWith(fontSize: 18, height: 22 / 18, letterSpacing: -0.27, fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 6),
+                        Text('/ week', style: _funnel.copyWith(fontSize: 16, height: 22 / 16, color: const Color(0xFF666666))),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 4),
-              const _PriceRow(),
-              const SizedBox(height: 24),
-              for (final feature in _planFeatures) ...[
-                _FeatureRow(text: feature),
-                const SizedBox(height: 11),
+              const SizedBox(height: 40),
+              for (final f in _planFeatures) ...[
+                Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: _FeatureRow(text: f)),
+                if (f != _planFeatures.last) const SizedBox(height: 11),
               ],
             ],
           ),
+          if (!gold) Positioned(top: -24, right: -24, child: Image.asset('assets/your-plan.png', width: 49, height: 44)),
         ],
       ),
-    );
-  }
-}
-
-class _PlanBadge extends StatelessWidget {
-  const _PlanBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: const BoxDecoration(
-        color: AppColors.accent,
-        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(8)),
-      ),
-      child: Text(
-        'Your Plan',
-        style: AppTypography.slotLabel.copyWith(color: Colors.white),
-      ),
-    );
-  }
-}
-
-class _PriceRow extends StatelessWidget {
-  const _PriceRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.baseline,
-      textBaseline: TextBaseline.alphabetic,
-      children: [
-        const Text(
-          r'$1',
-          style: TextStyle(
-            fontFamily: 'FunnelSans',
-            fontSize: 36,
-            height: 40 / 36,
-            letterSpacing: -0.54,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const Text(
-          '.99',
-          style: TextStyle(
-            fontFamily: 'FunnelSans',
-            fontSize: 18,
-            height: 22 / 18,
-            letterSpacing: -0.27,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          '/ week',
-          style: AppTypography.body.copyWith(color: AppColors.textSecondary),
-        ),
-      ],
     );
   }
 }
@@ -465,26 +273,21 @@ class _FeatureRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(Icons.check_rounded, size: 20, color: AppColors.textPrimary),
+        Image.asset('assets/check.png', width: 20, height: 20, color: Colors.black),
         const SizedBox(width: 11),
         Expanded(
-          child: Text.rich(
-            TextSpan(
-              children: [
-                for (var i = 0; i < parts.length; i++)
-                  TextSpan(
-                    text: parts[i],
-                    style: TextStyle(
-                      fontFamily: 'FunnelSans',
-                      fontSize: 14,
-                      height: 18 / 14,
-                      color: AppColors.textPrimary,
-                      fontWeight: i % 2 == 1 ? FontWeight.w700 : FontWeight.w400,
-                    ),
-                  ),
-              ],
-            ),
-          ),
+          child: Text.rich(TextSpan(
+            style: _funnel.copyWith(fontSize: 14, height: 18 / 14),
+            children: [
+              for (final (i, p) in parts.indexed)
+                if (p == '10 AI credits') ...[
+                  WidgetSpan(alignment: PlaceholderAlignment.middle, child: Image.asset('assets/star.png', width: 16, height: 16)),
+                  const TextSpan(text: ' '),
+                  TextSpan(text: p, style: const TextStyle(fontWeight: FontWeight.bold)),
+                ] else
+                  TextSpan(text: p, style: i.isOdd ? const TextStyle(fontWeight: FontWeight.bold) : null),
+            ],
+          )),
         ),
       ],
     );
@@ -492,55 +295,51 @@ class _FeatureRow extends StatelessWidget {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.label, required this.value, this.trailing});
+  const _InfoRow({required this.label, required this.value, required this.trailing});
 
   final String label;
   final String value;
-  final Widget? trailing;
+  final Widget trailing;
 
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: AppTypography.caption.copyWith(color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              value,
-              style: AppTypography.body.copyWith(color: AppColors.textPrimary),
-            ),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: _funnel.copyWith(fontSize: 12, height: 16 / 12, color: const Color(0xFF666666))),
+              const SizedBox(height: 2),
+              Text(value, style: _funnel.copyWith(fontSize: 16, height: 22 / 16)),
+            ],
+          ),
         ),
-        if (trailing != null) trailing!,
+        trailing,
       ],
     );
   }
 }
 
-class _Pill extends StatelessWidget {
-  const _Pill({super.key, required this.label, required this.onPressed});
+class _OutlinePill extends StatelessWidget {
+  const _OutlinePill({super.key, required this.label, this.onTap});
 
   final String label;
-  final VoidCallback? onPressed;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton(
-      onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        foregroundColor: AppColors.textPrimary,
-        side: const BorderSide(color: AppColors.hairline),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        shape: const StadiumBorder(),
-        textStyle: AppTypography.buttonLabel,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: const [BoxShadow(color: Color(0x1F000000), offset: Offset(0, 1), blurRadius: 2)],
+        ),
+        child: Text(label, style: _funnel.copyWith(fontSize: 16, height: 22 / 16)),
       ),
-      child: Text(label),
     );
   }
 }

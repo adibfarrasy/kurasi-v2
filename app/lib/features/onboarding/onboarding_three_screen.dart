@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -26,17 +28,14 @@ class OnboardingThreeScreen extends ConsumerWidget {
     try {
       await ref.read(apiClientProvider).post(
             ApiEndpoints.biometrics,
-            body: {'heightCm': height, 'weightKg': weight, 'facePhotoUrl': faceUri},
+            body: {'heightCm': height, 'weightKg': weight, if (faceUri != null) 'facePhotoUrl': faceUri},
           );
     } catch (err) {
       debugPrint('[onboarding-3] biometrics.set failed: $err');
     }
     if (!context.mounted) return;
-    if (faceUri == null) {
-      context.go('/onboarding/capture-face');
-    } else {
-      context.go('/onboarding/membership-card');
-    }
+    // Without a face the avatar job is skipped and the card page keeps the mannequin.
+    context.push('/onboarding/membership-card');
   }
 
   @override
@@ -64,9 +63,33 @@ class OnboardingThreeScreen extends ConsumerWidget {
                     alignment: Alignment.topCenter,
                     child: Padding(
                       padding: const EdgeInsets.only(top: 30),
-                      child: _AddFacePill(
-                        hasFace: faceUri != null,
-                        onTap: () => context.push('/onboarding/capture-face'),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (faceUri != null) ...[
+                            // Captured face sits just left of the pill, nudged up.
+                            Transform.translate(
+                              offset: const Offset(0, -7),
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(2),
+                                  border: Border.all(color: Colors.white, width: 2),
+                                  boxShadow: const [BoxShadow(color: Color(0x66000000), offset: Offset(0.5, 1), blurRadius: 1)],
+                                  image: DecorationImage(image: FileImage(File(faceUri)), fit: BoxFit.cover),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                          ],
+                          _AddFacePill(
+                            hasFace: faceUri != null,
+                            onTap: () => context.push('/onboarding/capture-face'),
+                          ),
+                          // Mirrors the thumbnail so the pill stays centered.
+                          if (faceUri != null) const SizedBox(width: 53),
+                        ],
                       ),
                     ),
                   ),

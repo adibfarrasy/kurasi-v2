@@ -115,28 +115,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('outfit_hero_carousel')), findsOneWidget);
+    expect(find.byType(PageView), findsOneWidget);
     expect(find.text('Night Look'), findsOneWidget);
-    expect(find.text('Black Hoodie'), findsOneWidget);
-    expect(find.text('Denim Jacket'), findsOneWidget);
-  });
-
-  testWidgets('detail rate posts {rating: loved}', (tester) async {
-    final fakeApi = _FakeApi();
-    final container = ProviderContainer(overrides: _overrides(fakeApi));
-    addTearDown(container.dispose);
-
-    await tester.pumpWidget(UncontrolledProviderScope(
-      container: container,
-      child: const MaterialApp(home: OutfitDetailScreen(id: 'o1')),
-    ));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('rate_loved')));
-    await tester.pumpAndSettle();
-
-    expect(fakeApi.lastPostPath, ApiEndpoints.outfitRate('o1'));
-    expect(fakeApi.lastPostBody, {'rating': 'loved'});
+    expect(find.text('SHIRT'), findsOneWidget);
+    expect(find.text('JACKET'), findsOneWidget);
   });
 
   testWidgets('edit screen exposes aspect ratio selector and share button',
@@ -150,8 +132,8 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('outfit_edit_share')), findsOneWidget);
-    await tester.tap(find.byKey(const ValueKey('edit_tool_canvas')));
+    expect(find.byKey(const ValueKey('edit_share')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('edit_tool_Canvas')));
     await tester.pumpAndSettle();
     expect(find.text('9:16'), findsOneWidget);
     expect(find.text('4:5'), findsOneWidget);

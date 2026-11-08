@@ -1,20 +1,15 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
 
 const Set<String> _warmColors = {
-  'red', 'orange', 'yellow', 'brown', 'tan', 'rust', 'beige', 'cream',
-  'khaki', 'gold', 'pink', 'coral', 'maroon', 'burgundy', 'rose', 'mustard',
-  'sand',
+  'red', 'orange', 'yellow', 'brown', 'tan', 'rust', 'beige', 'cream', 'khaki', 'gold', 'pink', 'coral', 'maroon', 'burgundy', //
 };
 
 const Set<String> _coolColors = {
-  'blue', 'navy', 'indigo', 'teal', 'cyan', 'purple', 'violet', 'green',
-  'mint', 'turquoise', 'sky', 'sage',
+  'blue', 'navy', 'indigo', 'teal', 'cyan', 'purple', 'violet', 'green', 'mint', 'turquoise', //
 };
 
-/// Port of the RN outfit-tone logic: buckets dominant color names into a tone.
-///
-/// Returns 'neutral' when the warm/cool counts tie or the list is empty.
+/// Buckets an outfit's dominant color names into 'warm' / 'cool' / 'neutral'.
+/// Black, white, grey and anything unknown count toward neither side.
 String outfitTone(List<String> colorNames) {
   var warm = 0;
   var cool = 0;
@@ -27,8 +22,19 @@ String outfitTone(List<String> colorNames) {
   return warm > cool ? 'warm' : 'cool';
 }
 
-/// Full-bleed gradient background tinted by the current outfit tone, with a
-/// soft accent glow.
+const Map<String, List<Color>> _gradients = {
+  'warm': [Color(0xFFAAA7A1), Color(0xFFCAC7BE)],
+  'cool': [Color(0xFF9BABBF), Color(0xFFC9D7E8)],
+  'neutral': [Color(0xFFE5E5E5), Color(0xFFE5E5E5)],
+};
+
+/// Darker shade per tone for accent text and tinted icons on the gradient.
+Color toneAccent(String tone) => switch (tone) {
+      'warm' => const Color(0xFF977153),
+      'cool' => const Color(0xFF4879B4),
+      _ => Colors.black,
+    };
+
 class ToneBackground extends StatelessWidget {
   const ToneBackground({super.key, required this.tone, required this.child});
 
@@ -37,51 +43,15 @@ class ToneBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<Color> colors;
-    final Color accent;
-    if (tone == 'warm') {
-      colors = AppColors.warmGradient;
-      accent = AppColors.warmAccent;
-    } else if (tone == 'cool') {
-      colors = AppColors.coolGradient;
-      accent = AppColors.coolAccent;
-    } else {
-      colors = AppColors.neutralGradient;
-      accent = AppColors.neutralAccent;
-    }
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: colors,
+          colors: _gradients[tone] ?? _gradients['neutral']!,
         ),
       ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          child,
-          Positioned(
-            top: -80,
-            right: -80,
-            child: IgnorePointer(
-              child: Container(
-                width: 220,
-                height: 220,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      accent.withValues(alpha: 0.18),
-                      accent.withValues(alpha: 0),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: child,
     );
   }
 }
