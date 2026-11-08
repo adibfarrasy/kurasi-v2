@@ -170,6 +170,7 @@ pub async fn normalize_avatar(
     // ─── classify ──────────────────────────────────────────────────────────
     on_phase("classify");
     let (build, notes) = classify_build(fal, &body_url, height_cm, weight_kg).await?;
+    tracing::info!(%build, %notes, "avatar: classified build");
 
     // ─── Pass 1: identity (from user) + pose (from reference) + outfit ─────
     on_phase("pass1");
@@ -189,6 +190,7 @@ pub async fn normalize_avatar(
         )
         .await?;
     let pass1_url = url_from_result(&pass1).map_err(|e| format!("pass1 {e}"))?;
+    tracing::info!(url = %pass1_url, "avatar: pass1");
 
     // ─── Pass 2: identity transfer onto the normalized body ────────────────
     on_phase("pass2");
@@ -204,6 +206,7 @@ pub async fn normalize_avatar(
         )
         .await?;
     let pass2_url = url_from_result(&pass2).map_err(|e| format!("pass2 {e}"))?;
+    tracing::info!(url = %pass2_url, "avatar: pass2");
 
     // ─── Face-swap: composite the user's actual face onto the body ─────────
     on_phase("faceswap");
@@ -217,6 +220,7 @@ pub async fn normalize_avatar(
         )
         .await?;
     let base_url = url_from_result(&swap).map_err(|e| format!("faceswap {e}"))?;
+    tracing::info!(url = %base_url, "avatar: faceswap");
 
     // ─── Background removal + edge decontamination ─────────────────────────
     on_phase("rembg");
