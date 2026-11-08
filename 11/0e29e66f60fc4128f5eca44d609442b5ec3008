@@ -1,0 +1,67 @@
+backend/src/normalize_avatar.rs
+  s_3d500482ec433b::t_5fc80f78b7f453 31-33,238-243,245,248,289,299,314,327,346,352,354,368
+  s_3d500482ec433b::t_21597ce0bed1ea 347-348
+app/android/app/src/main/AndroidManifest.xml
+  s_3d500482ec433b::t_ed1d4429f5ef7f 6-7
+app/lib/features/tryon/hero_floor.dart
+  s_3d500482ec433b::t_ed1d4429f5ef7f 3,9,33,39-42,82-105
+backend/src/biometrics.rs
+  s_3d500482ec433b::t_87211bb701f677 20,26
+app/pubspec.yaml
+  s_3d500482ec433b::t_3dd9a084d5c2a1 23
+backend/src/regenerate_fit.rs
+  s_3d500482ec433b::t_9f0c5cb486010e 25-26,262,271,279,292,302-303,307,320
+app/lib/core/design/avatar_loader.dart
+  s_3d500482ec433b::t_f0998285fb3fc1 16
+app/lib/features/outfit/outfit_detail_screen.dart
+  s_3d500482ec433b::t_a6a892e4a7a209 127,200,203,228
+backend/src/outfits.rs
+  s_3d500482ec433b::t_87211bb701f677 21,143,250-251,257
+  s_3d500482ec433b::t_21597ce0bed1ea 36-37
+backend/tests/normalize_avatar.rs
+  s_3d500482ec433b::t_87211bb701f677 148
+backend/src/app.rs
+  s_3d500482ec433b::t_1bcdde3b7fd1b5 4,14-15,24,27-30
+  s_3d500482ec433b::t_40ab4e91c15036 31
+app/android/app/src/main/res/xml/network_security_config.xml
+  s_3d500482ec433b::t_ed1d4429f5ef7f 1-8
+backend/migrations/0003_model_urls.sql
+  s_3d500482ec433b::t_1bcdde3b7fd1b5 1-2
+app/lib/features/onboarding/avatar_job_state.dart
+  s_3d500482ec433b::t_a6a892e4a7a209 9,46-47,116-117
+app/lib/features/tryon/tryon_screen.dart
+  s_3d500482ec433b::t_a6a892e4a7a209 46,110,136,152,226-232,302
+backend/src/main.rs
+  s_3d500482ec433b::t_1bcdde3b7fd1b5 31
+  s_3d500482ec433b::t_21597ce0bed1ea 32-34
+backend/src/lib.rs
+  s_3d500482ec433b::t_21597ce0bed1ea 34
+backend/src/fal.rs
+  s_3d500482ec433b::t_21597ce0bed1ea 84-87
+backend/src/tripo.rs
+  s_3d500482ec433b::t_21597ce0bed1ea 38-42,126-128,183-186
+  s_3d500482ec433b::t_1bcdde3b7fd1b5 1-37,43-125,129-182,187-195
+app/test/tryon_test.dart
+  s_3d500482ec433b::t_187c11b3e1cda0 214
+backend/src/config.rs
+  s_3d500482ec433b::t_5fc80f78b7f453 89
+  s_3d500482ec433b::t_1bcdde3b7fd1b5 17,39
+app/pubspec.lock
+  s_3d500482ec433b::t_1509e335c8dd5f 4-11,523-530,928-959,1001-1002
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "110e29e66f60fc4128f5eca44d609442b5ec3008",
+  "prompts": {},
+  "sessions": {
+    "s_3d500482ec433b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5bb83b-5e1d-458f-ba56-698d439c9cce",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Adib Farrasy <adibfarrasy@gmail.com>"
+    }
+  }
+}
