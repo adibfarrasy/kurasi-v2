@@ -1,0 +1,20 @@
+app/lib/features/tryon/hero_floor.dart
+  s_3d500482ec433b::t_6d818f3f3ac8fd 94
+  s_3d500482ec433b::t_4861b0c70219bb 92-93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "795cdc2943ebe9ffc95c3544011ef0d73951e4d3",
+  "prompts": {},
+  "sessions": {
+    "s_3d500482ec433b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5bb83b-5e1d-458f-ba56-698d439c9cce",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Adib Farrasy <adibfarrasy@gmail.com>"
+    }
+  }
+}
