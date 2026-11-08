@@ -54,6 +54,17 @@ impl FalClient {
             .and_then(|v| v.as_str())
             .ok_or_else(|| format!("fal submit missing request_id: {submit_json}"))?
             .to_string();
+        // fal serves queue status under the app id (first two path segments),
+        // not the full model path; nested models 405 on the full path. Prefer
+        // the URL fal hands back, falling back to the app-id form.
+        let status_url = submit_json
+            .get("status_url")
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+            .unwrap_or_else(|| {
+                let app_id = model.splitn(3, '/').take(2).collect::<Vec<_>>().join("/");
+                format!("{}/{app_id}/requests/{request_id}/status", self.endpoint)
+            });
 
         loop {
             if start.elapsed() >= deadline {
@@ -64,14 +75,14 @@ impl FalClient {
             }
             let status = self
                 .http
-                .get(format!(
-                    "{}/{}/requests/{}/status",
-                    self.endpoint, model, request_id
-                ))
+                .get(&status_url)
                 .header("Authorization", format!("Key {}", self.key))
                 .send()
                 .await
                 .map_err(|e| format!("fal status failed: {e}"))?;
+            if !status.status().is_success() {
+                return Err(format!("fal status HTTP {} for {status_url}", status.status()));
+            }
             let status_json: Value = status
                 .json()
                 .await
@@ -91,9 +102,13 @@ impl FalClient {
                     let res = self
                         .http
                         .get(response_url)
+                        .header("Authorization", format!("Key {}", self.key))
                         .send()
                         .await
                         .map_err(|e| format!("fal result failed: {e}"))?;
+                    if !res.status().is_success() {
+                        return Err(format!("fal result HTTP {}", res.status()));
+                    }
                     return res
                         .json::<Value>()
                         .await
@@ -118,39 +133,54 @@ impl FalClient {
             endpoint: STORAGE_BASE.to_string(),
             ..self.clone()
         };
-        uploader
-            .upload_to_path("/upload", bytes, filename, mime)
-            .await
+        uploader.upload_two_step(bytes, filename, mime).await
     }
 
-    pub(crate) async fn upload_to_path(
+    /// fal storage upload: `initiate` returns a signed `upload_url` plus the
+    /// public `file_url`; the bytes are then PUT to the signed URL. fal retired
+    /// the old single-step multipart `/upload` endpoint (it now 404s).
+    pub(crate) async fn upload_two_step(
         &self,
-        path: &str,
         bytes: &[u8],
         filename: &str,
         mime: &str,
     ) -> Result<String, String> {
-        let part = reqwest::multipart::Part::bytes(bytes.to_vec())
-            .file_name(filename.to_string())
-            .mime_str(mime)
-            .map_err(|e| format!("fal multipart mime: {e}"))?;
-        let form = reqwest::multipart::Form::new().part("file", part);
         let res = self
             .http
-            .post(format!("{}{path}", self.endpoint))
+            .post(format!(
+                "{}/upload/initiate?storage_type=fal-cdn-v3",
+                self.endpoint
+            ))
             .header("Authorization", format!("Key {}", self.key))
-            .multipart(form)
+            .json(&json!({ "content_type": mime, "file_name": filename }))
             .send()
             .await
-            .map_err(|e| format!("fal upload failed: {e}"))?;
+            .map_err(|e| format!("fal upload initiate failed: {e}"))?;
         let body: Value = res
             .json()
             .await
-            .map_err(|e| format!("fal upload parse: {e}"))?;
-        body.get("url")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
-            .ok_or_else(|| format!("fal upload missing url: {body}"))
+            .map_err(|e| format!("fal upload initiate parse: {e}"))?;
+        let field = |name: &str| {
+            body.get(name)
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .ok_or_else(|| format!("fal upload initiate missing {name}: {body}"))
+        };
+        let upload_url = field("upload_url")?;
+        let file_url = field("file_url")?;
+
+        let put = self
+            .http
+            .put(&upload_url)
+            .header("Content-Type", mime)
+            .body(bytes.to_vec())
+            .send()
+            .await
+            .map_err(|e| format!("fal upload PUT failed: {e}"))?;
+        if !put.status().is_success() {
+            return Err(format!("fal upload PUT HTTP {}", put.status()));
+        }
+        Ok(file_url)
     }
 
     pub async fn fetch_bytes(&self, url: &str) -> Result<Vec<u8>, String> {
@@ -267,6 +297,30 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn run_polls_app_id_status_for_nested_model() {
+        use axum::Json;
+        let (client, _) = mock_fal(|base, req| {
+            let path = req.uri().path().to_string();
+            if path == "/api/org/app/sub/edit" {
+                Json(serde_json::json!({ "request_id": "req-9" })).into_response()
+            } else if path == "/api/org/app/requests/req-9/status" {
+                Json(serde_json::json!({ "status": "COMPLETED", "response_url": format!("{base}/result") }))
+                    .into_response()
+            } else if path == "/api/result" {
+                Json(serde_json::json!({ "ok": true })).into_response()
+            } else {
+                axum::http::StatusCode::METHOD_NOT_ALLOWED.into_response()
+            }
+        })
+        .await;
+        let out = client
+            .run("org/app/sub/edit", serde_json::json!({}))
+            .await
+            .unwrap();
+        assert_eq!(out["ok"], true);
+    }
+
+    #[tokio::test]
     async fn run_reports_error_status() {
         use axum::Json;
         let (client, _) = mock_fal(|_, req| {
@@ -311,27 +365,35 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn upload_sends_multipart_and_returns_url() {
-        use axum::http::StatusCode;
-        let (client, base) = mock_fal(|_, req| {
+    async fn upload_initiates_then_puts_and_returns_file_url() {
+        use axum::http::{Method, StatusCode};
+        use std::sync::{
+            atomic::{AtomicBool, Ordering},
+            Arc,
+        };
+        let put_seen = Arc::new(AtomicBool::new(false));
+        let put_seen2 = put_seen.clone();
+        let (client, _) = mock_fal(move |base, req| {
             let path = req.uri().path().to_string();
-            if path.ends_with("/upload") {
-                axum::Json(serde_json::json!({ "url": "https://storage.example.com/1.png" }))
-                    .into_response()
+            if req.method() == Method::POST && path.ends_with("/upload/initiate") {
+                axum::Json(serde_json::json!({
+                    "upload_url": format!("{base}/signed/1.png"),
+                    "file_url": "https://cdn.example.com/1.png",
+                }))
+                .into_response()
+            } else if req.method() == Method::PUT && path.ends_with("/signed/1.png") {
+                put_seen2.store(true, Ordering::SeqCst);
+                StatusCode::OK.into_response()
             } else {
                 (StatusCode::NOT_FOUND, "nope").into_response()
             }
         })
         .await;
-        let client = FalClient {
-            http: client.http,
-            key: client.key,
-            endpoint: base,
-        };
         let res = client
-            .upload_to_path("/upload", b"png-bytes", "1.png", "image/png")
+            .upload_two_step(b"png-bytes", "1.png", "image/png")
             .await
             .unwrap();
-        assert_eq!(res, "https://storage.example.com/1.png");
+        assert_eq!(res, "https://cdn.example.com/1.png");
+        assert!(put_seen.load(Ordering::SeqCst), "bytes were never PUT");
     }
 }
