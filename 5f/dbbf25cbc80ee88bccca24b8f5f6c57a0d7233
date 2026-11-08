@@ -1,0 +1,38 @@
+app/lib/core/auth/kratos_client.dart
+  s_3d500482ec433b::t_48937a11c411ba 100
+backend/kratos/identity.schema.json
+  s_3d500482ec433b::t_98711039b3a9e5 10-14
+app/android/app/build.gradle.kts
+  s_3d500482ec433b::t_66d3d7838b2109 9-10
+Justfile
+  s_3d500482ec433b::t_0f096104953989 52-73
+app/lib/main.dart
+  s_3d500482ec433b::t_84baca88a8e92d 16-17,19-22,25
+  s_3d500482ec433b::t_770aa3512421fa 12-15,18,23-24,28-29
+  s_3d500482ec433b::t_6d5b149ea5eaa3 1
+app/lib/core/auth/auth_service.dart
+  s_3d500482ec433b::t_b3396ec4321d69 105,116-117
+  s_3d500482ec433b::t_1dd20bb0c2c8c4 106-115
+app/test/kratos_client_test.dart
+  s_3d500482ec433b::t_3a9b233d7197d5 113
+backend/kratos/claims.jsonnet
+  s_3d500482ec433b::t_6266ca5bfc77e5 3-5,8-10
+backend/docker-compose.yml
+  s_3d500482ec433b::t_43e2874b8888cb 55-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "5fdbbf25cbc80ee88bccca24b8f5f6c57a0d7233",
+  "prompts": {},
+  "sessions": {
+    "s_3d500482ec433b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5bb83b-5e1d-458f-ba56-698d439c9cce",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Adib Farrasy <adibfarrasy@gmail.com>"
+    }
+  }
+}
