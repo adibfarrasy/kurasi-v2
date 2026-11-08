@@ -81,7 +81,10 @@ impl FalClient {
                 .await
                 .map_err(|e| format!("fal status failed: {e}"))?;
             if !status.status().is_success() {
-                return Err(format!("fal status HTTP {} for {status_url}", status.status()));
+                return Err(format!(
+                    "fal status HTTP {} for {status_url}",
+                    status.status()
+                ));
             }
             let status_json: Value = status
                 .json()

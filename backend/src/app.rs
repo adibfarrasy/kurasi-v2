@@ -1,6 +1,7 @@
 use crate::auth::Authenticator;
 use crate::error::ApiError;
 use crate::fal::FalClient;
+use crate::tripo::TripoClient;
 use sqlx::PgPool;
 use std::sync::Arc;
 use tower_http::services::ServeDir;
@@ -10,6 +11,8 @@ pub struct AppState {
     pub pool: PgPool,
     pub authenticator: Arc<dyn Authenticator>,
     pub fal: FalClient,
+    /// Absent without TRIPO_KEY; pipelines then stop at the 2D figure.
+    pub tripo: Option<TripoClient>,
 }
 
 impl AppState {
@@ -18,7 +21,13 @@ impl AppState {
             pool,
             authenticator,
             fal,
+            tripo: None,
         }
+    }
+
+    pub fn with_tripo(mut self, tripo: Option<TripoClient>) -> Self {
+        self.tripo = tripo;
+        self
     }
 }
 

@@ -28,6 +28,9 @@ pub struct Progress {
     pub phase: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
+    /// GLB of the avatar; absent when 3D generation is off or failed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
 }
@@ -232,11 +235,17 @@ pub async fn normalize_avatar(
 
 /// Best-effort persistence of the generated avatar URL. DB errors are logged
 /// and swallowed — this never fails the pipeline.
-pub async fn persist_default_avatar(pool: &sqlx::PgPool, user_id: &str, avatar_url: &str) {
+pub async fn persist_default_avatar(
+    pool: &sqlx::PgPool,
+    user_id: &str,
+    avatar_url: &str,
+    model_url: Option<&str>,
+) {
     if let Err(e) = sqlx::query(
-        "UPDATE user_biometrics SET default_avatar_url=$1, updated_at=now() WHERE user_id=$2",
+        "UPDATE user_biometrics SET default_avatar_url=$1, default_avatar_model_url=$2, updated_at=now() WHERE user_id=$3",
     )
     .bind(avatar_url)
+    .bind(model_url)
     .bind(user_id)
     .execute(pool)
     .await
@@ -277,6 +286,7 @@ pub async fn start(
     let buf = base64_decode(&body.image_base64)?;
 
     let fal = state.fal.clone();
+    let tripo = state.tripo.clone();
     let pool = state.pool.clone();
     let store = normalize_avatar_store();
     let session_id = new_session_id();
@@ -286,6 +296,7 @@ pub async fn start(
         Progress {
             phase: "classify".into(),
             avatar_url: None,
+            model_url: None,
             message: None,
         },
     );
@@ -300,7 +311,7 @@ pub async fn start(
         weight_kg: body.weight_kg,
     };
     tokio::spawn(async move {
-        if let Err(e) = run_pipeline(fal, store2, &session, input, user_id, pool).await {
+        if let Err(e) = run_pipeline(fal, tripo, store2, &session, input, user_id, pool).await {
             tracing::error!(error = %e, session = %session, "normalize-avatar pipeline failed");
             store.update(&session, |p| {
                 p.phase = "error".into();
@@ -313,6 +324,7 @@ pub async fn start(
 
 async fn run_pipeline(
     fal: FalClient,
+    tripo: Option<crate::tripo::TripoClient>,
     store: Arc<JobStore<Progress>>,
     session: &str,
     input: NormalizeInput,
@@ -331,11 +343,15 @@ async fn run_pipeline(
         },
     )
     .await?;
+    store.update(session, |p| p.phase = "model3d".into());
+    let model_url =
+        crate::tripo::figure_to_model(tripo.as_ref(), &fal, &avatar_url, "avatar.glb").await;
     store.update(session, |p| {
         p.phase = "done".into();
         p.avatar_url = Some(avatar_url.clone());
+        p.model_url = model_url.clone();
     });
-    persist_default_avatar(&pool, &user_id, &avatar_url).await;
+    persist_default_avatar(&pool, &user_id, &avatar_url, model_url.as_deref()).await;
     Ok(())
 }
 
@@ -349,6 +365,7 @@ pub async fn progress(
         .unwrap_or(Progress {
             phase: "error".into(),
             avatar_url: None,
+            model_url: None,
             message: Some("Session not found (server may have restarted)".into()),
         });
     Ok(Json(json!(p)))

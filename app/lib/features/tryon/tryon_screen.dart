@@ -43,6 +43,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
   Map<String, String> _committed = {};
   String? _regenSessionId;
   String? _regenHeroUrl;
+  String? _regenModelUrl;
   Timer? _poll;
 
   bool get _regenerating => _regenSessionId != null;
@@ -106,6 +107,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
             timer.cancel();
             setState(() {
               _regenHeroUrl = p['resultUrl'] as String?;
+              _regenModelUrl = p['modelUrl'] as String?;
               _committed = snapshot;
               _regenSessionId = null;
             });
@@ -131,6 +133,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
       await ref.read(apiClientProvider).post(ApiEndpoints.outfitsFromTryon, body: {
         'name': name.isEmpty ? null : name,
         'heroImageUrl': _regenHeroUrl ?? draft?['heroImageUrl'],
+        'heroModelUrl': _regenHeroUrl != null ? _regenModelUrl : null,
         'slots': slotsPayload,
       });
     } catch (err) {
@@ -146,6 +149,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
         _selections = {};
         _committed = {};
         _regenHeroUrl = null;
+        _regenModelUrl = null;
       });
     }
   }
@@ -219,7 +223,13 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
       }
     }
 
-    final heroUrl = matched?['heroImageUrl'] as String? ?? _regenHeroUrl ?? draft?['heroImageUrl'] as String? ?? defaultAvatar;
+    // The 3D model always comes from the same source as the still image.
+    final (String? heroUrl, String? heroModel) = switch (matched?['heroImageUrl']) {
+      final String url => (url, matched!['heroModelUrl'] as String?),
+      _ when _regenHeroUrl != null => (_regenHeroUrl, _regenModelUrl),
+      _ when draft?['heroImageUrl'] is String => (draft!['heroImageUrl'] as String, null),
+      _ => (defaultAvatar, biometrics.valueOrNull?['defaultAvatarModelUrl'] as String?),
+    };
     // Tone tracks real renders only, not transient picks.
     final tone = matched != null || _regenHeroUrl != null ? outfitTone(colorNames) : 'neutral';
     final hasChanges = slots.any((s) => s.item!.changed);
@@ -289,7 +299,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        Positioned.fill(child: HeroFloor(imageUrl: heroUrl, topOffset: top + 8, maxHeight: 520, loading: biometrics.isLoading)),
+                        Positioned.fill(child: HeroFloor(imageUrl: heroUrl, modelUrl: heroModel, topOffset: top + 8, maxHeight: 520, loading: biometrics.isLoading)),
                         if (_regenerating) ...[
                           Positioned(
                             left: 0,

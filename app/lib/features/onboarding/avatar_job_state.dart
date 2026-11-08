@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/api/api_exception.dart';
 import '../../core/api/api_providers.dart';
 import '../../core/api/endpoints.dart';
+import '../tryon/hero_floor.dart' show biometricsProvider;
 import 'profile_state.dart';
 
 /// Phases: idle → pending → done | error.
@@ -42,8 +43,8 @@ class AvatarJobState {
 class AvatarJobNotifier extends AsyncNotifier<AvatarJobState> {
   static const _pollInterval = Duration(milliseconds: 800);
   // The backend chains five fal calls (classify, two seedream passes,
-  // faceswap, rembg); a ~48s budget gave up while the job was still running.
-  static const _maxAttempts = 300;
+  // faceswap, rembg) and then a Tripo 3D conversion of up to five minutes.
+  static const _maxAttempts = 750;
 
   @override
   Future<AvatarJobState> build() async => const AvatarJobState();
@@ -112,6 +113,8 @@ class AvatarJobNotifier extends AsyncNotifier<AvatarJobState> {
       if (res is Map) {
         final phase = res['phase'] as String?;
         if (phase == 'done') {
+          // Try On reads the new avatar (and its 3D model) from biometrics.
+          ref.invalidate(biometricsProvider);
           _setState(AsyncValue.data(AvatarJobState(
             sessionId: sessionId,
             phase: 'done',

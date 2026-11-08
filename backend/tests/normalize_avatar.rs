@@ -145,6 +145,7 @@ async fn persist_default_avatar_writes_url(pool: sqlx::PgPool) {
         &pool,
         "user-a",
         "https://example.com/avatar.png",
+        Some("https://example.com/avatar.glb"),
     )
     .await;
     let url: Option<String> =

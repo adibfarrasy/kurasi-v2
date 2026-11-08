@@ -211,6 +211,7 @@ void main() {
     expect(fakeApi.lastPostBody, {
       'name': 'Night Out',
       'heroImageUrl': 'https://x/regen.png',
+      'heroModelUrl': null,
       'slots': [
         {'category': 'jacket', 'wardrobeId': 'w2'},
       ],
