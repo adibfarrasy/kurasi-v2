@@ -52,6 +52,8 @@ services:
           "client_id":"${GOOGLE_CLIENT_ID}","client_secret":"${GOOGLE_CLIENT_SECRET}",
           "mapper_url":"file:///etc/config/kratos/oidc.google.jsonnet",
           "scope":["openid","email","profile"]}]
+      # Local-only password login so `just dev-user` can sign in without Google.
+      SELFSERVICE_METHODS_PASSWORD_ENABLED: "true"
       SECRETS_COOKIE_0: ${KRATOS_COOKIE_SECRET}
       SECRETS_CIPHER_0: ${KRATOS_CIPHER_SECRET}
     ports:

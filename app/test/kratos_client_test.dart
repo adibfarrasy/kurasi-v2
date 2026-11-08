@@ -110,7 +110,7 @@ void main() {
       expect(
           request.url.toString(), '$baseUrl/sessions/whoami?tokenize_as=api');
       expect(request.headers['Authorization'], 'Bearer sess-token');
-      return http.Response(jsonEncode({'jwt': 'tokenized.jwt.payload'}), 200);
+      return http.Response(jsonEncode({'tokenized': 'tokenized.jwt.payload'}), 200);
     });
     final client = KratosClient(baseUrl: baseUrl, http: fake);
     final token = await client.tokenize(sessionToken: 'sess-token');

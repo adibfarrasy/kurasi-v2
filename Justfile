@@ -50,3 +50,24 @@ ci:
     just app-test
     just be-lint
     just be-test
+# Create (if missing) a local Kratos password user and print a session token.
+# Local-only: relies on the password method enabled in backend/docker-compose.yml.
+dev-user email="dev@kurasi.local" password="kurasi-dev-password":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    curl -sf -o /dev/null -X POST http://localhost:4434/admin/identities \
+      -H 'Content-Type: application/json' \
+      -d '{"schema_id":"default","traits":{"email":"{{email}}","name":"Dev User"},"credentials":{"password":{"config":{"password":"{{password}}"}}}}' \
+      || true
+    flow=$(curl -sf http://localhost:4433/self-service/login/api | jq -r .id)
+    curl -sf -X POST "http://localhost:4433/self-service/login?flow=$flow" \
+      -H 'Content-Type: application/json' \
+      -d '{"method":"password","identifier":"{{email}}","password":"{{password}}"}' \
+      | jq -r .session_token
+
+# Run the app on the Android emulator signed in as the dev user (no Google needed)
+app-dev-user:
+    cd app && flutter run \
+      --dart-define=API_URL=http://10.0.2.2:8989 \
+      --dart-define=KRATOS_URL=http://10.0.2.2:4433 \
+      --dart-define=DEV_SESSION_TOKEN=$(just dev-user)

@@ -102,6 +102,19 @@ class AuthService {
     return user;
   }
 
+  /// Adopts an existing Kratos session token (debug-only dev login, where the
+  /// token comes from `just dev-user` instead of the Google flow). Static so
+  /// test fakes implementing [AuthService] need not stub it.
+  static Future<void> adoptSessionToken({
+    required KratosClient kratos,
+    required FlutterSecureStorage storage,
+    required String sessionToken,
+  }) async {
+    final jwt = await kratos.tokenize(sessionToken: sessionToken);
+    await storage.write(key: _sessionKey, value: sessionToken);
+    await storage.write(key: _jwtKey, value: jwt);
+  }
+
   /// Revokes the Kratos session and clears persisted credentials.
   ///
   /// Best-effort: revocation runs against a live Kratos but storage is cleared

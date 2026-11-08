@@ -16,7 +16,6 @@ selfservice:
   flows:
     login:
       ui_url: http://localhost:3000/login
-      enabled: true
     error:
       ui_url: http://localhost:3000/error
     settings:

@@ -97,7 +97,7 @@ class KratosClient {
           'whoami tokenize failed: HTTP ${response.statusCode}');
     }
     final body = jsonDecode(response.body) as Map<String, dynamic>;
-    final jwt = body['jwt'] as String?;
+    final jwt = body['tokenized'] as String?;
     if (jwt == null || jwt.isEmpty) {
       throw KratosException('whoami tokenize response missing jwt');
     }

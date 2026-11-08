@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "com.kurasi.kurasi"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_secure_storage requires API 37+; Flutter's default lags behind.
+    compileSdk = 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
