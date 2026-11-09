@@ -1,0 +1,75 @@
+backend/src/lib.rs
+  s_3d500482ec433b::t_4132a637ff69db 34
+backend/src/biometrics.rs
+  s_3d500482ec433b::t_4132a637ff69db 20,26
+app/lib/features/outfit/outfit_detail_screen.dart
+  s_3d500482ec433b::t_44e9d6a9977432 127,200,203,228
+app/shaders/chroma_key.frag
+  s_3d500482ec433b::t_cbec60e87ea926 1-13,18-20,32,34-35
+  s_3d500482ec433b::t_11866952c1a7b1 14-17,21-31,33
+backend/migrations/0004_turntable_urls.sql
+  s_3d500482ec433b::t_4132a637ff69db 1-2
+app/pubspec.yaml
+  s_3d500482ec433b::t_f8da2b1b02571d 23
+  s_3d500482ec433b::t_cbec60e87ea926 47-48
+backend/src/main.rs
+  s_3d500482ec433b::t_ea9cf860a8a786 31
+app/lib/core/design/avatar_loader.dart
+  s_3d500482ec433b::t_e84c50cc448aaf 16
+backend/src/normalize_avatar.rs
+  s_3d500482ec433b::t_4132a637ff69db 249
+  s_3d500482ec433b::t_e84c50cc448aaf 348-350,352,356-361
+  s_3d500482ec433b::t_ea9cf860a8a786 31,33,246,252,302,317,355,376
+  s_3d500482ec433b::t_203e5ad08dfad6 362
+app/lib/features/tryon/turntable_view.dart
+  s_3d500482ec433b::t_441b6a9b21f9ef 8,62
+  s_3d500482ec433b::t_9b3a55eabda906 10
+  s_3d500482ec433b::t_5a6b506bc92eb3 1-7,11-61,71-74
+  s_3d500482ec433b::t_44e9d6a9977432 9
+  s_3d500482ec433b::t_e7d52b54f06ce1 63-70
+app/lib/features/tryon/hero_floor.dart
+  s_3d500482ec433b::t_9b3a55eabda906 6,33,40-42,84-85,87-93
+  s_3d500482ec433b::t_44e9d6a9977432 68-69,86
+app/lib/features/onboarding/avatar_job_state.dart
+  s_3d500482ec433b::t_e84c50cc448aaf 46,115-118
+backend/src/turntable.rs
+  s_3d500482ec433b::t_2e813c8f3da002 83-87,97-312
+  s_3d500482ec433b::t_7c025d93cbd70c 369-372
+  s_3d500482ec433b::t_4132a637ff69db 1-82,88-96,313-336,339-342,376-378,385-387
+  s_3d500482ec433b::t_ea9cf860a8a786 337-338,379-384
+  s_3d500482ec433b::t_c376bbed3ac9da 343-368,373-375
+app/lib/features/tryon/tryon_screen.dart
+  s_3d500482ec433b::t_43d64106c2be5a 111
+  s_3d500482ec433b::t_d95187067e55f0 231
+  s_3d500482ec433b::t_44e9d6a9977432 46,141,157,232-234,236,307
+  s_3d500482ec433b::t_e84c50cc448aaf 106-108,110,115-118
+app/android/app/src/main/AndroidManifest.xml
+  s_3d500482ec433b::t_f8da2b1b02571d 6
+backend/Dockerfile
+  s_3d500482ec433b::t_c8ca0ba68b4754 9
+backend/src/regenerate_fit.rs
+  s_3d500482ec433b::t_e84c50cc448aaf 300-305
+  s_3d500482ec433b::t_ea9cf860a8a786 25-26,270,278,306,309,322
+app/test/tryon_test.dart
+  s_3d500482ec433b::t_44e9d6a9977432 214
+backend/src/outfits.rs
+  s_3d500482ec433b::t_4132a637ff69db 21,37,143,250,257
+app/pubspec.lock
+  s_3d500482ec433b::t_b735c6e1c6de60 116-123,347-354,912-920,923-924,927-928,931-932,935-936,939-940,943-944,947-948,951-952,955-956,959-960,963-964,967
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "91a7b9d6f33b7106a6c81298bb3b5846ee408d6b",
+  "prompts": {},
+  "sessions": {
+    "s_3d500482ec433b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5bb83b-5e1d-458f-ba56-698d439c9cce",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Adib Farrasy <adibfarrasy@gmail.com>"
+    }
+  }
+}
