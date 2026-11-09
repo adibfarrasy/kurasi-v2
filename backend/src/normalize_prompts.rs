@@ -52,6 +52,8 @@ FEET LOCK: foot placement must be a 1:1 match with image 2, including each foot'
 
 The output figure must be a 1:1 silhouette match of image 2's pose. Do NOT default to a generic "front-facing standing straight" stance.
 
+PROPORTIONS: realistic adult proportions; the head is about one-eighth of total standing height and no larger than image 2's grey oval. Do NOT enlarge the head to show the face.
+
 FRAMING (from image 2): full body visible head to feet, toes never cropped. Eye-level camera angle.
 
 BODY BUILD: ${buildDirective} ${buildNotesClause} ${dimsClause}
@@ -303,6 +305,7 @@ mod tests {
         assert!(p.contains("BODY BUILD:"));
         assert!(p.contains("IDENTITY LOCK"));
         assert!(p.contains("OUTFIT:"));
+        assert!(p.contains("PROPORTIONS:"));
         assert!(!p.contains("${"));
         assert!(p.ends_with("no gradient (no floor, no horizon, no shadow)."));
     }
