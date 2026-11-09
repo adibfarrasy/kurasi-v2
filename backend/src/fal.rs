@@ -9,6 +9,8 @@ pub struct FalClient {
 
 const QUEUE_BASE: &str = "https://queue.fal.run";
 const STORAGE_BASE: &str = "https://rest.alpha.fal.ai/storage";
+/// File transfers outgrow the client's 30 s default once videos are involved.
+const TRANSFER_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);
 
 impl FalClient {
     pub fn new(key: String) -> Self {
@@ -175,6 +177,7 @@ impl FalClient {
         let put = self
             .http
             .put(&upload_url)
+            .timeout(TRANSFER_TIMEOUT)
             .header("Content-Type", mime)
             .body(bytes.to_vec())
             .send()
@@ -190,6 +193,7 @@ impl FalClient {
         let res = self
             .http
             .get(url)
+            .timeout(TRANSFER_TIMEOUT)
             .send()
             .await
             .map_err(|e| format!("fal fetch failed: {e}"))?;

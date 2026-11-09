@@ -43,11 +43,22 @@ pub fn orbit_frame(figure_png: &[u8]) -> Result<Vec<u8>, String> {
     Ok(out.into_inner())
 }
 
+/// Sets the spin speed with [ORBIT_DEG]: faster than about 45°/s and H3
+/// swings in on the back side until the head leaves the frame.
+const DURATION_S: f64 = 10.0;
+/// The orbit overshoots one full turn so a clean loop can be cut from its
+/// middle: H3 opens on the exact input image, then pulls the camera back and
+/// eases into the spin, which throbs at every restart if left in the loop.
+const ORBIT_DEG: i64 = 450;
+/// Opening stretch skipped before the loop may start.
+const SETTLE_S: f64 = 1.0;
+
 /// Even keyframes every quarter turn: with only start and end, H3 finishes
-/// the spin early and holds the last pose, and drifts in on the back side.
+/// the spin early and holds the last pose.
 fn trajectory() -> serde_json::Value {
-    let keys: Vec<_> = (0..=4)
-        .map(|i| json!({ "time": i as f64 / 4.0, "azimuth": i * 90, "elevation": 0, "distance": 1.25 }))
+    let steps = ORBIT_DEG / 90;
+    let keys: Vec<_> = (0..=steps)
+        .map(|i| json!({ "time": i as f64 / steps as f64, "azimuth": i * 90, "elevation": 0, "distance": 1.25 }))
         .collect();
     json!(keys)
 }
@@ -66,7 +77,7 @@ pub async fn figure_to_turntable(fal: &FalClient, figure_url: &str) -> Option<St
                     "prompt": PROMPT,
                     "image_url": frame_url,
                     "prompt_expansion_mode": "disabled",
-                    "duration": 8,
+                    "duration": DURATION_S as u32,
                     "resolution": "768P",
                     "camera_trajectory": trajectory(),
                 }),
@@ -113,6 +124,7 @@ const MAX_GAIN: f64 = 1.5;
 /// Pixels of figure edge given back to the key: chroma subsampling leaves a
 /// green-tinted ring that would otherwise survive the app's key.
 const ERODE: usize = 2;
+const OPEN: usize = 3;
 
 fn is_key(p: &[u8]) -> bool {
     p[1] > 180 && p[0] < 110 && p[2] < 110
@@ -167,24 +179,57 @@ pub fn stabilize(mp4: &[u8], still_png: &[u8]) -> Result<Vec<u8>, String> {
         };
         let mut frame = vec![0u8; w * h * 3];
 
-        // Pass 1: where the figure is in every frame.
-        let mut boxes = Vec::new();
-        let mut video_mean = None;
+        // Pass 1: where the figure is in every frame, what it looks like at
+        // thumbnail size (to find the loop), and its average colour.
+        let (mut boxes, mut thumbs, mut means) = (Vec::new(), Vec::new(), Vec::new());
         let mut dec = decode()?;
         let mut out = dec.stdout.take().unwrap();
         while out.read_exact(&mut frame).is_ok() {
-            boxes.push(measure(&frame, w, h));
-            // The first frame faces front like the still, so their colours compare.
-            video_mean
-                .get_or_insert_with(|| figure_mean(frame.chunks_exact(3).filter(|p| !is_key(p))));
+            let b = measure(&frame, w, h);
+            thumbs.push(thumb(b, |x, y| {
+                let i = (y.min(h - 1) * w + x.min(w - 1)) * 3;
+                let p = &frame[i..i + 3];
+                (!is_key(p)).then(|| [p[0], p[1], p[2]])
+            }));
+            means.push(figure_mean(frame.chunks_exact(3).filter(|p| !is_key(p))));
+            boxes.push(b);
         }
         dec.wait().map_err(|e| e.to_string())?;
         let n = boxes.len();
         if n == 0 {
             return Err("turntable video has no frames".into());
         }
-        // Clamped at the ends rather than wrapped: the first frames are still
-        // settling, so they must not be averaged with the last ones.
+        // A figure touching the frame edge is cropped, and its box would blow
+        // the remainder up to full height; borrow the box from the nearest
+        // uncropped frames instead.
+        let cropped = |b: &(f64, f64, f64)| b.0 <= 1.0 || b.1 >= (h - 2) as f64;
+        let good: Vec<usize> = (0..n).filter(|&i| !cropped(&boxes[i])).collect();
+        if good.is_empty() {
+            return Err("turntable figure is cropped in every frame".into());
+        }
+        for i in 0..n {
+            if !cropped(&boxes[i]) {
+                continue;
+            }
+            let before = good.iter().rev().find(|&&g| g < i);
+            let after = good.iter().find(|&&g| g > i);
+            boxes[i] = match (before, after) {
+                (Some(&a), Some(&b)) => {
+                    let t = (i - a) as f64 / (b - a) as f64;
+                    let (p, q) = (boxes[a], boxes[b]);
+                    (
+                        p.0 + (q.0 - p.0) * t,
+                        p.1 + (q.1 - p.1) * t,
+                        p.2 + (q.2 - p.2) * t,
+                    )
+                }
+                (Some(&a), None) => boxes[a],
+                (None, Some(&b)) => boxes[b],
+                (None, None) => unreachable!(),
+            };
+        }
+        // Clamped at the ends: the opening frames are still settling and must
+        // not be averaged with the last ones.
         let smooth: Vec<(f64, f64, f64)> = (0..n)
             .map(|i| {
                 let span = i.saturating_sub(SMOOTH_RADIUS)..=(i + SMOOTH_RADIUS).min(n - 1);
@@ -200,9 +245,39 @@ pub fn stabilize(mp4: &[u8], still_png: &[u8]) -> Result<Vec<u8>, String> {
             .map_err(|e| e.to_string())?
             .to_rgba8();
         let still_mean = figure_mean(still.pixels().filter(|p| p[3] > 128).map(|p| &p.0[..3]));
-        let video_mean = video_mean.unwrap_or(still_mean);
+        let still_thumb = {
+            let (sw, sh) = (still.width() as usize, still.height() as usize);
+            let px =
+                |x: usize, y: usize| still.get_pixel(x.min(sw - 1) as u32, y.min(sh - 1) as u32);
+            let rows: Vec<usize> = (0..sh)
+                .filter(|&y| (0..sw).any(|x| px(x, y)[3] > 128))
+                .collect();
+            let (mut sx, mut cnt) = (0.0, 0.0);
+            for y in (0..sh).step_by(4) {
+                for x in (0..sw).step_by(4) {
+                    if px(x, y)[3] > 128 {
+                        sx += x as f64;
+                        cnt += 1.0;
+                    }
+                }
+            }
+            let b = (
+                *rows.first().unwrap_or(&0) as f64,
+                *rows.last().unwrap_or(&(sh - 1)) as f64,
+                if cnt == 0.0 {
+                    sw as f64 / 2.0
+                } else {
+                    sx / cnt
+                },
+            );
+            thumb(b, |x, y| {
+                let p = px(x, y);
+                (p[3] > 128).then(|| [p[0], p[1], p[2]])
+            })
+        };
+        let span = loop_span(&thumbs, &still_thumb, fps(&rate))?;
         let gain: [f64; 3] = std::array::from_fn(|c| {
-            (still_mean[c] / video_mean[c].max(1.0)).clamp(1.0 / MAX_GAIN, MAX_GAIN)
+            (still_mean[c] / means[span.front][c].max(1.0)).clamp(1.0 / MAX_GAIN, MAX_GAIN)
         });
 
         // Pass 2: re-frame and encode.
@@ -225,6 +300,9 @@ pub fn stabilize(mp4: &[u8], still_png: &[u8]) -> Result<Vec<u8>, String> {
             .args([
                 "-c:v",
                 "libx264",
+                // Main profile: the widest hardware-decoder support.
+                "-profile:v",
+                "main",
                 "-preset",
                 "veryfast",
                 "-crf",
@@ -239,16 +317,25 @@ pub fn stabilize(mp4: &[u8], still_png: &[u8]) -> Result<Vec<u8>, String> {
             .spawn()
             .map_err(|e| format!("ffmpeg encode: {e}"))?;
         let mut sink = enc.stdin.take().unwrap();
-        let mut dec = decode()?;
-        let mut out = dec.stdout.take().unwrap();
-        let mut i = 0;
-        while i < n && out.read_exact(&mut frame).is_ok() {
-            let reframed = reframe(&frame, w, h, smooth[i], gain);
-            sink.write_all(&reframed).map_err(|e| e.to_string())?;
-            i += 1;
+        // The loop is a full turn, so it can start anywhere: start it on the
+        // frame that matches the still, so the hand-off from still to video
+        // does not jump.
+        for range in [span.front..span.end, span.start..span.front] {
+            let mut dec = decode()?;
+            let mut out = dec.stdout.take().unwrap();
+            let mut i = 0;
+            while i < range.end && out.read_exact(&mut frame).is_ok() {
+                if i >= range.start {
+                    let reframed = reframe(&frame, w, h, smooth[i], gain);
+                    sink.write_all(&reframed).map_err(|e| e.to_string())?;
+                }
+                i += 1;
+            }
+            drop(out);
+            let _ = dec.kill();
+            let _ = dec.wait();
         }
         drop(sink);
-        dec.wait().map_err(|e| e.to_string())?;
         if !enc.wait().map_err(|e| e.to_string())?.success() {
             return Err("ffmpeg encode failed".into());
         }
@@ -281,6 +368,83 @@ fn measure(frame: &[u8], w: usize, h: usize) -> (f64, f64, f64) {
         sx as f64 / cnt as f64
     };
     (top as f64, bottom as f64, cx)
+}
+
+const THUMB_W: usize = 16;
+const THUMB_H: usize = 32;
+type Thumb = Vec<[f32; 3]>;
+
+/// The figure resampled onto a small grid anchored to its own box, so frames
+/// at the same angle compare alike whatever H3's zoom was.
+fn thumb(
+    (top, bottom, cx): (f64, f64, f64),
+    pixel: impl Fn(usize, usize) -> Option<[u8; 3]>,
+) -> Thumb {
+    let height = (bottom - top).max(1.0);
+    let half_w = height * 0.35;
+    let mut out = Vec::with_capacity(THUMB_W * THUMB_H);
+    for gy in 0..THUMB_H {
+        for gx in 0..THUMB_W {
+            let y = top + (gy as f64 + 0.5) / THUMB_H as f64 * height;
+            let x = cx + ((gx as f64 + 0.5) / THUMB_W as f64 - 0.5) * 2.0 * half_w;
+            let p = if x < 0.0 || y < 0.0 {
+                None
+            } else {
+                pixel(x as usize, y as usize)
+            };
+            out.push(p.map_or([0.0, 255.0, 0.0], |p| p.map(f32::from)));
+        }
+    }
+    out
+}
+
+fn thumb_dist(a: &Thumb, b: &Thumb) -> f32 {
+    a.iter()
+        .zip(b)
+        .map(|(p, q)| (0..3).map(|c| (p[c] - q[c]).abs()).sum::<f32>())
+        .sum()
+}
+
+#[derive(Debug)]
+struct LoopSpan {
+    /// First frame of the turn.
+    start: usize,
+    /// One past the last frame: `end` shows the same angle as `start`.
+    end: usize,
+    /// Frame inside the turn closest to the still.
+    front: usize,
+}
+
+/// Cuts one full turn from after the settle: the end is whichever frame near
+/// the expected turn length looks most like the start.
+fn loop_span(thumbs: &[Thumb], still: &Thumb, fps: f64) -> Result<LoopSpan, String> {
+    let n = thumbs.len();
+    let start = (SETTLE_S * fps).round() as usize;
+    let turn = (n as f64 * 360.0 / ORBIT_DEG as f64).round() as usize;
+    let slack = (fps / 2.0).round() as usize;
+    let (lo, hi) = (
+        start + turn - slack.min(turn),
+        (start + turn + slack).min(n - 1),
+    );
+    if start >= n || lo > hi {
+        return Err(format!("turntable video too short to loop: {n} frames"));
+    }
+    let closest = |target: &Thumb, range: std::ops::Range<usize>| {
+        range.min_by(|&a, &b| {
+            thumb_dist(target, &thumbs[a]).total_cmp(&thumb_dist(target, &thumbs[b]))
+        })
+    };
+    let end = closest(&thumbs[start], lo..hi + 1).unwrap();
+    let front = closest(still, start..end).unwrap();
+    Ok(LoopSpan { start, end, front })
+}
+
+/// ffprobe's frame rate, e.g. "24/1".
+fn fps(rate: &str) -> f64 {
+    match rate.split_once('/') {
+        Some((a, b)) => a.parse::<f64>().unwrap_or(24.0) / b.parse::<f64>().unwrap_or(1.0).max(1.0),
+        None => rate.parse().unwrap_or(24.0),
+    }
 }
 
 fn figure_mean<'a>(pixels: impl Iterator<Item = &'a [u8]>) -> [f64; 3] {
@@ -338,25 +502,93 @@ fn reframe(
             }
         }
     }
-    // Separable erosion of the figure mask.
-    let mut eroded = figure.clone();
-    for y in 0..OUT_H {
-        for x in 0..OUT_W {
-            let lo = x.saturating_sub(ERODE);
-            let hi = (x + ERODE).min(OUT_W - 1);
-            eroded[y * OUT_W + x] = (lo..=hi).all(|xx| figure[y * OUT_W + xx]);
-        }
-    }
-    for y in 0..OUT_H {
-        for x in 0..OUT_W {
-            let lo = y.saturating_sub(ERODE);
-            let hi = (y + ERODE).min(OUT_H - 1);
-            if !(lo..=hi).all(|yy| eroded[yy * OUT_W + x]) {
-                out[(y * OUT_W + x) * 3..(y * OUT_W + x) * 3 + 3].copy_from_slice(&KEY_RGB);
-            }
+    // H3 hangs thin strays off the figure (drawstrings, threads) and the
+    // matte leaves specks: an opening drops anything thinner than
+    // 2 * OPEN pixels, and only the figure's own blob is kept.
+    let figure = largest_blob(&dilate(&erode(&figure, OPEN), OPEN));
+    let figure = erode(&figure, ERODE);
+    for (i, keep) in figure.iter().enumerate() {
+        if !keep {
+            out[i * 3..i * 3 + 3].copy_from_slice(&KEY_RGB);
         }
     }
     out
+}
+
+/// Square-window min filter, done as two separable passes.
+fn erode(mask: &[bool], r: usize) -> Vec<bool> {
+    morph(mask, r, true)
+}
+
+fn dilate(mask: &[bool], r: usize) -> Vec<bool> {
+    morph(mask, r, false)
+}
+
+fn morph(mask: &[bool], r: usize, min: bool) -> Vec<bool> {
+    let pick = |mut it: Box<dyn Iterator<Item = bool> + '_>| {
+        if min {
+            it.all(|v| v)
+        } else {
+            it.any(|v| v)
+        }
+    };
+    let mut rows = vec![false; mask.len()];
+    for y in 0..OUT_H {
+        for x in 0..OUT_W {
+            let (lo, hi) = (x.saturating_sub(r), (x + r).min(OUT_W - 1));
+            rows[y * OUT_W + x] = pick(Box::new((lo..=hi).map(|xx| mask[y * OUT_W + xx])));
+        }
+    }
+    let mut out = vec![false; mask.len()];
+    for y in 0..OUT_H {
+        for x in 0..OUT_W {
+            let (lo, hi) = (y.saturating_sub(r), (y + r).min(OUT_H - 1));
+            out[y * OUT_W + x] = pick(Box::new((lo..=hi).map(|yy| rows[yy * OUT_W + x])));
+        }
+    }
+    out
+}
+
+/// Keeps only the largest 4-connected region of the mask.
+fn largest_blob(mask: &[bool]) -> Vec<bool> {
+    let mut label = vec![0u32; mask.len()];
+    let (mut best, mut best_size, mut next) = (0u32, 0usize, 0u32);
+    let mut stack = Vec::new();
+    for start in 0..mask.len() {
+        if !mask[start] || label[start] != 0 {
+            continue;
+        }
+        next += 1;
+        label[start] = next;
+        stack.push(start);
+        let mut size = 0;
+        while let Some(i) = stack.pop() {
+            size += 1;
+            let (x, y) = (i % OUT_W, i / OUT_W);
+            let mut visit = |j: usize| {
+                if mask[j] && label[j] == 0 {
+                    label[j] = next;
+                    stack.push(j);
+                }
+            };
+            if x > 0 {
+                visit(i - 1);
+            }
+            if x + 1 < OUT_W {
+                visit(i + 1);
+            }
+            if y > 0 {
+                visit(i - OUT_W);
+            }
+            if y + 1 < OUT_H {
+                visit(i + OUT_W);
+            }
+        }
+        if size > best_size {
+            (best, best_size) = (next, size);
+        }
+    }
+    label.iter().map(|&l| l != 0 && l == best).collect()
 }
 
 fn video_url(out: &serde_json::Value) -> Result<String, String> {
@@ -422,14 +654,54 @@ mod tests {
     }
 
     #[test]
-    fn trajectory_turns_evenly_to_full_circle() {
+    fn cleanup_drops_thin_strays_and_specks() {
+        let mut mask = vec![false; OUT_W * OUT_H];
+        let mut fill = |x0: usize, y0: usize, w: usize, h: usize| {
+            for y in y0..y0 + h {
+                for x in x0..x0 + w {
+                    mask[y * OUT_W + x] = true;
+                }
+            }
+        };
+        fill(300, 100, 150, 900); // body
+        fill(450, 500, 60, 2); // thread off the side
+        fill(50, 50, 20, 20); // detached speck
+        let clean = largest_blob(&dilate(&erode(&mask, OPEN), OPEN));
+        assert!(clean[500 * OUT_W + 375]);
+        assert!(!clean[501 * OUT_W + 480]);
+        assert!(!clean[60 * OUT_W + 60]);
+    }
+
+    #[test]
+    fn trajectory_turns_evenly_past_full_circle() {
         let t = trajectory();
-        let az: Vec<i64> = t
-            .as_array()
-            .unwrap()
+        let keys = t.as_array().unwrap();
+        let az: Vec<i64> = keys
             .iter()
             .map(|k| k["azimuth"].as_i64().unwrap())
             .collect();
-        assert_eq!(az, vec![0, 90, 180, 270, 360]);
+        assert_eq!(az, vec![0, 90, 180, 270, 360, 450]);
+        assert_eq!(keys[5]["time"].as_f64().unwrap(), 1.0);
+        assert_eq!(fps("24/1"), 24.0);
+    }
+
+    #[test]
+    fn loop_span_finds_the_repeat_and_the_front() {
+        // A synthetic 450° clip at 24 fps: each frame's look is its angle.
+        let n = 192;
+        let angle = |i: usize| i as f32 * ORBIT_DEG as f32 / n as f32;
+        let look = |deg: f32| -> Thumb {
+            vec![[
+                deg.to_radians().cos() * 100.0,
+                deg.to_radians().sin() * 100.0,
+                0.0,
+            ]]
+        };
+        let thumbs: Vec<Thumb> = (0..n).map(|i| look(angle(i))).collect();
+        let span = loop_span(&thumbs, &look(0.0), 24.0).unwrap();
+        assert_eq!(span.start, 24);
+        assert!((angle(span.end) - angle(span.start) - 360.0).abs() < 3.0);
+        let off = angle(span.front) % 360.0;
+        assert!(off.min(360.0 - off) < 3.0);
     }
 }
