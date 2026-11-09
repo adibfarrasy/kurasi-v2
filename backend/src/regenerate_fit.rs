@@ -24,6 +24,8 @@ pub struct Progress {
     pub result_url: Option<String>,
     /// 360° orbit video of the dressed figure on the key colour; absent when it failed.
     pub turntable_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub turntable_frames_url: Option<String>,
     pub message: Option<String>,
 }
 
@@ -268,6 +270,7 @@ pub async fn start(
             phase: "pass1".into(),
             result_url: None,
             turntable_url: None,
+            turntable_frames_url: None,
             message: None,
         },
     );
@@ -303,10 +306,11 @@ async fn run_pipeline(
         p.phase = "turntable".into();
         p.result_url = Some(result.clone());
     });
-    let turntable_url = crate::turntable::figure_to_turntable(&fal, &result).await;
+    let turntable = crate::turntable::figure_to_turntable(&fal, &result).await;
     store.update(session, |p| {
         p.phase = "done".into();
-        p.turntable_url = turntable_url;
+        p.turntable_url = turntable.as_ref().map(|t| t.video_url.clone());
+        p.turntable_frames_url = turntable.map(|t| t.frames_url);
     });
     Ok(())
 }
@@ -320,6 +324,7 @@ pub async fn progress(
         phase: "error".into(),
         result_url: None,
         turntable_url: None,
+        turntable_frames_url: None,
         message: Some("Session not found (server may have restarted)".into()),
     });
     Ok(Json(json!(p)))

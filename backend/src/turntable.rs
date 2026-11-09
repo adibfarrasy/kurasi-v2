@@ -63,9 +63,17 @@ fn trajectory() -> serde_json::Value {
     json!(keys)
 }
 
-/// 360° orbit video of a finished figure on a solid key-colour background.
+/// A finished turntable: the looping video, and the same loop as a strip of
+/// stills ([pack_frames]) for drag-to-turn. Seeking the video under a finger
+/// does not repaint on Android, so dragging flips through stills instead.
+pub struct Turntable {
+    pub video_url: String,
+    pub frames_url: String,
+}
+
+/// 360° orbit of a finished figure on a solid key-colour background.
 /// Errors are logged and swallowed: the still stays usable without it.
-pub async fn figure_to_turntable(fal: &FalClient, figure_url: &str) -> Option<String> {
+pub async fn figure_to_turntable(fal: &FalClient, figure_url: &str) -> Option<Turntable> {
     let result = async {
         let still = fal.fetch_bytes(figure_url).await?;
         let frame = orbit_frame(&still)?;
@@ -85,7 +93,18 @@ pub async fn figure_to_turntable(fal: &FalClient, figure_url: &str) -> Option<St
             }
         }
         let (steady, _) = best.expect("at least one render");
-        fal.upload(&steady, "turntable.mp4", "video/mp4").await
+        let frames = {
+            let steady = steady.clone();
+            tokio::task::spawn_blocking(move || scrub_frames(&steady))
+                .await
+                .map_err(|e| e.to_string())??
+        };
+        Ok::<_, String>(Turntable {
+            video_url: fal.upload(&steady, "turntable.mp4", "video/mp4").await?,
+            frames_url: fal
+                .upload(&frames, "turntable.frames", "application/octet-stream")
+                .await?,
+        })
     }
     .await;
     match result {
@@ -643,6 +662,77 @@ fn largest_blob(mask: &[bool]) -> Vec<bool> {
     label.iter().map(|&l| l != 0 && l == best).collect()
 }
 
+/// Stills in the drag strip: one every 4°.
+const SCRUB_FRAMES: usize = 90;
+const SCRUB_W: u32 = 480;
+const SCRUB_H: u32 = 720;
+const SCRUB_QUALITY: u8 = 82;
+
+/// Evenly spaced frames of a stabilized turntable, each JPEG-encoded on the
+/// key colour, packed with [pack_frames].
+pub fn scrub_frames(mp4: &[u8]) -> Result<Vec<u8>, String> {
+    use std::io::Read;
+    use std::process::{Command, Stdio};
+
+    let path = std::env::temp_dir().join(format!("scrub-{}.mp4", uuid::Uuid::new_v4()));
+    std::fs::write(&path, mp4).map_err(|e| e.to_string())?;
+    let result = (|| {
+        let mut dec = Command::new("ffmpeg")
+            .args(["-v", "error", "-i"])
+            .arg(&path)
+            .args([
+                "-vf",
+                &format!("scale={SCRUB_W}:{SCRUB_H}"),
+                "-f",
+                "rawvideo",
+                "-pix_fmt",
+                "rgb24",
+                "-",
+            ])
+            .stdout(Stdio::piped())
+            .spawn()
+            .map_err(|e| format!("ffmpeg decode: {e}"))?;
+        let mut out = dec.stdout.take().unwrap();
+        let mut frame = vec![0u8; (SCRUB_W * SCRUB_H * 3) as usize];
+        let mut all = Vec::new();
+        while out.read_exact(&mut frame).is_ok() {
+            all.push(frame.clone());
+        }
+        let _ = dec.wait();
+        if all.is_empty() {
+            return Err("turntable video has no frames".to_string());
+        }
+        let picks = SCRUB_FRAMES.min(all.len());
+        let jpegs = (0..picks)
+            .map(|i| {
+                let rgb = &all[i * all.len() / picks];
+                let mut buf = Vec::new();
+                image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buf, SCRUB_QUALITY)
+                    .encode(rgb, SCRUB_W, SCRUB_H, image::ExtendedColorType::Rgb8)
+                    .map_err(|e| e.to_string())?;
+                Ok(buf)
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        Ok(pack_frames(&jpegs))
+    })();
+    let _ = std::fs::remove_file(&path);
+    result
+}
+
+/// `KTF1`, a little-endian u32 frame count, one u32 byte length per frame,
+/// then the frames back to back. One file keeps it to a single download.
+pub fn pack_frames(frames: &[Vec<u8>]) -> Vec<u8> {
+    let mut out = b"KTF1".to_vec();
+    out.extend((frames.len() as u32).to_le_bytes());
+    for f in frames {
+        out.extend((f.len() as u32).to_le_bytes());
+    }
+    for f in frames {
+        out.extend(f);
+    }
+    out
+}
+
 fn video_url(out: &serde_json::Value) -> Result<String, String> {
     out["video"]["url"]
         .as_str()
@@ -703,6 +793,26 @@ mod tests {
             (OUT_TOP * OUT_H as f64) as usize - 20
         )));
         assert!(is_key(at(10, mid)));
+    }
+
+    #[test]
+    fn pack_frames_layout() {
+        let packed = pack_frames(&[vec![1, 2], vec![3]]);
+        assert_eq!(&packed[..4], b"KTF1");
+        assert_eq!(&packed[4..8], &2u32.to_le_bytes());
+        assert_eq!(&packed[8..12], &2u32.to_le_bytes());
+        assert_eq!(&packed[12..16], &1u32.to_le_bytes());
+        assert_eq!(&packed[16..], &[1, 2, 3]);
+    }
+
+    /// Builds the drag strip for an existing turntable, skipped without one:
+    /// `TURNTABLE_VIDEO=t.mp4 cargo test --release scrub_frames_for_sample -- --ignored`
+    #[test]
+    #[ignore]
+    fn scrub_frames_for_sample() {
+        let path = std::env::var("TURNTABLE_VIDEO").unwrap();
+        let packed = scrub_frames(&std::fs::read(&path).unwrap()).unwrap();
+        std::fs::write(format!("{path}.frames"), packed).unwrap();
     }
 
     #[test]

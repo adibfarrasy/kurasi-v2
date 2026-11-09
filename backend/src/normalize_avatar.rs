@@ -32,6 +32,8 @@ pub struct Progress {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub turntable_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub turntable_frames_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
 }
 
@@ -243,13 +245,14 @@ pub async fn persist_default_avatar(
     pool: &sqlx::PgPool,
     user_id: &str,
     avatar_url: &str,
-    turntable_url: Option<&str>,
+    turntable: Option<&crate::turntable::Turntable>,
 ) {
     if let Err(e) = sqlx::query(
-        "UPDATE user_biometrics SET default_avatar_url=$1, default_avatar_turntable_url=$2, updated_at=now() WHERE user_id=$3",
+        "UPDATE user_biometrics SET default_avatar_url=$1, default_avatar_turntable_url=$2, default_avatar_turntable_frames_url=$3, updated_at=now() WHERE user_id=$4",
     )
     .bind(avatar_url)
-    .bind(turntable_url)
+    .bind(turntable.map(|t| &t.video_url))
+    .bind(turntable.map(|t| &t.frames_url))
     .bind(user_id)
     .execute(pool)
     .await
@@ -300,6 +303,7 @@ pub async fn start(
             phase: "classify".into(),
             avatar_url: None,
             turntable_url: None,
+            turntable_frames_url: None,
             message: None,
         },
     );
@@ -352,13 +356,14 @@ async fn run_pipeline(
         p.phase = "turntable".into();
         p.avatar_url = Some(avatar_url.clone());
     });
-    let turntable_url = crate::turntable::figure_to_turntable(&fal, &avatar_url).await;
-    if turntable_url.is_some() {
-        persist_default_avatar(&pool, &user_id, &avatar_url, turntable_url.as_deref()).await;
+    let turntable = crate::turntable::figure_to_turntable(&fal, &avatar_url).await;
+    if turntable.is_some() {
+        persist_default_avatar(&pool, &user_id, &avatar_url, turntable.as_ref()).await;
     }
     store.update(session, |p| {
         p.phase = "done".into();
-        p.turntable_url = turntable_url;
+        p.turntable_url = turntable.as_ref().map(|t| t.video_url.clone());
+        p.turntable_frames_url = turntable.as_ref().map(|t| t.frames_url.clone());
     });
     Ok(())
 }
@@ -374,6 +379,7 @@ pub async fn progress(
             phase: "error".into(),
             avatar_url: None,
             turntable_url: None,
+            turntable_frames_url: None,
             message: Some("Session not found (server may have restarted)".into()),
         });
     Ok(Json(json!(p)))

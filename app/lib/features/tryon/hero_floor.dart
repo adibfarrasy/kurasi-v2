@@ -30,7 +30,7 @@ String slotKeyForCategory(String category) => switch (category) {
 /// figure is top-aligned that far below the parent's top; otherwise it sits
 /// at the bottom. The mannequin with a spinner shows while a remote image is loading.
 class HeroFloor extends StatelessWidget {
-  const HeroFloor({super.key, required this.imageUrl, this.turntableUrl, this.topOffset, this.maxHeight, this.loading = false});
+  const HeroFloor({super.key, required this.imageUrl, this.turntableUrl, this.turntableFramesUrl, this.topOffset, this.maxHeight, this.loading = false});
 
   /// Fixed canvas of the dress-avatar pipeline.
   static const double aspectRatio = 832 / 1248;
@@ -40,6 +40,9 @@ class HeroFloor extends StatelessWidget {
   /// 360° orbit video of the same figure; when set it replaces the still,
   /// which shows until the video plays.
   final String? turntableUrl;
+
+  /// The same loop as stills, for drag-to-turn; see [TurntableView].
+  final String? turntableFramesUrl;
   final double? topOffset;
   final double? maxHeight;
 
@@ -66,7 +69,7 @@ class HeroFloor extends StatelessWidget {
         Widget figure(Widget child) => SizedBox(width: width, height: avail, child: child);
         final url = imageUrl;
         final video = turntableUrl;
-        Widget withTurntable(Widget still) => video == null ? still : TurntableView(key: ValueKey(video), url: video, poster: still);
+        Widget withTurntable(Widget still) => video == null ? still : TurntableView(key: ValueKey(video), url: video, framesUrl: turntableFramesUrl, poster: still);
         return Stack(
           clipBehavior: Clip.none,
           children: [

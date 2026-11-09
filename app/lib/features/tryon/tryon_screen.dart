@@ -44,6 +44,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
   String? _regenSessionId;
   String? _regenHeroUrl;
   String? _regenTurntableUrl;
+  String? _regenTurntableFramesUrl;
   Timer? _poll;
 
   bool get _regenerating => _regenSessionId != null;
@@ -109,13 +110,17 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
             setState(() {
               _regenHeroUrl = still;
               _regenTurntableUrl = null;
+              _regenTurntableFramesUrl = null;
               _committed = snapshot;
               _regenSessionId = null;
             });
           }
           if (p['phase'] == 'done') {
             timer.cancel();
-            setState(() => _regenTurntableUrl = p['turntableUrl'] as String?);
+            setState(() {
+              _regenTurntableUrl = p['turntableUrl'] as String?;
+              _regenTurntableFramesUrl = p['turntableFramesUrl'] as String?;
+            });
           } else if (p['phase'] == 'error') {
             timer.cancel();
             debugPrint('[regenerate] error: ${p['message']}');
@@ -139,6 +144,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
         'name': name.isEmpty ? null : name,
         'heroImageUrl': _regenHeroUrl ?? draft?['heroImageUrl'],
         'heroTurntableUrl': _regenHeroUrl != null ? _regenTurntableUrl : null,
+        'heroTurntableFramesUrl': _regenHeroUrl != null ? _regenTurntableFramesUrl : null,
         'slots': slotsPayload,
       });
     } catch (err) {
@@ -155,6 +161,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
         _committed = {};
         _regenHeroUrl = null;
         _regenTurntableUrl = null;
+        _regenTurntableFramesUrl = null;
       });
     }
   }
@@ -229,11 +236,15 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
     }
 
     // The turntable always comes from the same source as the still image.
-    final (String? heroUrl, String? heroTurntable) = switch (matched?['heroImageUrl']) {
-      final String url => (url, matched!['heroTurntableUrl'] as String?),
-      _ when _regenHeroUrl != null => (_regenHeroUrl, _regenTurntableUrl),
-      _ when draft?['heroImageUrl'] is String => (draft!['heroImageUrl'] as String, null),
-      _ => (defaultAvatar, biometrics.valueOrNull?['defaultAvatarTurntableUrl'] as String?),
+    final (String? heroUrl, String? heroTurntable, String? heroFrames) = switch (matched?['heroImageUrl']) {
+      final String url => (url, matched!['heroTurntableUrl'] as String?, matched['heroTurntableFramesUrl'] as String?),
+      _ when _regenHeroUrl != null => (_regenHeroUrl, _regenTurntableUrl, _regenTurntableFramesUrl),
+      _ when draft?['heroImageUrl'] is String => (draft!['heroImageUrl'] as String, null, null),
+      _ => (
+          defaultAvatar,
+          biometrics.valueOrNull?['defaultAvatarTurntableUrl'] as String?,
+          biometrics.valueOrNull?['defaultAvatarTurntableFramesUrl'] as String?,
+        ),
     };
     // Tone tracks real renders only, not transient picks.
     final tone = matched != null || _regenHeroUrl != null ? outfitTone(colorNames) : 'neutral';
@@ -304,7 +315,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        Positioned.fill(child: HeroFloor(imageUrl: heroUrl, turntableUrl: heroTurntable, topOffset: top + 8, maxHeight: 520, loading: biometrics.isLoading)),
+                        Positioned.fill(child: HeroFloor(imageUrl: heroUrl, turntableUrl: heroTurntable, turntableFramesUrl: heroFrames, topOffset: top + 8, maxHeight: 520, loading: biometrics.isLoading)),
                         if (_regenerating) ...[
                           Positioned(
                             left: 0,

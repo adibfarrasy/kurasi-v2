@@ -212,6 +212,7 @@ void main() {
       'name': 'Night Out',
       'heroImageUrl': 'https://x/regen.png',
       'heroTurntableUrl': null,
+      'heroTurntableFramesUrl': null,
       'slots': [
         {'category': 'jacket', 'wardrobeId': 'w2'},
       ],

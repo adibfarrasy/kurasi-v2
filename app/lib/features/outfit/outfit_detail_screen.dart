@@ -125,6 +125,7 @@ class _OutfitDetailScreenState extends ConsumerState<OutfitDetailScreen> {
                                   return _HeroPage(
                                     url: outfits[i]['heroImageUrl'] as String?,
                                     turntableUrl: outfits[i]['heroTurntableUrl'] as String?,
+                                    turntableFramesUrl: outfits[i]['heroTurntableFramesUrl'] as String?,
                                     showFloor: !_scrolling && i == _active,
                                     scale: 1 - 0.22 * t,
                                     dy: -54 * t,
@@ -197,10 +198,11 @@ class _OutfitDetailScreenState extends ConsumerState<OutfitDetailScreen> {
 }
 
 class _HeroPage extends StatelessWidget {
-  const _HeroPage({required this.url, this.turntableUrl, required this.showFloor, required this.scale, required this.dy, required this.opacity, required this.screenWidth});
+  const _HeroPage({required this.url, this.turntableUrl, this.turntableFramesUrl, required this.showFloor, required this.scale, required this.dy, required this.opacity, required this.screenWidth});
 
   final String? url;
   final String? turntableUrl;
+  final String? turntableFramesUrl;
   final bool showFloor;
   final double scale;
   final double dy;
@@ -225,7 +227,7 @@ class _HeroPage extends StatelessWidget {
               width: showFloor ? screenWidth : 520 * HeroFloor.aspectRatio,
               height: 520,
               child: showFloor
-                  ? HeroFloor(imageUrl: url, turntableUrl: turntableUrl, topOffset: 0, maxHeight: 520)
+                  ? HeroFloor(imageUrl: url, turntableUrl: turntableUrl, turntableFramesUrl: turntableFramesUrl, topOffset: 0, maxHeight: 520)
                   : url == null
                       ? fallback
                       : Image.network(url!, fit: BoxFit.contain, errorBuilder: (_, __, ___) => fallback),
