@@ -1,0 +1,19 @@
+backend/src/turntable.rs
+  s_3d500482ec433b::t_02c41dba9cf907 59-60,85,106-112,121-125,172,177-179,186-187,190-193,196,199-206,246,286-306,332-338,391,396-397,413
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "546243e9ed26c248ad6b0b7ad931a78e3473c2de",
+  "prompts": {},
+  "sessions": {
+    "s_3d500482ec433b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5bb83b-5e1d-458f-ba56-698d439c9cce",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Adib Farrasy <adibfarrasy@gmail.com>"
+    }
+  }
+}
