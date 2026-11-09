@@ -1,0 +1,22 @@
+backend/src/turntable.rs
+  s_3d500482ec433b::t_ca06b9c7bb8b08 136,160-169,321-327,378,520,547,697
+  s_3d500482ec433b::t_92c9d82ff6e8af 73-87,100-135,174,243-244,249,317-320,391-392,681
+  s_3d500482ec433b::t_4ce7f18506e052 548
+  s_3d500482ec433b::t_1bd8fe98218618 137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "bf349fd1836bb1c3ca6e9fd87bc523705838bd25",
+  "prompts": {},
+  "sessions": {
+    "s_3d500482ec433b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5bb83b-5e1d-458f-ba56-698d439c9cce",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Adib Farrasy <adibfarrasy@gmail.com>"
+    }
+  }
+}
