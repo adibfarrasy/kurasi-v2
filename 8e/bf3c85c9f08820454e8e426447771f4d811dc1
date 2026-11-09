@@ -1,0 +1,22 @@
+backend/src/normalize_prompts.rs
+  s_3d500482ec433b::t_67516730d4bab1 28,34-35,41,45,49,80,178,277
+  s_3d500482ec433b::t_a0d7d79768e841 36,38
+backend/src/normalize_avatar.rs
+  s_3d500482ec433b::t_67516730d4bab1 64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "8ebf3c85c9f08820454e8e426447771f4d811dc1",
+  "prompts": {},
+  "sessions": {
+    "s_3d500482ec433b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5bb83b-5e1d-458f-ba56-698d439c9cce",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Adib Farrasy <adibfarrasy@gmail.com>"
+    }
+  }
+}
