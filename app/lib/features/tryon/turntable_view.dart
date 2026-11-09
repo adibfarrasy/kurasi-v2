@@ -97,10 +97,18 @@ class _TurntableViewState extends State<TurntableView> {
     final index = _scrubIndex;
     if (frames == null || index == null) return;
     final total = _video.value.duration.inMilliseconds;
-    await _video.seekTo(Duration(milliseconds: (index / frames.length * total).round()));
+    final target = Duration(milliseconds: (index / frames.length * total).round());
+    await _video.seekTo(target);
     await _video.play();
-    // The still stays up until the resumed video has had time to paint.
-    await Future<void>.delayed(const Duration(milliseconds: 150));
+    // The video still shows its pre-drag frame until the seek is decoded,
+    // which can take seconds; keep the still up until playback has moved on
+    // from the target, so release never snaps back.
+    final deadline = DateTime.now().add(const Duration(seconds: 4));
+    while (mounted && _scrubIndex == index && DateTime.now().isBefore(deadline)) {
+      final pos = await _video.position;
+      if (pos != null && pos > target + const Duration(milliseconds: 120)) break;
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    }
     if (mounted && _scrubIndex == index) setState(() => _scrubIndex = null);
   }
 
