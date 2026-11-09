@@ -25,26 +25,28 @@ build: <lean|athletic|average|fuller|heavy>
 notes: <one short sentence describing the specific features that drove the classification>"##;
 
 /// Verbatim BUILD_DIRECTIVES from the legacy pipeline.
-const LEAN_DIRECTIVE: &str = "The person has a LEAN build: low body fat, minimal soft tissue, narrow frame, no significant muscle bulk. Render with narrow shoulders, slim limbs, flat abdomen, and visible bone structure (collarbones, jawline). Do NOT add muscle definition or athletic shaping.";
+const LEAN_DIRECTIVE: &str = "The person has a LEAN build: low body fat, minimal soft tissue, narrow frame, no significant muscle bulk. Render with narrow shoulders, slim limbs, flat abdomen, and visible bone structure (collarbones). Do NOT add muscle definition or athletic shaping.";
 const ATHLETIC_DIRECTIVE: &str = "The person has an ATHLETIC build: low-to-moderate body fat with visible muscle definition. Render with toned arms, defined shoulders, slight V-taper (or hourglass for femme), and a flat abdomen. Muscle definition is appropriate but not exaggerated.";
 const AVERAGE_DIRECTIVE: &str = "The person has an AVERAGE build: typical adult, neither lean nor heavy, with soft tissue present but no obvious excess and no defined musculature. Render with a relaxed silhouette, no abs visible, no visible muscle striation, slight softness around the abdomen and arms.";
 const FULLER_DIRECTIVE: &str = "The person carries a FULLER build: noticeable extra weight, with soft tissue clearly visible across the belly, arms, thighs, and face. Render with a rounded abdomen (NOT flat), fuller arms, fuller thighs, softer jawline, and possibly a double chin or fuller cheeks. Do NOT slim, do NOT athleticize, do NOT add muscle definition. Preserve every roll and curve.";
 const HEAVY_DIRECTIVE: &str = "The person has a HEAVY build: significantly higher body mass with pronounced soft tissue across torso and limbs. Render with a clearly rounded abdomen, fuller chest, fuller arms (visible upper-arm softness), fuller thighs, fuller face (double chin, fuller cheeks, softer jawline), and a wider overall silhouette. Do NOT slim under any circumstances.";
 
-/// Verbatim buildPass1Prompt() template literal, with the three
+/// Pass1 template. Diverges from the legacy prompt: the pose reference has its
+/// head masked and the head faces the camera, so the reference model's jaw and
+/// head turn no longer leak into the avatar. The three
 /// `${buildDirective}` / `${buildNotesClause}` / `${dimsClause}`
-/// interpolations rendered at assembly time.
+/// interpolations are filled at assembly time.
 const PASS1_PROMPT_TEMPLATE: &str = r##"A full-body, photorealistic studio photograph of one person on a deep teal seamless background, eye-level shot, 85mm lens look.
 
-The output figure IS the person in image 1 — same face, same hair, same skin tone, same identity — relocated into image 2's pose, wearing a plain white outfit.
+The output figure IS the person in image 1 — same face, same hair, same skin tone, same identity — relocated into image 2's body pose. Image 2 is a pose reference whose head is hidden behind a grey oval; it contributes body pose only, wearing a plain white outfit.
 
 IDENTITY LOCK (FROM IMAGE 1 ONLY — image 1 IS the person being rendered): copy image 1's face exactly — facial features, eye shape, eye spacing, nose, mouth, lips, jawline, cheekbones, chin, ears, eyebrows, eyelashes. Copy image 1's hair exactly — same style, length, color, hairline, parting, density, volume. If image 1 shows a BALD or SHAVED head, the output MUST be BALD (visible scalp, no hair). If image 1 shows SHORT hair, render short hair. If image 1 shows long hair, render that exact long hair. Copy image 1's facial hair exactly — if image 1 is CLEAN-SHAVEN with no beard/mustache/stubble, the output MUST also be clean-shaven. If image 1 shows facial hair, render matching facial hair.
 
-Image 2 contributes ZERO identity. Image 2's face, hair, hairline, hair color, beard, mustache, stubble, ears, and skin tone MUST NOT appear in the output under any circumstances.
+Image 2 contributes ZERO identity: no face, head shape, jaw, neck, or skin tone comes from it. FACE SHAPE LOCK: keep image 1's face width, cheek fullness, and soft-tissue volume exactly; do NOT sharpen, square, chisel, or define the jaw beyond what image 1 shows.
 
 SKIN TONE (FROM IMAGE 1 ONLY): sample the exact skin tone (hue, saturation, brightness, undertone) from image 1's visible skin and apply it uniformly across face, neck, arms, hands, legs, and feet. Face skin and body skin MUST be the same color with no seam.
 
-POSE (FROM IMAGE 2 ONLY): the body pose, body orientation, contrapposto, weight distribution, arm positions, leg positions, stance width, knee bend, head tilt, head direction, gaze direction, and foot placement must match image 2 exactly. If image 2's head is turned diagonally to the side, the output's head MUST be turned at that same angle — do NOT default to a front-facing head. If image 2's foot is raised on the toes or pivoted, mirror that.
+POSE (FROM IMAGE 2 ONLY): the body pose, body orientation, contrapposto, weight distribution, arm positions, leg positions, stance width, knee bend, and foot placement must match image 2 exactly. HEAD: facing the camera straight on, level, neutral expression, eyes looking into the lens. If image 2's foot is raised on the toes or pivoted, mirror that.
 
 FEET LOCK: foot placement must be a 1:1 match with image 2, including each foot's exact angle, rotation, and ground contact.
 
@@ -75,7 +77,7 @@ FACIAL HAIR (canonical reference is image 2): match image 2's beard, mustache, o
 
 SKIN TONE (canonical reference is image 2): the skin tone across face, neck, arms, hands, legs, and feet must match image 2's skin exactly. If image 1's skin tone drifted lighter or darker than image 2, correct it. Face skin and body skin MUST be the same color with no seam.
 
-POSE LOCK (HEAD TO TOE — FROM IMAGE 1): preserve image 1's pose bit-for-bit. Same body orientation, contrapposto, arm positions, leg positions, stance width, knee bend, head tilt, head direction, gaze direction. The output figure must be a 1:1 silhouette match of image 1's pose.
+POSE LOCK (HEAD TO TOE — FROM IMAGE 1): preserve image 1's pose bit-for-bit. Same body orientation, contrapposto, arm positions, leg positions, stance width, knee bend, head direction, gaze direction. The output figure must be a 1:1 silhouette match of image 1's pose.
 
 FEET LOCK: foot placement must be a 1:1 match with image 1, including each foot's exact angle, rotation, and ground contact.
 
@@ -173,7 +175,7 @@ pub fn build_notes_clause(notes: &str) -> String {
     if notes.is_empty() {
         String::new()
     } else {
-        format!("Specific features observed in image 2: {notes}. Reflect these features in the rendered body.")
+        format!("Specific features observed in image 1: {notes}. Reflect these features in the rendered body.")
     }
 }
 
@@ -272,7 +274,7 @@ mod tests {
         assert_eq!(build_notes_clause(""), "");
         assert_eq!(
             build_notes_clause("narrow frame"),
-            "Specific features observed in image 2: narrow frame. Reflect these features in the rendered body."
+            "Specific features observed in image 1: narrow frame. Reflect these features in the rendered body."
         );
     }
 

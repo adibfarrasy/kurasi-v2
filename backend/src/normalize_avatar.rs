@@ -61,7 +61,7 @@ pub fn normalize_avatar_store() -> Arc<JobStore<Progress>> {
         .clone()
 }
 
-/// default_man.png embedded at compile time so the binary is self-contained
+/// default_man.png (head masked so only the body pose transfers) embedded at compile time so the binary is self-contained
 /// and CWD-independent.
 const DEFAULT_MAN_BYTES: &[u8] = include_bytes!("../avatar/assets/default_man.png");
 
