@@ -14,7 +14,6 @@ pub struct Config {
     pub kratos_issuer: String,
     pub environment: String,
     pub fal_key: String,
-    pub tripo_key: String,
     pub output_dir: String,
 }
 
@@ -36,7 +35,6 @@ impl Config {
             kratos_issuer,
             environment,
             fal_key: var("FAL_KEY").unwrap_or_default(),
-            tripo_key: var("TRIPO_KEY").unwrap_or_default(),
             output_dir: var("OUTPUT_DIR").unwrap_or_else(|_| "outputs".to_string()),
         };
         config.validate_environment();
@@ -86,7 +84,6 @@ mod tests {
             kratos_issuer: DEFAULT_KRATOS_ISSUER.to_string(),
             environment: "production".to_string(),
             fal_key: String::new(),
-            tripo_key: String::new(),
             output_dir: String::new(),
         };
         c.validate_environment();

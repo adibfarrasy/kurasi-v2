@@ -17,13 +17,13 @@ pub struct BiometricsRow {
     pub weight_kg: i32,
     pub face_photo_url: Option<String>,
     pub default_avatar_url: Option<String>,
-    pub default_avatar_model_url: Option<String>,
+    pub default_avatar_turntable_url: Option<String>,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
 
 const COLUMNS: &str =
-    "user_id, height_cm, weight_kg, face_photo_url, default_avatar_url, default_avatar_model_url, created_at, updated_at";
+    "user_id, height_cm, weight_kg, face_photo_url, default_avatar_url, default_avatar_turntable_url, created_at, updated_at";
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]

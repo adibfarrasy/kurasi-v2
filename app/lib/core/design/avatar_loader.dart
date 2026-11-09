@@ -13,7 +13,7 @@ const List<String> _stages = ['Adjusting body proportion', 'Identifying facial f
 int _stageFor(String phase) => switch (phase) {
       'faceswap' => 1,
       'rembg' => 2,
-      'finalize' || 'model3d' || 'done' => 3,
+      'finalize' || 'done' => 3,
       _ => 0,
     };
 

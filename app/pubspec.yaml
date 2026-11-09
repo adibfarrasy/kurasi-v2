@@ -20,8 +20,7 @@ dependencies:
   flutter_secure_storage: ^11.0.0
   share_plus: ^13.3.0
   flutter_svg: ^2.3.2
-  model_viewer_plus: ^1.10.0
-
+  video_player: ^2.14.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -45,3 +44,5 @@ flutter:
         - asset: assets/fonts/KirangHaerang-Regular.ttf
   assets:
     - assets/
+  shaders:
+    - shaders/chroma_key.frag

@@ -43,7 +43,7 @@ class AvatarJobState {
 class AvatarJobNotifier extends AsyncNotifier<AvatarJobState> {
   static const _pollInterval = Duration(milliseconds: 800);
   // The backend chains five fal calls (classify, two seedream passes,
-  // faceswap, rembg) and then a Tripo 3D conversion of up to five minutes.
+  // faceswap, rembg); the turntable after them is not waited on.
   static const _maxAttempts = 750;
 
   @override
@@ -112,8 +112,10 @@ class AvatarJobNotifier extends AsyncNotifier<AvatarJobState> {
       final res = await api.get(ApiEndpoints.normalizeAvatarProgress(sessionId));
       if (res is Map) {
         final phase = res['phase'] as String?;
-        if (phase == 'done') {
-          // Try On reads the new avatar (and its 3D model) from biometrics.
+        // The still arrives before the turntable finishes; the backend
+        // persists the turntable itself, so stop waiting once the still is in.
+        if (phase == 'done' || (phase == 'turntable' && res['avatarUrl'] != null)) {
+          // Try On reads the new avatar (and later its turntable) from biometrics.
           ref.invalidate(biometricsProvider);
           _setState(AsyncValue.data(AvatarJobState(
             sessionId: sessionId,

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:model_viewer_plus/model_viewer_plus.dart';
 import '../../core/api/api_providers.dart';
 import '../../core/api/endpoints.dart';
 import '../../core/auth/auth_state.dart';
+import 'turntable_view.dart';
 
 /// GET /api/biometrics: holds `defaultAvatarUrl`, the hero fallback.
 final biometricsProvider = AsyncNotifierProvider<BiometricsNotifier, Map<String, dynamic>?>(BiometricsNotifier.new);
@@ -30,16 +30,16 @@ String slotKeyForCategory(String category) => switch (category) {
 /// figure is top-aligned that far below the parent's top; otherwise it sits
 /// at the bottom. The mannequin with a spinner shows while a remote image is loading.
 class HeroFloor extends StatelessWidget {
-  const HeroFloor({super.key, required this.imageUrl, this.modelUrl, this.topOffset, this.maxHeight, this.loading = false});
+  const HeroFloor({super.key, required this.imageUrl, this.turntableUrl, this.topOffset, this.maxHeight, this.loading = false});
 
   /// Fixed canvas of the dress-avatar pipeline.
   static const double aspectRatio = 832 / 1248;
 
   final String? imageUrl;
 
-  /// GLB of the same figure; when set, a drag-to-rotate 3D view replaces
-  /// the still image, with the still as its poster while the model loads.
-  final String? modelUrl;
+  /// 360° orbit video of the same figure; when set it replaces the still,
+  /// which shows until the video plays.
+  final String? turntableUrl;
   final double? topOffset;
   final double? maxHeight;
 
@@ -65,6 +65,8 @@ class HeroFloor extends StatelessWidget {
         final figureTop = topOffset ?? c.maxHeight - avail;
         Widget figure(Widget child) => SizedBox(width: width, height: avail, child: child);
         final url = imageUrl;
+        final video = turntableUrl;
+        Widget withTurntable(Widget still) => video == null ? still : TurntableView(key: ValueKey(video), url: video, poster: still);
         return Stack(
           clipBehavior: Clip.none,
           children: [
@@ -79,31 +81,16 @@ class HeroFloor extends StatelessWidget {
               top: figureTop,
               left: (c.maxWidth - width) / 2,
               child: figure(
-                modelUrl != null
-                    ? ModelViewer(
-                        key: ValueKey(modelUrl),
-                        src: modelUrl!,
-                        poster: url,
-                        alt: 'Your avatar in 3D',
-                        backgroundColor: Colors.transparent,
-                        cameraControls: true,
-                        disableZoom: true,
-                        disablePan: true,
-                        // Tripo's export faces a quarter turn off the viewer's default; start
-                        // from the front and only spin around the vertical axis.
-                        cameraOrbit: '-90deg 90deg auto',
-                        minCameraOrbit: 'auto 90deg auto',
-                        maxCameraOrbit: 'auto 90deg auto',
-                        interactionPrompt: InteractionPrompt.none,
-                      )
-                    : url == null
-                        ? (loading ? pending : mannequin)
-                        : Image.network(
-                            url,
-                            fit: BoxFit.contain,
-                            frameBuilder: (context, child, frame, sync) => sync || frame != null ? child : pending,
-                            errorBuilder: (_, __, ___) => mannequin,
-                          ),
+                url == null
+                    ? (loading ? pending : mannequin)
+                    : withTurntable(
+                        Image.network(
+                          url,
+                          fit: BoxFit.contain,
+                          frameBuilder: (context, child, frame, sync) => sync || frame != null ? child : pending,
+                          errorBuilder: (_, __, ___) => mannequin,
+                        ),
+                      ),
               ),
             ),
           ],

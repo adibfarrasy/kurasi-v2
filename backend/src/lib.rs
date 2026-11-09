@@ -31,6 +31,6 @@ pub mod steal_the_look_prompts;
 pub mod style_cards;
 pub mod style_interactions;
 pub mod subscription;
-pub mod tripo;
+pub mod turntable;
 pub mod user;
 pub mod wardrobe;

@@ -22,8 +22,8 @@ const REMBG_MODEL: &str = "fal-ai/bria/background/remove";
 pub struct Progress {
     pub phase: String,
     pub result_url: Option<String>,
-    /// GLB of the dressed figure; absent when 3D generation is off or failed.
-    pub model_url: Option<String>,
+    /// 360° orbit video of the dressed figure on the key colour; absent when it failed.
+    pub turntable_url: Option<String>,
     pub message: Option<String>,
 }
 
@@ -259,7 +259,6 @@ pub async fn start(
         ));
     }
     let fal = state.fal.clone();
-    let tripo = state.tripo.clone();
     let store = regenerate_fit_store();
     let session_id = new_session_id();
     store.gc();
@@ -268,7 +267,7 @@ pub async fn start(
         Progress {
             phase: "pass1".into(),
             result_url: None,
-            model_url: None,
+            turntable_url: None,
             message: None,
         },
     );
@@ -276,7 +275,7 @@ pub async fn start(
     let session = session_id.clone();
     let avatar2 = avatar.clone();
     tokio::spawn(async move {
-        if let Err(e) = run_pipeline(fal, tripo, store2, &session, avatar2, body.items).await {
+        if let Err(e) = run_pipeline(fal, store2, &session, avatar2, body.items).await {
             tracing::error!(error = %e, session = %session, "regenerate-fit pipeline failed");
             store.update(&session, |p| {
                 p.phase = "error".into();
@@ -289,7 +288,6 @@ pub async fn start(
 
 async fn run_pipeline(
     fal: FalClient,
-    tripo: Option<crate::tripo::TripoClient>,
     store: Arc<JobStore<Progress>>,
     session: &str,
     avatar: String,
@@ -299,12 +297,16 @@ async fn run_pipeline(
         store.update(session, |p| p.phase = phase.to_string());
     })
     .await?;
-    store.update(session, |p| p.phase = "model3d".into());
-    let model_url = crate::tripo::figure_to_model(tripo.as_ref(), &fal, &result, "tryon.glb").await;
+    // The still is usable on its own; publish it before the minutes-long
+    // turntable render so the app is not stuck waiting on it.
+    store.update(session, |p| {
+        p.phase = "turntable".into();
+        p.result_url = Some(result.clone());
+    });
+    let turntable_url = crate::turntable::figure_to_turntable(&fal, &result).await;
     store.update(session, |p| {
         p.phase = "done".into();
-        p.result_url = Some(result);
-        p.model_url = model_url;
+        p.turntable_url = turntable_url;
     });
     Ok(())
 }
@@ -317,7 +319,7 @@ pub async fn progress(
     let p = regenerate_fit_store().get(&session_id).unwrap_or(Progress {
         phase: "error".into(),
         result_url: None,
-        model_url: None,
+        turntable_url: None,
         message: Some("Session not found (server may have restarted)".into()),
     });
     Ok(Json(json!(p)))

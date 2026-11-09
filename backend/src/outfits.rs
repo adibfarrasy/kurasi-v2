@@ -18,7 +18,7 @@ pub struct OutfitRow {
     pub user_id: String,
     pub name: Option<String>,
     pub hero_image_url: Option<String>,
-    pub hero_model_url: Option<String>,
+    pub hero_turntable_url: Option<String>,
     pub headwear_id: Option<Uuid>,
     pub base_id: Option<Uuid>,
     pub outer_id: Option<Uuid>,
@@ -34,7 +34,7 @@ pub struct OutfitRow {
 }
 
 pub(crate) const OUTFIT_COLUMNS: &str =
-    "id, user_id, name, hero_image_url, hero_model_url, headwear_id, base_id, \
+    "id, user_id, name, hero_image_url, hero_turntable_url, headwear_id, base_id, \
      outer_id, bottom_id, footwear_id, notes, rating, worn_at, status, deleted_at, created_at, \
      updated_at";
 
@@ -140,7 +140,7 @@ pub async fn create_outfit(
 pub struct FromTryOnBody {
     pub name: Option<String>,
     pub hero_image_url: Option<String>,
-    pub hero_model_url: Option<String>,
+    pub hero_turntable_url: Option<String>,
     pub slots: Vec<SlotInput>,
 }
 
@@ -247,14 +247,14 @@ pub async fn save_from_tryon(
     }
 
     let outfit = sqlx::query_as::<_, OutfitRow>(&format!(
-        r#"INSERT INTO outfit (id, user_id, name, hero_image_url, hero_model_url, headwear_id, base_id, outer_id, bottom_id, footwear_id)
+        r#"INSERT INTO outfit (id, user_id, name, hero_image_url, hero_turntable_url, headwear_id, base_id, outer_id, bottom_id, footwear_id)
            VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9)
            RETURNING {OUTFIT_COLUMNS}"#
     ))
     .bind(&auth.id)
     .bind(&body.name)
     .bind(&body.hero_image_url)
-    .bind(&body.hero_model_url)
+    .bind(&body.hero_turntable_url)
     .bind(headwear)
     .bind(base)
     .bind(outer)

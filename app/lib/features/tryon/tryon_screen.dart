@@ -43,7 +43,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
   Map<String, String> _committed = {};
   String? _regenSessionId;
   String? _regenHeroUrl;
-  String? _regenModelUrl;
+  String? _regenTurntableUrl;
   Timer? _poll;
 
   bool get _regenerating => _regenSessionId != null;
@@ -103,14 +103,19 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
         try {
           final p = await ref.read(apiClientProvider).get(ApiEndpoints.outfitRegenerateProgress(id));
           if (!mounted || p is! Map) return;
-          if (p['phase'] == 'done') {
-            timer.cancel();
+          // The still lands at phase 'turntable'; keep polling for the video.
+          final still = p['resultUrl'] as String?;
+          if (_regenSessionId == id && still != null) {
             setState(() {
-              _regenHeroUrl = p['resultUrl'] as String?;
-              _regenModelUrl = p['modelUrl'] as String?;
+              _regenHeroUrl = still;
+              _regenTurntableUrl = null;
               _committed = snapshot;
               _regenSessionId = null;
             });
+          }
+          if (p['phase'] == 'done') {
+            timer.cancel();
+            setState(() => _regenTurntableUrl = p['turntableUrl'] as String?);
           } else if (p['phase'] == 'error') {
             timer.cancel();
             debugPrint('[regenerate] error: ${p['message']}');
@@ -133,7 +138,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
       await ref.read(apiClientProvider).post(ApiEndpoints.outfitsFromTryon, body: {
         'name': name.isEmpty ? null : name,
         'heroImageUrl': _regenHeroUrl ?? draft?['heroImageUrl'],
-        'heroModelUrl': _regenHeroUrl != null ? _regenModelUrl : null,
+        'heroTurntableUrl': _regenHeroUrl != null ? _regenTurntableUrl : null,
         'slots': slotsPayload,
       });
     } catch (err) {
@@ -149,7 +154,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
         _selections = {};
         _committed = {};
         _regenHeroUrl = null;
-        _regenModelUrl = null;
+        _regenTurntableUrl = null;
       });
     }
   }
@@ -223,12 +228,12 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
       }
     }
 
-    // The 3D model always comes from the same source as the still image.
-    final (String? heroUrl, String? heroModel) = switch (matched?['heroImageUrl']) {
-      final String url => (url, matched!['heroModelUrl'] as String?),
-      _ when _regenHeroUrl != null => (_regenHeroUrl, _regenModelUrl),
+    // The turntable always comes from the same source as the still image.
+    final (String? heroUrl, String? heroTurntable) = switch (matched?['heroImageUrl']) {
+      final String url => (url, matched!['heroTurntableUrl'] as String?),
+      _ when _regenHeroUrl != null => (_regenHeroUrl, _regenTurntableUrl),
       _ when draft?['heroImageUrl'] is String => (draft!['heroImageUrl'] as String, null),
-      _ => (defaultAvatar, biometrics.valueOrNull?['defaultAvatarModelUrl'] as String?),
+      _ => (defaultAvatar, biometrics.valueOrNull?['defaultAvatarTurntableUrl'] as String?),
     };
     // Tone tracks real renders only, not transient picks.
     final tone = matched != null || _regenHeroUrl != null ? outfitTone(colorNames) : 'neutral';
@@ -299,7 +304,7 @@ class _TryOnScreenState extends ConsumerState<TryOnScreen> {
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        Positioned.fill(child: HeroFloor(imageUrl: heroUrl, modelUrl: heroModel, topOffset: top + 8, maxHeight: 520, loading: biometrics.isLoading)),
+                        Positioned.fill(child: HeroFloor(imageUrl: heroUrl, turntableUrl: heroTurntable, topOffset: top + 8, maxHeight: 520, loading: biometrics.isLoading)),
                         if (_regenerating) ...[
                           Positioned(
                             left: 0,

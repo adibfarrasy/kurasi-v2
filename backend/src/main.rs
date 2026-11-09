@@ -28,10 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         pool,
         Arc::new(verifier),
         kurasi_backend::fal::FalClient::new(config.fal_key.clone()),
-    )
-    .with_tripo(kurasi_backend::tripo::TripoClient::from_key(
-        config.tripo_key.clone(),
-    ));
+    );
     let app = build_router(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
