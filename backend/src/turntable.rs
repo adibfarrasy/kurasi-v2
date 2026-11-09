@@ -56,7 +56,8 @@ fn trajectory() -> serde_json::Value {
 /// Errors are logged and swallowed: the still stays usable without it.
 pub async fn figure_to_turntable(fal: &FalClient, figure_url: &str) -> Option<String> {
     let result = async {
-        let frame = orbit_frame(&fal.fetch_bytes(figure_url).await?)?;
+        let still = fal.fetch_bytes(figure_url).await?;
+        let frame = orbit_frame(&still)?;
         let frame_url = fal.upload(&frame, "orbit-start.jpg", "image/jpeg").await?;
         let orbit = fal
             .run_with_timeout(
@@ -81,7 +82,7 @@ pub async fn figure_to_turntable(fal: &FalClient, figure_url: &str) -> Option<St
             )
             .await?;
         let matted = fal.fetch_bytes(&video_url(&matte)?).await?;
-        let steady = tokio::task::spawn_blocking(move || stabilize(&matted))
+        let steady = tokio::task::spawn_blocking(move || stabilize(&matted, &still))
             .await
             .map_err(|e| e.to_string())??;
         fal.upload(&steady, "turntable.mp4", "video/mp4").await
@@ -102,8 +103,13 @@ const OUT_W: usize = 768;
 const OUT_H: usize = 1152;
 const OUT_TOP: f64 = 0.033;
 const OUT_BOTTOM: f64 = 0.986;
-/// Frames either side averaged into each frame's measurement.
-const SMOOTH_RADIUS: usize = 4;
+/// Frames either side averaged into each frame's measurement. Kept small: H3
+/// pulls the camera back over the first few frames, and wider smoothing
+/// blurs that away instead of correcting it.
+const SMOOTH_RADIUS: usize = 1;
+/// Bounds on the brightness match, so a bad measurement cannot blow out or
+/// black out the figure.
+const MAX_GAIN: f64 = 1.5;
 /// Pixels of figure edge given back to the key: chroma subsampling leaves a
 /// green-tinted ring that would otherwise survive the app's key.
 const ERODE: usize = 2;
@@ -112,10 +118,11 @@ fn is_key(p: &[u8]) -> bool {
     p[1] > 180 && p[0] < 110 && p[2] < 110
 }
 
-/// H3 drifts in and out and sideways as it orbits. Re-frames every frame so
-/// the figure keeps one height, its feet stay on one line, and it stays
-/// centred, then re-encodes. Needs ffmpeg/ffprobe on PATH.
-pub fn stabilize(mp4: &[u8]) -> Result<Vec<u8>, String> {
+/// H3 drifts in and out and sideways as it orbits, and relights the figure
+/// darker than the still. Re-frames every frame so the figure keeps one
+/// height, its feet stay on one line, and it stays centred, and scales its
+/// colour to match `still_png`, then re-encodes. Needs ffmpeg/ffprobe on PATH.
+pub fn stabilize(mp4: &[u8], still_png: &[u8]) -> Result<Vec<u8>, String> {
     use std::io::{Read, Write};
     use std::process::{Command, Stdio};
 
@@ -162,27 +169,41 @@ pub fn stabilize(mp4: &[u8]) -> Result<Vec<u8>, String> {
 
         // Pass 1: where the figure is in every frame.
         let mut boxes = Vec::new();
+        let mut video_mean = None;
         let mut dec = decode()?;
         let mut out = dec.stdout.take().unwrap();
         while out.read_exact(&mut frame).is_ok() {
             boxes.push(measure(&frame, w, h));
+            // The first frame faces front like the still, so their colours compare.
+            video_mean
+                .get_or_insert_with(|| figure_mean(frame.chunks_exact(3).filter(|p| !is_key(p))));
         }
         dec.wait().map_err(|e| e.to_string())?;
         let n = boxes.len();
         if n == 0 {
             return Err("turntable video has no frames".into());
         }
-        // Circular: the clip loops, so its ends smooth into each other.
+        // Clamped at the ends rather than wrapped: the first frames are still
+        // settling, so they must not be averaged with the last ones.
         let smooth: Vec<(f64, f64, f64)> = (0..n)
             .map(|i| {
-                let k = 2 * SMOOTH_RADIUS + 1;
-                let sum = (0..k).fold((0.0, 0.0, 0.0), |acc, j| {
-                    let b = boxes[(i + n + j - SMOOTH_RADIUS) % n];
+                let span = i.saturating_sub(SMOOTH_RADIUS)..=(i + SMOOTH_RADIUS).min(n - 1);
+                let k = span.clone().count() as f64;
+                let sum = span.fold((0.0, 0.0, 0.0), |acc, j| {
+                    let b = boxes[j];
                     (acc.0 + b.0, acc.1 + b.1, acc.2 + b.2)
                 });
-                (sum.0 / k as f64, sum.1 / k as f64, sum.2 / k as f64)
+                (sum.0 / k, sum.1 / k, sum.2 / k)
             })
             .collect();
+        let still = image::load_from_memory(still_png)
+            .map_err(|e| e.to_string())?
+            .to_rgba8();
+        let still_mean = figure_mean(still.pixels().filter(|p| p[3] > 128).map(|p| &p.0[..3]));
+        let video_mean = video_mean.unwrap_or(still_mean);
+        let gain: [f64; 3] = std::array::from_fn(|c| {
+            (still_mean[c] / video_mean[c].max(1.0)).clamp(1.0 / MAX_GAIN, MAX_GAIN)
+        });
 
         // Pass 2: re-frame and encode.
         let mut enc = Command::new("ffmpeg")
@@ -222,7 +243,7 @@ pub fn stabilize(mp4: &[u8]) -> Result<Vec<u8>, String> {
         let mut out = dec.stdout.take().unwrap();
         let mut i = 0;
         while i < n && out.read_exact(&mut frame).is_ok() {
-            let reframed = reframe(&frame, w, h, smooth[i]);
+            let reframed = reframe(&frame, w, h, smooth[i], gain);
             sink.write_all(&reframed).map_err(|e| e.to_string())?;
             i += 1;
         }
@@ -262,7 +283,27 @@ fn measure(frame: &[u8], w: usize, h: usize) -> (f64, f64, f64) {
     (top as f64, bottom as f64, cx)
 }
 
-fn reframe(frame: &[u8], w: usize, h: usize, (top, bottom, cx): (f64, f64, f64)) -> Vec<u8> {
+fn figure_mean<'a>(pixels: impl Iterator<Item = &'a [u8]>) -> [f64; 3] {
+    let (mut sum, mut n) = ([0.0; 3], 0.0);
+    for p in pixels {
+        for c in 0..3 {
+            sum[c] += p[c] as f64;
+        }
+        n += 1.0;
+    }
+    if n == 0.0 {
+        return [128.0; 3];
+    }
+    sum.map(|v| v / n)
+}
+
+fn reframe(
+    frame: &[u8],
+    w: usize,
+    h: usize,
+    (top, bottom, cx): (f64, f64, f64),
+    gain: [f64; 3],
+) -> Vec<u8> {
     let target_h = (OUT_BOTTOM - OUT_TOP) * OUT_H as f64;
     let scale = target_h / (bottom - top).max(1.0);
     let out_bottom = OUT_BOTTOM * OUT_H as f64;
@@ -288,7 +329,13 @@ fn reframe(frame: &[u8], w: usize, h: usize, (top, bottom, cx): (f64, f64, f64))
                     + p(x0 + 1, y0 + 1) * fx * fy;
                 out[o + c] = v.round() as u8;
             }
-            figure[y * OUT_W + x] = !is_key(&out[o..o + 3]);
+            let is_figure = !is_key(&out[o..o + 3]);
+            figure[y * OUT_W + x] = is_figure;
+            if is_figure {
+                for c in 0..3 {
+                    out[o + c] = (out[o + c] as f64 * gain[c]).round().min(255.0) as u8;
+                }
+            }
         }
     }
     // Separable erosion of the figure mask.
@@ -341,12 +388,13 @@ mod tests {
     }
 
     /// Real-video check, skipped without a sample:
-    /// `TURNTABLE_SAMPLE=in.mp4 cargo test --release stabilizes_sample -- --ignored`
+    /// `TURNTABLE_SAMPLE=in.mp4 TURNTABLE_STILL=still.png cargo test --release stabilizes_sample -- --ignored`
     #[test]
     #[ignore]
     fn stabilizes_sample() {
         let path = std::env::var("TURNTABLE_SAMPLE").unwrap();
-        let out = stabilize(&std::fs::read(&path).unwrap()).unwrap();
+        let still = std::fs::read(std::env::var("TURNTABLE_STILL").unwrap()).unwrap();
+        let out = stabilize(&std::fs::read(&path).unwrap(), &still).unwrap();
         std::fs::write(format!("{path}.steady.mp4"), out).unwrap();
     }
 
@@ -362,7 +410,7 @@ mod tests {
         let (top, bottom, cx) = measure(&frame, w, h);
         assert_eq!((top, bottom), (50.0, 149.0));
         assert!((cx - 49.5).abs() < 0.01);
-        let out = reframe(&frame, w, h, (top, bottom, cx));
+        let out = reframe(&frame, w, h, (top, bottom, cx), [1.0; 3]);
         let at = |x: usize, y: usize| &out[(y * OUT_W + x) * 3..(y * OUT_W + x) * 3 + 3];
         let mid = OUT_H / 2;
         assert!(!is_key(at(OUT_W / 2, mid)));
