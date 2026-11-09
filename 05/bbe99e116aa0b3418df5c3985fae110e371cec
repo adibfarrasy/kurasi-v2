@@ -1,0 +1,46 @@
+backend/src/normalize_avatar.rs
+  s_3d500482ec433b::t_3f718e4fc2f2f4 35-36,248,251,254-255,306,359-361,365-366,382
+backend/src/turntable.rs
+  s_3d500482ec433b::t_3f718e4fc2f2f4 66-74,76,96-101,103-107,665-735,798-816
+  s_3d500482ec433b::t_7cd0d3f8b2631e 102
+  s_3d500482ec433b::t_9512b4da446c0b 817
+backend/src/regenerate_fit.rs
+  s_3d500482ec433b::t_3f718e4fc2f2f4 27-28,273,309,312-313,327
+app/lib/features/outfit/outfit_detail_screen.dart
+  s_3d500482ec433b::t_dc16265468ed34 128,201,205,230
+app/lib/features/tryon/tryon_screen.dart
+  s_3d500482ec433b::t_dc16265468ed34 47,113,120-123,147,164,239-247,318
+backend/migrations/0005_turntable_frames.sql
+  s_3d500482ec433b::t_3f718e4fc2f2f4 1-2
+backend/src/biometrics.rs
+  s_3d500482ec433b::t_3f718e4fc2f2f4 21,27
+backend/tests/normalize_avatar.rs
+  s_3d500482ec433b::t_3f718e4fc2f2f4 148
+app/test/tryon_test.dart
+  s_3d500482ec433b::t_dc16265468ed34 215
+app/test/turntable_frames_test.dart
+  s_3d500482ec433b::t_bb0436e65572b6 1-22
+backend/src/outfits.rs
+  s_3d500482ec433b::t_3f718e4fc2f2f4 22,38,145,252-253,260
+app/lib/features/tryon/turntable_view.dart
+  s_3d500482ec433b::t_bb0436e65572b6 1,5,10-12,16,19-22,41-47,58-104,155-173,178-195
+  s_3d500482ec433b::t_58c9a7c622b94a 196
+app/lib/features/tryon/hero_floor.dart
+  s_3d500482ec433b::t_dc16265468ed34 33,43-45,72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.11",
+  "base_commit_sha": "05bbe99e116aa0b3418df5c3985fae110e371cec",
+  "prompts": {},
+  "sessions": {
+    "s_3d500482ec433b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9a5bb83b-5e1d-458f-ba56-698d439c9cce",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Adib Farrasy <adibfarrasy@gmail.com>"
+    }
+  }
+}
