@@ -70,32 +70,21 @@ pub async fn figure_to_turntable(fal: &FalClient, figure_url: &str) -> Option<St
         let still = fal.fetch_bytes(figure_url).await?;
         let frame = orbit_frame(&still)?;
         let frame_url = fal.upload(&frame, "orbit-start.jpg", "image/jpeg").await?;
-        let orbit = fal
-            .run_with_timeout(
-                ORBIT_MODEL,
-                json!({
-                    "prompt": PROMPT,
-                    "image_url": frame_url,
-                    "prompt_expansion_mode": "disabled",
-                    "duration": DURATION_S as u32,
-                    "resolution": "768P",
-                    "camera_trajectory": trajectory(),
-                }),
-                Duration::from_secs(600),
-            )
-            .await?;
-        let orbit_url = video_url(&orbit)?;
-        let matte = fal
-            .run_with_timeout(
-                MATTE_MODEL,
-                json!({ "video_url": orbit_url, "background_color": KEY_RGB, "output_format": "mp4" }),
-                Duration::from_secs(600),
-            )
-            .await?;
-        let matted = fal.fetch_bytes(&video_url(&matte)?).await?;
-        let steady = tokio::task::spawn_blocking(move || stabilize(&matted, &still))
-            .await
-            .map_err(|e| e.to_string())??;
+        // H3 sometimes swings in on the back side until the head leaves the
+        // frame, which no post-processing can bring back; such a render gets
+        // one retry, and the less cropped of the two is kept.
+        let mut best: Option<(Vec<u8>, usize)> = None;
+        for attempt in 0..MAX_RENDERS {
+            let (video, cropped) = render(fal, &frame_url, &still).await?;
+            tracing::info!(attempt, cropped, "turntable: rendered");
+            if best.as_ref().is_none_or(|b| cropped < b.1) {
+                best = Some((video, cropped));
+            }
+            if cropped == 0 {
+                break;
+            }
+        }
+        let (steady, _) = best.expect("at least one render");
         fal.upload(&steady, "turntable.mp4", "video/mp4").await
     }
     .await;
@@ -106,6 +95,44 @@ pub async fn figure_to_turntable(fal: &FalClient, figure_url: &str) -> Option<St
             None
         }
     }
+}
+
+const MAX_RENDERS: usize = 2;
+
+/// One orbit render, matted and stabilized, with how many loop frames had the
+/// figure cut off by the frame edge.
+async fn render(
+    fal: &FalClient,
+    frame_url: &str,
+    still: &[u8],
+) -> Result<(Vec<u8>, usize), String> {
+    let orbit = fal
+        .run_with_timeout(
+            ORBIT_MODEL,
+            json!({
+                "prompt": PROMPT,
+                "image_url": frame_url,
+                "prompt_expansion_mode": "disabled",
+                "duration": DURATION_S as u32,
+                "resolution": "768P",
+                "camera_trajectory": trajectory(),
+            }),
+            Duration::from_secs(600),
+        )
+        .await?;
+    let orbit_url = video_url(&orbit)?;
+    let matte = fal
+        .run_with_timeout(
+            MATTE_MODEL,
+            json!({ "video_url": orbit_url, "background_color": KEY_RGB, "output_format": "mp4" }),
+            Duration::from_secs(600),
+        )
+        .await?;
+    let matted = fal.fetch_bytes(&video_url(&matte)?).await?;
+    let still = still.to_vec();
+    tokio::task::spawn_blocking(move || stabilize(&matted, &still))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 /// Output frame: the still's 2:3 canvas, with the figure spanning the same
@@ -130,11 +157,21 @@ fn is_key(p: &[u8]) -> bool {
     p[1] > 180 && p[0] < 110 && p[2] < 110
 }
 
+/// Clearly green-tinted: half-matted patches and the green rim that 4:2:0
+/// chroma bleeds onto the outline.
+fn is_greenish(p: &[u8]) -> bool {
+    p[1] as i32 > p[0].max(p[2]) as i32 + 40
+}
+
+/// Share of green-tinted figure pixels in the still above which the outfit
+/// counts as green, and green-tinted video pixels must be kept.
+const GREEN_OUTFIT_SHARE: f64 = 0.002;
+
 /// H3 drifts in and out and sideways as it orbits, and relights the figure
 /// darker than the still. Re-frames every frame so the figure keeps one
 /// height, its feet stay on one line, and it stays centred, and scales its
 /// colour to match `still_png`, then re-encodes. Needs ffmpeg/ffprobe on PATH.
-pub fn stabilize(mp4: &[u8], still_png: &[u8]) -> Result<Vec<u8>, String> {
+pub fn stabilize(mp4: &[u8], still_png: &[u8]) -> Result<(Vec<u8>, usize), String> {
     use std::io::{Read, Write};
     use std::process::{Command, Stdio};
 
@@ -203,12 +240,13 @@ pub fn stabilize(mp4: &[u8], still_png: &[u8]) -> Result<Vec<u8>, String> {
         // the remainder up to full height; borrow the box from the nearest
         // uncropped frames instead.
         let cropped = |b: &(f64, f64, f64)| b.0 <= 1.0 || b.1 >= (h - 2) as f64;
-        let good: Vec<usize> = (0..n).filter(|&i| !cropped(&boxes[i])).collect();
+        let was_cropped: Vec<bool> = boxes.iter().map(cropped).collect();
+        let good: Vec<usize> = (0..n).filter(|&i| !was_cropped[i]).collect();
         if good.is_empty() {
             return Err("turntable figure is cropped in every frame".into());
         }
         for i in 0..n {
-            if !cropped(&boxes[i]) {
+            if !was_cropped[i] {
                 continue;
             }
             let before = good.iter().rev().find(|&&g| g < i);
@@ -276,6 +314,17 @@ pub fn stabilize(mp4: &[u8], still_png: &[u8]) -> Result<Vec<u8>, String> {
             })
         };
         let span = loop_span(&thumbs, &still_thumb, fps(&rate))?;
+        let cropped_in_loop = was_cropped[span.start..span.end]
+            .iter()
+            .filter(|&&c| c)
+            .count();
+        let (green, opaque) = still
+            .pixels()
+            .filter(|p| p[3] > 128)
+            .fold((0usize, 0usize), |(g, n), p| {
+                (g + is_greenish(&p.0[..3]) as usize, n + 1)
+            });
+        let strip_green = (green as f64) < GREEN_OUTFIT_SHARE * opaque as f64;
         let gain: [f64; 3] = std::array::from_fn(|c| {
             (still_mean[c] / means[span.front][c].max(1.0)).clamp(1.0 / MAX_GAIN, MAX_GAIN)
         });
@@ -326,7 +375,7 @@ pub fn stabilize(mp4: &[u8], still_png: &[u8]) -> Result<Vec<u8>, String> {
             let mut i = 0;
             while i < range.end && out.read_exact(&mut frame).is_ok() {
                 if i >= range.start {
-                    let reframed = reframe(&frame, w, h, smooth[i], gain);
+                    let reframed = reframe(&frame, w, h, smooth[i], gain, strip_green);
                     sink.write_all(&reframed).map_err(|e| e.to_string())?;
                 }
                 i += 1;
@@ -339,7 +388,8 @@ pub fn stabilize(mp4: &[u8], still_png: &[u8]) -> Result<Vec<u8>, String> {
         if !enc.wait().map_err(|e| e.to_string())?.success() {
             return Err("ffmpeg encode failed".into());
         }
-        std::fs::read(&output).map_err(|e| e.to_string())
+        let video = std::fs::read(&output).map_err(|e| e.to_string())?;
+        Ok((video, cropped_in_loop))
     })();
     let _ = std::fs::remove_dir_all(&dir);
     result
@@ -467,6 +517,7 @@ fn reframe(
     h: usize,
     (top, bottom, cx): (f64, f64, f64),
     gain: [f64; 3],
+    strip_green: bool,
 ) -> Vec<u8> {
     let target_h = (OUT_BOTTOM - OUT_TOP) * OUT_H as f64;
     let scale = target_h / (bottom - top).max(1.0);
@@ -493,7 +544,8 @@ fn reframe(
                     + p(x0 + 1, y0 + 1) * fx * fy;
                 out[o + c] = v.round() as u8;
             }
-            let is_figure = !is_key(&out[o..o + 3]);
+            let px = &out[o..o + 3];
+            let is_figure = !(is_key(px) || strip_green && is_greenish(px));
             figure[y * OUT_W + x] = is_figure;
             if is_figure {
                 for c in 0..3 {
@@ -626,7 +678,7 @@ mod tests {
     fn stabilizes_sample() {
         let path = std::env::var("TURNTABLE_SAMPLE").unwrap();
         let still = std::fs::read(std::env::var("TURNTABLE_STILL").unwrap()).unwrap();
-        let out = stabilize(&std::fs::read(&path).unwrap(), &still).unwrap();
+        let (out, _) = stabilize(&std::fs::read(&path).unwrap(), &still).unwrap();
         std::fs::write(format!("{path}.steady.mp4"), out).unwrap();
     }
 
@@ -642,7 +694,7 @@ mod tests {
         let (top, bottom, cx) = measure(&frame, w, h);
         assert_eq!((top, bottom), (50.0, 149.0));
         assert!((cx - 49.5).abs() < 0.01);
-        let out = reframe(&frame, w, h, (top, bottom, cx), [1.0; 3]);
+        let out = reframe(&frame, w, h, (top, bottom, cx), [1.0; 3], true);
         let at = |x: usize, y: usize| &out[(y * OUT_W + x) * 3..(y * OUT_W + x) * 3 + 3];
         let mid = OUT_H / 2;
         assert!(!is_key(at(OUT_W / 2, mid)));
